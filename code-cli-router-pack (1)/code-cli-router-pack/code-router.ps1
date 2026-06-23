@@ -687,7 +687,7 @@ function Show-BmadMenu {
 
 function Show-TopMenu {
     Write-Host ''
-    Write-Info "Laurent ROCHETTA's MultiAI (AI Code CLI Router)"
+    Write-Info "Laurent ROCHETTA's MultiAI (AI Code CLI Router) v0.2.6"
     Write-Host ('-' * 58) -ForegroundColor DarkGray
     Write-Host ''
     Write-Host '1. Lancer'                               -ForegroundColor Cyan
