@@ -1,0 +1,28 @@
+# Maintainer: Laurent Rochetta <laurent@rochetta.fr>
+pkgname=multiai
+pkgver=0.5.0
+pkgrel=1
+pkgdesc="Route multiple AI CLIs (Claude Code, Codex, OpenCode) with isolated env profiles"
+arch=('x86_64' 'aarch64')
+url="https://rochetta.fr"
+license=('MIT')
+makedepends=('go')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/lrochetta/multiai/archive/refs/tags/v${pkgver}.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    go build -ldflags "-s -w -X main.version=${pkgver}" -o multiai ./cmd/multiai/
+}
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    install -Dm755 multiai "${pkgdir}/usr/bin/multiai"
+    install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+}
+
+check() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    go test ./...
+}

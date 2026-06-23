@@ -1,0 +1,10 @@
+node_modules/
+*.zip
+*.new
+.credentials/
+configs/profiles/*.new
+docs/
+.agents/
+# Protection des secrets
+configs/profiles/*.env
+*.env

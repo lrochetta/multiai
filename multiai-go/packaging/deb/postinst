@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+# Install shell completions
+if command -v multiai >/dev/null 2>&1; then
+    multiai completion bash > /usr/share/bash-completion/completions/multiai 2>/dev/null || true
+    multiai completion zsh > /usr/share/zsh/site-functions/_multiai 2>/dev/null || true
+    multiai completion fish > /usr/share/fish/completions/multiai.fish 2>/dev/null || true
+fi

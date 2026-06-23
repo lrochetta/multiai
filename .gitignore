@@ -1,0 +1,33 @@
+# Secrets
+*.env
+configs/profiles/*.env
+.credentials/
+
+# Build
+multiai-go/build/
+multiai-go/vendor/
+node_modules/
+
+# Archives
+*.zip
+*.new
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+Thumbs.db
+.DS_Store
+Desktop.ini
+
+# Exclure : pas de code source
+_bmad/
+_bmad-output/
+.agents/
+audit/
+brainstorm*/
+docs/
+AGENTS.md
+GEMINI.md
+.commit-msg

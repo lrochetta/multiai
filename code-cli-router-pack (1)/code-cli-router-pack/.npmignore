@@ -1,0 +1,15 @@
+# Secrets - ne jamais publier
+configs/profiles/*.env
+*.env
+.credentials/
+
+# Dev
+.agents/
+_bmad/
+_bmad-output/
+audit/
+brainstorm laurent/
+*.zip
+docs/
+AGENTS.md
+GEMINI.md

@@ -1,0 +1,12 @@
+Package: multiai
+Version: 0.5.0
+Section: devel
+Priority: optional
+Architecture: amd64
+Maintainer: Laurent Rochetta <laurent@rochetta.fr>
+Homepage: https://rochetta.fr
+Description: Route multiple AI CLIs with isolated env profiles
+ multiai is a command-line tool that routes between multiple AI CLIs
+ (Claude Code, Codex CLI, OpenCode) using isolated environment profiles.
+ It provides a unified interface for launching different AI tools
+ with provider-specific API keys and configuration.

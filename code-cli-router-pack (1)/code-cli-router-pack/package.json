@@ -1,0 +1,46 @@
+{
+  "name": "multiai",
+  "version": "0.2.5",
+  "description": "Route multiple AI CLIs (Claude Code, Codex, OpenCode) with isolated env profiles — Windows, macOS, Linux",
+  "keywords": [
+    "ai",
+    "cli",
+    "claude",
+    "codex",
+    "opencode",
+    "router",
+    "anthropic",
+    "deepseek"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "Laurent Rochetta",
+    "url": "https://follow.ovh/bio/laurent"
+  },
+  "homepage": "https://rochetta.fr",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lrochetta/multiai.git"
+  },
+  "bin": {
+    "multiai": "bin/multiai.js"
+  },
+  "files": [
+    "bin/",
+    "code-router.ps1",
+    "install.ps1",
+    "install.sh",
+    "*.cmd",
+    "*.sh",
+    "configs/",
+    "docs/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "prepublishOnly": "node -e \"const fs=require('fs'),d='configs/profiles';if(fs.existsSync(d)){const meta=['PROFILE_ID','SHORTCUT','TOOL','TOOL_LABEL','DISPLAY_NAME','DESCRIPTION','ORDER','COMMAND','ARGS','CLEAR_ENV','REQUIRED_SECRETS','SKIP_SECRET_CHECK','NOTES','CLAUDE_CONFIG_DIR','CODEX_HOME','OPENCODE_CONFIG_DIR','OPENCODE_CONFIG','API_TIMEOUT_MS','CLAUDE_CODE_AUTO_COMPACT_WINDOW','CLAUDE_CODE_EFFORT_LEVEL','CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC','CLAUDE_CODE_SUBAGENT_MODEL','OPENCODE_DISABLE_AUTOUPDATE','ANTHROPIC_BASE_URL','ANTHROPIC_DEFAULT_OPUS_MODEL','ANTHROPIC_DEFAULT_SONNET_MODEL','ANTHROPIC_DEFAULT_HAIKU_MODEL','ANTHROPIC_MODEL','OPENAI_BASE_URL','OPENAI_ORGANIZATION','OPENAI_PROJECT','OPENROUTER_BASE_URL','OPENCODE_CONFIG_CONTENT','OPENCODE_MODEL','OPENCODE_SMALL_MODEL','ANTHROPIC_ORG_ID','OPENAI_ORG_ID','DEEPSEEK_BASE_URL','ZAI_BASE_URL','GEMINI_MODEL','DISABLE_TELEMETRY'];fs.readdirSync(d).filter(f=>f.endsWith('.env')).forEach(f=>{const lines=fs.readFileSync(d+'/'+f,'utf8').split(/\\r?\\n/);lines.forEach(line=>{const idx=line.indexOf('=');if(idx<1)return;const key=line.substring(0,idx).trim();const val=line.substring(idx+1).trim();if(meta.some(m=>key.startsWith(m)))return;if(!val)return;if(val.startsWith('PASTE_')||val.startsWith('YOUR_')||val.startsWith('sk-xxxx')||val==='TODO')return;if(val.length>=20){console.error('SECURITY: '+f+' L'+line+': '+key+' contient une vraie cle API!');process.exit(1)}})});console.log('OK: aucune cle detectee')}\""
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}

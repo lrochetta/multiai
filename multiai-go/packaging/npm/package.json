@@ -1,0 +1,17 @@
+{
+  "name": "multiai-installer",
+  "version": "0.5.0",
+  "description": "multiai CLI installer -- downloads the native binary for your platform",
+  "bin": {
+    "multiai": "install.js"
+  },
+  "files": [
+    "install.js"
+  ],
+  "keywords": ["ai", "cli", "claude", "codex", "opencode"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lrochetta/multiai.git"
+  }
+}
