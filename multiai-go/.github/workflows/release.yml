@@ -43,7 +43,7 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
       - run: |
-          cd code-cli-router-pack/code-cli-router-pack
+          cd ../../multiai-powershell
           npm version ${{ github.ref_name }} --no-git-tag-version
           npm publish
         env:

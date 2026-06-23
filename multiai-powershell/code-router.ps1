@@ -48,6 +48,16 @@ $ErrorActionPreference = 'Stop'
 $ScriptRoot  = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProfilesDir = Join-Path (Join-Path $ScriptRoot 'configs') 'profiles'
 
+# Lire la version depuis package.json (dynamique, mise a jour automatique par npm)
+$RouterVersion = '0.0.0'
+try {
+    $pkgPath = Join-Path $ScriptRoot 'package.json'
+    if (Test-Path $pkgPath) {
+        $pkg = Get-Content $pkgPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $RouterVersion = $pkg.version
+    }
+} catch { }
+
 $KnownEnvVars = @(
     'ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL',
     'ANTHROPIC_MODEL', 'ANTHROPIC_DEFAULT_OPUS_MODEL', 'ANTHROPIC_DEFAULT_SONNET_MODEL',
@@ -687,7 +697,7 @@ function Show-BmadMenu {
 
 function Show-TopMenu {
     Write-Host ''
-    Write-Info "Laurent ROCHETTA's MultiAI (AI Code CLI Router) v0.2.6"
+    Write-Info ("Laurent ROCHETTA's MultiAI (AI Code CLI Router) v{0}" -f $RouterVersion)
     Write-Host ('-' * 58) -ForegroundColor DarkGray
     Write-Host ''
     Write-Host '1. Lancer'                               -ForegroundColor Cyan

@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
   Installe AI Code CLI Router et l'ajoute au PATH utilisateur.
-  Windows : C:\AI\code-cli-router + PATH Registry.
-  macOS / Linux : ~/.local/share/code-cli-router + shell profile.
+  Windows : C:\AI\multiai + PATH Registry.
+  macOS / Linux : ~/.local/share/multiai + shell profile.
 
 .DESCRIPTION
   - Copie le projet vers le dossier d'installation.
@@ -14,11 +14,11 @@
 .EXAMPLES
   # Windows
   .\install.ps1
-  .\install.ps1 -InstallDir 'D:\tools\code-cli-router'
+  .\install.ps1 -InstallDir 'D:\tools\multiai'
 
   # macOS / Linux
   pwsh install.ps1
-  pwsh install.ps1 -InstallDir '/opt/code-cli-router'
+  pwsh install.ps1 -InstallDir '/opt/multiai'
 
 .NOTES
   Author  : Laurent Rochetta
@@ -42,9 +42,9 @@ $onMacOS   = if (Test-Path variable:IsMacOS)   { $IsMacOS }   else { $false }
 
 if ([string]::IsNullOrWhiteSpace($InstallDir)) {
     $InstallDir = if ($onWindows) {
-        'C:\AI\code-cli-router'
+        'C:\AI\multiai'
     } else {
-        Join-Path $HOME '.local' 'share' 'code-cli-router'
+        Join-Path $HOME '.local' 'share' 'multiai'
     }
 }
 

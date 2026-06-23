@@ -15,6 +15,6 @@ updates:
       - "lrochetta"
 
   - package-ecosystem: "npm"
-    directory: "/code-cli-router-pack/code-cli-router-pack"
+    directory: "/multiai-powershell"
     schedule:
       interval: "weekly"

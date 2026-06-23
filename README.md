@@ -140,7 +140,7 @@ multiai-go/          → Go (primaire, cross-platform)
 ├── tests/           → 45+ tests
 └── scripts/         → setup, install
 
-code-cli-router-pack/ → PowerShell (legacy maintenu, distribué via npm)
+multiai-powershell/ → PowerShell (legacy maintenu, distribué via npm)
 ```
 
 ---

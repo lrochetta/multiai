@@ -16,7 +16,7 @@ git push origin v0.2.0
 
 # 3. Publier npm
 Write-Host "[3/3] Publication npm..." -ForegroundColor Yellow
-Push-Location "code-cli-router-pack (1)/code-cli-router-pack"
+Push-Location "multiai-powershell"
 npm publish
 Pop-Location
 

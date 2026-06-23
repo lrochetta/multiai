@@ -2,13 +2,13 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # AI Code CLI Router — Installateur macOS / Linux (bash)
 # Usage : bash install.sh [dossier-installation]
-# Default : ~/.local/share/code-cli-router
+# Default : ~/.local/share/multiai
 # Author : Laurent Rochetta — https://follow.ovh/bio/laurent — https://rochetta.fr
 # ──────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INSTALL_DIR="${1:-$HOME/.local/share/code-cli-router}"
+INSTALL_DIR="${1:-$HOME/.local/share/multiai}"
 
 # ── Couleurs ──────────────────────────────────────────────────────────────────
 GREEN='\033[0;32m'; CYAN='\033[0;36m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
