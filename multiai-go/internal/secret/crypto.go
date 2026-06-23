@@ -3,18 +3,53 @@ package secret
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 )
 
-// DeriveKey derives a 32-byte AES key from a passphrase and salt.
+// DeriveKey derives a 32-byte AES key from a passphrase and salt using
+// PBKDF2-HMAC-SHA256 with 10,000 iterations.
+// This replaces the original single-hash derivation for brute-force resistance.
 func DeriveKey(passphrase string, salt []byte) []byte {
-	hash := sha256.New()
-	hash.Write([]byte(passphrase))
-	hash.Write(salt)
-	return hash.Sum(nil)
+	iterations := 10000
+	keyLen := 32
+	return pbkdf2HMACSHA256([]byte(passphrase), salt, iterations, keyLen)
+}
+
+// pbkdf2HMACSHA256 implements PBKDF2-HMAC-SHA256 without external dependencies.
+func pbkdf2HMACSHA256(password, salt []byte, iter, keyLen int) []byte {
+	hashLen := 32 // sha256.Size
+	numBlocks := int(math.Ceil(float64(keyLen) / float64(hashLen)))
+
+	dk := make([]byte, 0, numBlocks*hashLen)
+	block := make([]byte, hashLen)
+
+	for blockNum := 1; blockNum <= numBlocks; blockNum++ {
+		// U_1 = PRF(Password, Salt || INT_32_BE(i))
+		mac := hmac.New(sha256.New, password)
+		mac.Write(salt)
+		_ = binary.Write(mac, binary.BigEndian, uint32(blockNum))
+		u := mac.Sum(nil)
+		copy(block, u)
+
+		// U_2 .. U_c, XOR each into block
+		for i := 2; i <= iter; i++ {
+			mac.Reset()
+			mac.Write(u)
+			u = mac.Sum(nil)
+			for j := range block {
+				block[j] ^= u[j]
+			}
+		}
+		dk = append(dk, block...)
+	}
+
+	return dk[:keyLen]
 }
 
 // encrypt encrypts plaintext using AES-256-GCM with a random nonce.

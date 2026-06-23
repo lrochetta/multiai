@@ -75,19 +75,15 @@ func TestIntegration_FindProfile(t *testing.T) {
 }
 
 func TestIntegration_AllowedCommands(t *testing.T) {
-	if !cli.AllowedCommands["claude"] {
-		t.Error("claude should be allowed")
+	for _, cmd := range cli.AllowedCommands {
+		if !cli.IsCommandAllowed(cmd) {
+			t.Errorf("%s should be allowed", cmd)
+		}
 	}
-	if !cli.AllowedCommands["codex"] {
-		t.Error("codex should be allowed")
-	}
-	if !cli.AllowedCommands["opencode"] {
-		t.Error("opencode should be allowed")
-	}
-	if cli.AllowedCommands["rm"] {
+	if cli.IsCommandAllowed("rm") {
 		t.Error("rm should NOT be allowed")
 	}
-	if cli.AllowedCommands["bash"] {
+	if cli.IsCommandAllowed("bash") {
 		t.Error("bash should NOT be allowed")
 	}
 }

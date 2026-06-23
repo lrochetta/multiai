@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/lrochetta/multiai/internal/cli"
@@ -21,6 +23,35 @@ type Provider struct {
 	Shortcuts []string
 	VarMap    map[string]string
 	Note      string
+}
+
+// validateAPIKey validates an API key format for a given provider.
+func validateAPIKey(providerID, key string) (bool, string) {
+	if dotenv.IsPlaceholder(key) {
+		return false, "placeholder non configure"
+	}
+	if len(key) < 10 {
+		return false, "cle trop courte (min 10 caracteres)"
+	}
+
+	patterns := map[string]string{
+		"anthropic":  "^sk-ant-api\\d{2}-",
+		"deepseek":   "^sk-",
+		"openai":     "^sk-(proj-)?[A-Za-z0-9]{20,}",
+		"zai":        "^[A-Za-z0-9]{20,}",
+		"openrouter": "^sk-or-",
+	}
+
+	pattern, ok := patterns[providerID]
+	if !ok {
+		return true, "" // pas de pattern connu, on accepte
+	}
+
+	matched, _ := regexp.MatchString(pattern, key)
+	if !matched {
+		return false, fmt.Sprintf("format invalide pour %s (attendu: %s)", providerID, pattern)
+	}
+	return true, ""
 }
 
 // DefaultProviders returns the built-in provider catalog.
@@ -121,10 +152,17 @@ func InteractiveConfig(profiles []profile.Profile) error {
 				configureProvider(prov, byShortcut)
 			}
 			cli.PrintSuccess("Configuration terminee.")
+			fmt.Println()
+			fmt.Print("Voulez-vous lancer un profil maintenant ? (o/N) : ")
+			choice2, _ := reader.ReadString('\n')
+			if strings.TrimSpace(strings.ToLower(choice2)) == "o" {
+				fmt.Println("Utilisez 'multiai launch -p <shortcut>' pour lancer.")
+				fmt.Println("Lancez 'multiai list' pour voir les profils disponibles.")
+			}
 			return nil
 		}
 
-		idx, err := parseInt(choice)
+		idx, err := strconv.Atoi(choice)
 		if err != nil || idx < 1 || idx > len(providers) {
 			cli.PrintWarning("Choix invalide.")
 			continue
@@ -177,6 +215,18 @@ func configureProvider(prov Provider, byShortcut map[string]*profile.Profile) {
 	newVal, _ := reader.ReadString('\n')
 	newVal = strings.TrimSpace(newVal)
 
+	if newVal != "" {
+		valid, msg := validateAPIKey(prov.ID, newVal)
+		if !valid {
+			cli.PrintWarning(fmt.Sprintf("  Attention: %s", msg))
+			fmt.Print("  Continuer quand meme ? (o/N) : ")
+			confirm, _ := reader.ReadString('\n')
+			if strings.TrimSpace(strings.ToLower(confirm)) != "o" {
+				return
+			}
+		}
+	}
+
 	if newVal == "" {
 		fmt.Println("  -> Ignore.")
 		return
@@ -209,13 +259,13 @@ func updateEnvFile(path, varName, newValue string) error {
 	if err != nil {
 		return err
 	}
+
 	lines := strings.Split(string(content), "\n")
 	pattern := varName + "="
 	found := false
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if !strings.HasPrefix(trimmed, "#") && strings.HasPrefix(trimmed, pattern) {
-			// Store reference marker instead of plaintext
 			lines[i] = varName + "=__MULTIAI_CREDSTORE__"
 			found = true
 			break
@@ -224,26 +274,25 @@ func updateEnvFile(path, varName, newValue string) error {
 	if !found {
 		return fmt.Errorf("variable %s non trouvee dans %s", varName, path)
 	}
-	// Write marker to .env
-	if err := os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0600); err != nil {
-		return err
+
+	// Ecriture atomique : fichier temporaire + rename
+	newContent := []byte(strings.Join(lines, "\n"))
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, newContent, 0600); err != nil {
+		return fmt.Errorf("cannot write temp file: %w", err)
 	}
-	// Store actual value in credential store
+	if err := os.Rename(tmpPath, path); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("cannot replace %s: %w", path, err)
+	}
+
+	// Stocker dans le credential store (best-effort, apres l'ecriture du fichier)
 	store, err := secret.NewStore()
 	if err != nil {
-		return fmt.Errorf("credential store unavailable: %w", err)
+		return nil // fichier mis a jour, credential store pas dispo
 	}
 	profileID := strings.TrimSuffix(filepath.Base(path), ".env")
-	return store.Set("multiai:"+profileID, varName, newValue)
+	_ = store.Set("multiai:"+profileID, varName, newValue)
+	return nil
 }
 
-func parseInt(s string) (int, error) {
-	n := 0
-	for _, c := range s {
-		if c < '0' || c > '9' {
-			return 0, fmt.Errorf("not a number: %s", s)
-		}
-		n = n*10 + int(c-'0')
-	}
-	return n, nil
-}

@@ -4,6 +4,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,7 +15,7 @@ import (
 	"github.com/lrochetta/multiai/internal/profile"
 )
 
-const version = "0.2.0"
+const version = "0.2.1"
 
 // getProfilesDir returns the path to the profiles directory.
 func getProfilesDir() string {
@@ -60,10 +61,66 @@ Exemples:
 Code: https://github.com/lrochetta/multiai`)
 }
 
+func printLaunchHelp() {
+	fmt.Println(`Usage:
+  multiai launch                     Menu de lancement interactif
+  multiai launch -p <shortcut>       Lancement direct d'un profil
+  multiai launch -t <tool>           Selection interactive du profil pour un outil
+  multiai launch -p ds --json        Lancement avec sortie JSON
+  multiai launch -p ds --dry-run     Simulation sans lancer
+  multiai launch -p ds --show-env    Afficher les variables d'environnement
+
+Options:
+  -p, --profile <shortcut>    Profil a lancer (ex: ds, ca, ocqwen)
+  -t, --tool <tool>           Outil a utiliser (ex: claude, codex, opencode)
+  --json, -j                  Sortie au format JSON
+  --dry-run                   Simulation sans lancement
+  --no-launch                 Preparation sans lancement
+  --show-env, --env           Afficher les variables d'environnement
+  --allow-custom-command      Autoriser les commandes personnalisees
+  --                          Arguments supplementaires passes au CLI`)
+}
+
+func printListHelp() {
+	fmt.Println(`Usage:
+  multiai list                  Liste tous les profils disponibles
+  multiai list --json           Liste au format JSON
+
+Affiche la liste des profils configures avec leur outil, shortcut et commande.`)
+}
+
+func printConfigHelp() {
+	fmt.Println(`Usage:
+  multiai config                              Configuration interactive des cles API
+  multiai config --provider <id>              Configurer un fournisseur specifique
+
+Fournisseurs disponibles:
+  anthropic   Anthropic (officiel)
+  zai         Z.ai / BigModel
+  deepseek    DeepSeek
+  openai      OpenAI
+  openrouter  OpenRouter`)
+}
+
 func main() {
 	if len(os.Args) < 2 {
-		runInteractive()
+		runInteractiveLoop()
 		return
+	}
+
+	// Handle subcommand --help
+	if len(os.Args) >= 3 && os.Args[2] == "--help" {
+		switch os.Args[1] {
+		case "launch":
+			printLaunchHelp()
+		case "list":
+			printListHelp()
+		case "config":
+			printConfigHelp()
+		default:
+			printHelp()
+		}
+		os.Exit(0)
 	}
 
 	switch os.Args[1] {
@@ -92,7 +149,10 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
 			os.Exit(2)
 		}
-		runLaunch(profiles)
+		result := runLaunch(profiles)
+		if result != nil && result.ExitCode != 0 {
+			os.Exit(result.ExitCode)
+		}
 
 	case "config":
 		profiles, err := profile.LoadDir(getProfilesDir())
@@ -122,35 +182,37 @@ func main() {
 	}
 }
 
-func runInteractive() {
-	profiles, err := profile.LoadDir(getProfilesDir())
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
-		os.Exit(2)
-	}
-
+func runInteractiveLoop() {
 	for {
-		choice := menu.ShowTopMenu()
+		profiles, err := profile.LoadDir(getProfilesDir())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[X] %v\n", err)
+			os.Exit(2)
+		}
+		choice := menu.ShowTopMenu(len(profiles))
 		switch choice {
 		case "1":
-			runLaunch(profiles)
-			return
+			result := runLaunch(profiles)
+			if result != nil && result.ExitCode != 0 {
+				cli.PrintWarning(fmt.Sprintf("Le processus s'est termine avec le code: %d", result.ExitCode))
+			}
+			fmt.Println()
 		case "2":
 			if err := config.InteractiveConfig(profiles); err != nil {
-				fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
+				fmt.Fprintf(os.Stderr, "[X] %v\n", err)
 			}
-			return
+			fmt.Println()
 		case "3":
-			fmt.Println("\nBMAD+ — lancement de npx bmad-plus install...")
-			fmt.Println("(non implemente dans la version Go — utilise le script shell)")
-			return
+			fmt.Println("\nBMAD+ -- lancement de npx bmad-plus install...")
+			fmt.Println("(BMAD+ n'est pas encore integre dans la version Go)")
+			fmt.Println()
 		default:
-			fmt.Println("Choix invalide.")
+			fmt.Println("Choix invalide. Options : 1, 2, 3")
 		}
 	}
 }
 
-func runLaunch(profiles []profile.Profile) {
+func runLaunch(profiles []profile.Profile) *cli.LaunchResult {
 	var selected *profile.Profile
 
 	// Check for -p / --profile flag
@@ -163,25 +225,38 @@ func runLaunch(profiles []profile.Profile) {
 		selected, err = profile.FindByShortcut(profiles, profileName)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
-			os.Exit(1)
+			return nil
 		}
 	} else if toolName != "" {
 		var err error
 		selected, err = menu.SelectProfile(profiles, toolName)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
-			os.Exit(1)
+			return nil
+		}
+		if selected == nil {
+			return nil
 		}
 	} else {
-		tool, err := menu.SelectTool(profiles)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
-			os.Exit(1)
-		}
-		selected, err = menu.SelectProfile(profiles, tool)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
-			os.Exit(1)
+		for {
+			tool, err := menu.SelectTool(profiles)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
+				return nil
+			}
+			if tool == "" {
+				return nil // back to menu
+			}
+
+			selected, err = menu.SelectProfile(profiles, tool)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
+				return nil
+			}
+			if selected != nil {
+				break
+			}
+			// selected == nil -> back to tool selection, continue loop
 		}
 	}
 
@@ -200,15 +275,16 @@ func runLaunch(profiles []profile.Profile) {
 	result, err := cli.ValidateAndLaunch(selected, opts)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
-		os.Exit(1)
+		return nil
 	}
 
 	if opts.JSON && result != nil {
-		fmt.Printf("{\"status\": \"%s\"}\n", result.Status)
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(result)
 	}
-	if result != nil && result.PID > 0 {
-		os.Exit(0)
-	}
+
+	return result
 }
 
 // --- Helper functions ---

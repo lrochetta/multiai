@@ -10,6 +10,17 @@ import (
 	"github.com/lrochetta/multiai/internal/profile"
 )
 
+// noColor disables ANSI escape codes when the NO_COLOR env var is set.
+var noColor = os.Getenv("NO_COLOR") != ""
+
+// colorize wraps text in the given ANSI code, respecting NO_COLOR.
+func colorize(text, ansiCode string) string {
+	if noColor {
+		return text
+	}
+	return ansiCode + text + "\033[0m"
+}
+
 // ListProfiles displays all profiles.
 func ListProfiles(profiles []profile.Profile, asJSON bool) error {
 	if asJSON {
@@ -46,22 +57,22 @@ func ListProfiles(profiles []profile.Profile, asJSON bool) error {
 	return w.Flush()
 }
 
-// PrintSuccess prints a green success message.
+// PrintSuccess prints a green success message with [OK] prefix.
 func PrintSuccess(msg string) {
-	fmt.Printf("\033[32m%s\033[0m\n", msg)
+	fmt.Printf("%s\n", colorize("[OK] "+msg, "\033[32m"))
 }
 
-// PrintWarning prints a yellow warning message.
+// PrintWarning prints a yellow warning message with [!] prefix.
 func PrintWarning(msg string) {
-	fmt.Printf("\033[33m%s\033[0m\n", msg)
+	fmt.Printf("%s\n", colorize("[!] "+msg, "\033[33m"))
 }
 
-// PrintError prints a red error message.
+// PrintError prints a red error message with [X] prefix.
 func PrintError(msg string) {
-	fmt.Printf("\033[31m%s\033[0m\n", msg)
+	fmt.Printf("%s\n", colorize("[X] "+msg, "\033[31m"))
 }
 
-// PrintInfo prints a cyan info message.
+// PrintInfo prints a cyan info message with [i] prefix.
 func PrintInfo(msg string) {
-	fmt.Printf("\033[36m%s\033[0m\n", msg)
+	fmt.Printf("%s\n", colorize("[i] "+msg, "\033[36m"))
 }

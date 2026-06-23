@@ -4,18 +4,27 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/lrochetta/multiai/internal/env"
 	"github.com/lrochetta/multiai/internal/profile"
 	"github.com/lrochetta/multiai/pkg/dotenv"
 )
 
-// AllowedCommands are the only binaries that can be launched by default.
-var AllowedCommands = map[string]bool{
-	"claude":   true,
-	"codex":    true,
-	"opencode": true,
+// AllowedCommands is the immutable list of binaries allowed by default.
+var AllowedCommands = []string{"claude", "codex", "opencode"}
+
+// IsCommandAllowed checks whether a command is in the whitelist.
+func IsCommandAllowed(cmd string) bool {
+	for _, allowed := range AllowedCommands {
+		if cmd == allowed {
+			return true
+		}
+	}
+	return false
 }
 
 // LaunchOptions configures how a CLI is launched.
@@ -31,19 +40,21 @@ type LaunchOptions struct {
 
 // LaunchResult contains information about the launched process.
 type LaunchResult struct {
-	Profile  string `json:"profile"`
-	Shortcut string `json:"shortcut"`
-	Tool     string `json:"tool"`
-	Command  string `json:"command"`
-	Args     string `json:"args"`
-	Status   string `json:"status"`
-	PID      int    `json:"pid,omitempty"`
+	Profile   string `json:"profile"`
+	Shortcut  string `json:"shortcut"`
+	Tool      string `json:"tool"`
+	Command   string `json:"command"`
+	Args      string `json:"args"`
+	Status    string `json:"status"`
+	PID       int    `json:"pid,omitempty"`
+	ExitCode  int    `json:"exit_code,omitempty"`
+	Timestamp string `json:"timestamp"`
 }
 
 // ValidateAndLaunch checks the profile and launches the CLI.
 func ValidateAndLaunch(prof *profile.Profile, opts LaunchOptions) (*LaunchResult, error) {
 	// 1. Validate command whitelist
-	if !AllowedCommands[prof.Command] {
+	if !IsCommandAllowed(prof.Command) {
 		if opts.AllowCustomCommand {
 			fmt.Fprintf(os.Stderr, "⚠ Commande custom autorisee : %s\n", prof.Command)
 		} else {
@@ -68,10 +79,11 @@ func ValidateAndLaunch(prof *profile.Profile, opts LaunchOptions) (*LaunchResult
 	allArgs := append(prof.Args, opts.ExtraArgs...)
 
 	result := &LaunchResult{
-		Profile:  prof.DisplayName,
-		Shortcut: prof.Shortcut,
-		Tool:     prof.ToolLabel,
-		Command:  fmt.Sprintf("%s %s", prof.Command, strings.Join(allArgs, " ")),
+		Profile:   prof.DisplayName,
+		Shortcut:  prof.Shortcut,
+		Tool:      prof.ToolLabel,
+		Command:   fmt.Sprintf("%s %s", prof.Command, strings.Join(allArgs, " ")),
+		Timestamp: time.Now().Format(time.RFC3339),
 	}
 
 	// 6. Show env if requested
@@ -101,6 +113,13 @@ func ValidateAndLaunch(prof *profile.Profile, opts LaunchOptions) (*LaunchResult
 	}
 
 	// 9. Launch
+
+	// Set up signal forwarding to child process
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+	defer close(sigCh)
+
 	cmd := exec.Command(prof.Command, allArgs...)
 	cmd.Env = cmdEnv
 	cmd.Stdin = os.Stdin
@@ -113,12 +132,22 @@ func ValidateAndLaunch(prof *profile.Profile, opts LaunchOptions) (*LaunchResult
 		return nil, fmt.Errorf("erreur de lancement : %w", err)
 	}
 
+	// Forward signals to child process
+	go func() {
+		for sig := range sigCh {
+			if cmd.Process != nil {
+				cmd.Process.Signal(sig)
+			}
+		}
+	}()
+
 	result.Status = "launched"
 	result.PID = cmd.Process.Pid
 
 	if err := cmd.Wait(); err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			result.Status = fmt.Sprintf("exited_%d", exitErr.ExitCode())
+			result.ExitCode = exitErr.ExitCode()
 			// Run after-launch hooks even on error
 			if opts.Hooks != nil {
 				RunAfterHooks(opts.Hooks, prof, err)
@@ -133,6 +162,7 @@ func ValidateAndLaunch(prof *profile.Profile, opts LaunchOptions) (*LaunchResult
 	}
 
 	result.Status = "completed"
+	result.ExitCode = cmd.ProcessState.ExitCode()
 	// Run after-launch hooks on success
 	if opts.Hooks != nil {
 		RunAfterHooks(opts.Hooks, prof, nil)
@@ -177,6 +207,11 @@ func ShowEffectiveEnv(prof *profile.Profile, asJSON bool) {
 		fmt.Printf("%s=%s\n", k, display)
 	}
 	fmt.Println()
+}
+
+// jsonError returns a JSON-formatted error string.
+func jsonError(msg string) string {
+	return `{"status":"error","error":"` + strings.ReplaceAll(msg, `"`, `\"`) + `"}`
 }
 
 func validateSecrets(prof *profile.Profile) error {

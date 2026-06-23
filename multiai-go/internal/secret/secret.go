@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 // Store abstracts secure credential storage per platform.
@@ -35,6 +36,7 @@ func NewStore() (Store, error) {
 // ── Encrypted File Store (fallback pour Linux) ──────────────────────────────
 
 type encryptedFileStore struct {
+	mu        sync.Mutex
 	dir       string
 	masterKey []byte
 }
@@ -79,9 +81,15 @@ func (s *encryptedFileStore) load(service string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Zeroize plaintext after use
+	defer func() {
+		for i := range plaintext {
+			plaintext[i] = 0
+		}
+	}()
 	var creds map[string]string
 	if err := json.Unmarshal(plaintext, &creds); err != nil {
-		return make(map[string]string), nil
+		return nil, fmt.Errorf("credential file %s is corrupted: %w", service, err)
 	}
 	return creds, nil
 }
@@ -99,6 +107,8 @@ func (s *encryptedFileStore) save(service string, creds map[string]string) error
 }
 
 func (s *encryptedFileStore) Get(service, key string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	creds, err := s.load(service)
 	if err != nil {
 		return "", err
@@ -110,6 +120,8 @@ func (s *encryptedFileStore) Get(service, key string) (string, error) {
 }
 
 func (s *encryptedFileStore) Set(service, key, value string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	creds, err := s.load(service)
 	if err != nil {
 		return err
@@ -119,6 +131,8 @@ func (s *encryptedFileStore) Set(service, key, value string) error {
 }
 
 func (s *encryptedFileStore) Delete(service, key string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	creds, err := s.load(service)
 	if err != nil {
 		return err
@@ -128,5 +142,7 @@ func (s *encryptedFileStore) Delete(service, key string) error {
 }
 
 func (s *encryptedFileStore) List(service string) (map[string]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.load(service)
 }

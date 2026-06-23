@@ -1,9 +1,11 @@
 package profile
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -56,8 +58,14 @@ func LoadYAML(path string) (*Profile, error) {
 		return nil, fmt.Errorf("cannot read %s: %w", path, err)
 	}
 
+	const maxYAMLSize = 1 << 20 // 1 Mo max
+	if len(data) > maxYAMLSize {
+		return nil, fmt.Errorf("YAML file too large: %s (%d bytes, max %d)", path, len(data), maxYAMLSize)
+	}
+
 	var py ProfileYAML
-	if err := yaml.Unmarshal(data, &py); err != nil {
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	if err := decoder.Decode(&py); err != nil {
 		return nil, fmt.Errorf("cannot parse %s: %w", path, err)
 	}
 
@@ -110,17 +118,12 @@ func LoadAllProfiles(dir string) ([]Profile, error) {
 
 // sortProfilesSlice sorts profiles in place.
 func sortProfilesSlice(profiles []Profile) {
-	n := len(profiles)
-	for i := 0; i < n; i++ {
-		for j := i + 1; j < n; j++ {
-			pi, pj := profiles[i], profiles[j]
-			if pi.Tool > pj.Tool ||
-				(pi.Tool == pj.Tool && pi.Order > pj.Order) ||
-				(pi.Tool == pj.Tool && pi.Order == pj.Order && pi.DisplayName > pj.DisplayName) {
-				profiles[i], profiles[j] = profiles[j], profiles[i]
-			}
-		}
-	}
+	sort.Slice(profiles, func(i, j int) bool {
+		pi, pj := profiles[i], profiles[j]
+		if pi.Tool != pj.Tool { return pi.Tool < pj.Tool }
+		if pi.Order != pj.Order { return pi.Order < pj.Order }
+		return pi.DisplayName < pj.DisplayName
+	})
 }
 
 // yamlToProfile converts a YAML profile to the internal Profile type.

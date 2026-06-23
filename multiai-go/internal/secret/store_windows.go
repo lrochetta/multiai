@@ -4,6 +4,7 @@ package secret
 
 import (
 	"encoding/base64"
+	"fmt"
 	"os/exec"
 	"strings"
 )
@@ -22,24 +23,39 @@ func (s *winCredStore) Get(service, key string) (string, error) {
 	out, _ := cmd.Output()
 	if strings.Contains(string(out), service+":"+key) {
 		// Fallback to encrypted file for now
-		fallback, _ := newEncryptedFileStore()
+		fallback, err := newEncryptedFileStore()
+		if err != nil {
+			return "", fmt.Errorf("credential store unavailable: %w", err)
+		}
 		return fallback.Get(service, key)
 	}
-	fallback, _ := newEncryptedFileStore()
+	fallback, err := newEncryptedFileStore()
+	if err != nil {
+		return "", fmt.Errorf("credential store unavailable: %w", err)
+	}
 	return fallback.Get(service, key)
 }
 
 func (s *winCredStore) Set(service, key, value string) error {
-	fallback, _ := newEncryptedFileStore()
+	fallback, err := newEncryptedFileStore()
+	if err != nil {
+		return fmt.Errorf("credential store unavailable: %w", err)
+	}
 	return fallback.Set(service, key, base64.StdEncoding.EncodeToString([]byte(value)))
 }
 
 func (s *winCredStore) Delete(service, key string) error {
-	fallback, _ := newEncryptedFileStore()
+	fallback, err := newEncryptedFileStore()
+	if err != nil {
+		return fmt.Errorf("credential store unavailable: %w", err)
+	}
 	return fallback.Delete(service, key)
 }
 
 func (s *winCredStore) List(service string) (map[string]string, error) {
-	fallback, _ := newEncryptedFileStore()
+	fallback, err := newEncryptedFileStore()
+	if err != nil {
+		return nil, fmt.Errorf("credential store unavailable: %w", err)
+	}
 	return fallback.List(service)
 }

@@ -20,6 +20,16 @@ var AllowedEnvVars = map[string]bool{
 	"XDG_SESSION_TYPE": true, "DBUS_SESSION_BUS_ADDRESS": true,
 }
 
+// safeExpandEnv expands only allowed environment variables in the string.
+func safeExpandEnv(s string) string {
+	return os.Expand(s, func(key string) string {
+		if AllowedEnvVars[key] {
+			return os.Getenv(key)
+		}
+		return "" // ne pas exposer les variables non-allowlistees
+	})
+}
+
 // BuildCleanEnv returns a clean environment with only allowed vars + profile vars.
 func BuildCleanEnv(profileEnv map[string]string) []string {
 	// Start with allowed system vars
@@ -38,7 +48,7 @@ func BuildCleanEnv(profileEnv map[string]string) []string {
 
 	// Overlay profile vars
 	for k, v := range profileEnv {
-		env[k] = os.ExpandEnv(v)
+		env[k] = safeExpandEnv(v)
 	}
 
 	// Convert to []string format

@@ -8,7 +8,7 @@ url="https://rochetta.fr"
 license=('MIT')
 makedepends=('go')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/lrochetta/multiai/archive/refs/tags/v${pkgver}.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('REPLACE_WITH_ACTUAL_SHA256') # Will be filled by goreleaser on release
 
 build() {
     cd "${srcdir}/${pkgname}-${pkgver}"

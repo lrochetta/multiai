@@ -3,6 +3,7 @@ package menu
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -12,9 +13,9 @@ import (
 )
 
 // ShowTopMenu displays the main menu and returns the user's choice.
-func ShowTopMenu() string {
+func ShowTopMenu(profileCount int) string {
 	fmt.Println()
-	cli.PrintInfo("AI Code CLI Router — multiai")
+	cli.PrintInfo(fmt.Sprintf("Laurent ROCHETTA's MultiAI (v0.2.1) — %d profils", profileCount))
 	fmt.Println(strings.Repeat("─", 58))
 	fmt.Println()
 	fmt.Println("1. Lancer")
@@ -23,8 +24,15 @@ func ShowTopMenu() string {
 	fmt.Println()
 	fmt.Print("Choix : ")
 	reader := bufio.NewReader(os.Stdin)
-	choice, _ := reader.ReadString('\n')
-	return strings.TrimSpace(choice)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		if err == io.EOF {
+			os.Exit(0)
+		}
+		fmt.Fprintf(os.Stderr, "[X] Erreur de lecture: %v\n", err)
+		return ""
+	}
+	return strings.TrimSpace(input)
 }
 
 // SelectTool lets the user choose a tool from the available ones.
@@ -62,11 +70,22 @@ func SelectTool(profiles []profile.Profile) (string, error) {
 		fmt.Printf("%d. %s (%d profils)\n", i+1, t.Label, t.Count)
 	}
 	fmt.Println()
+	fmt.Println("0. Retour au menu principal")
 	fmt.Print("Choisis un outil : ")
 
 	reader := bufio.NewReader(os.Stdin)
-	input, _ := reader.ReadString('\n')
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		if err == io.EOF {
+			os.Exit(0)
+		}
+		return "", fmt.Errorf("erreur de lecture: %v", err)
+	}
 	input = strings.TrimSpace(input)
+
+	if input == "0" {
+		return "", nil
+	}
 
 	idx, err := strconv.Atoi(input)
 	if err != nil || idx < 1 || idx > len(tools) {
@@ -97,11 +116,22 @@ func SelectProfile(profiles []profile.Profile, toolFilter string) (*profile.Prof
 		}
 	}
 	fmt.Println()
+	fmt.Println("0. Retour a la selection d'outil")
 	fmt.Print("Choisis un profil : ")
 
 	reader := bufio.NewReader(os.Stdin)
-	input, _ := reader.ReadString('\n')
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		if err == io.EOF {
+			os.Exit(0)
+		}
+		return nil, fmt.Errorf("erreur de lecture: %v", err)
+	}
 	input = strings.TrimSpace(input)
+
+	if input == "0" {
+		return nil, nil
+	}
 
 	idx, err := strconv.Atoi(input)
 	if err != nil || idx < 1 || idx > len(filtered) {

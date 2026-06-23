@@ -1,4 +1,5 @@
 {
+  "_comment": "SHA256 will be filled by goreleaser during release. Do not edit manually.",
   "version": "0.5.0",
   "description": "Route multiple AI CLIs (Claude Code, Codex, OpenCode) with isolated env profiles",
   "homepage": "https://rochetta.fr",
@@ -6,11 +7,11 @@
   "architecture": {
     "64bit": {
       "url": "https://github.com/lrochetta/multiai/releases/download/v0.5.0/multiai_0.5.0_windows_amd64.zip",
-      "hash": "REPLACE_WITH_ACTUAL_SHA256"
+      "hash": "PLACEHOLDER_SHA256"
     },
     "arm64": {
       "url": "https://github.com/lrochetta/multiai/releases/download/v0.5.0/multiai_0.5.0_windows_arm64.zip",
-      "hash": "REPLACE_WITH_ACTUAL_SHA256"
+      "hash": "PLACEHOLDER_SHA256"
     }
   },
   "bin": "multiai.exe",

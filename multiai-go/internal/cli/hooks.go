@@ -10,6 +10,32 @@ import (
 	"github.com/lrochetta/multiai/internal/profile"
 )
 
+// escapeShellArg escapes shell-special characters in a string for the given shell.
+func escapeShellArg(s string, shell string) string {
+	switch shell {
+	case "powershell", "pwsh":
+		// PowerShell: escape backticks and double-quotes
+		s = strings.ReplaceAll(s, "`", "``")
+		s = strings.ReplaceAll(s, "\"", "`\"")
+		return s
+	case "bash", "zsh":
+		// Bash/zsh: escape shell metacharacters
+		replacer := strings.NewReplacer(
+			";", "\\;", "&", "\\&", "|", "\\|",
+			"$", "\\$", "`", "\\`", "\\", "\\\\",
+			"\"", "\\\"", "'", "\\'",
+		)
+		return replacer.Replace(s)
+	default:
+		// cmd.exe: escape & | < > ^ %
+		replacer := strings.NewReplacer(
+			"&", "^&", "|", "^|", "<", "^<", ">", "^>",
+			"^", "^^", "%", "%%",
+		)
+		return replacer.Replace(s)
+	}
+}
+
 // RunBeforeHooks executes all before_launch hooks.
 // If any hook fails, the launch is aborted.
 func RunBeforeHooks(hooks *profile.HooksConfig, prof *profile.Profile) error {
@@ -21,17 +47,23 @@ func RunBeforeHooks(hooks *profile.HooksConfig, prof *profile.Profile) error {
 
 	for i, hook := range hooks.BeforeLaunch {
 		cmdStr := expandHookVars(hook.Command, prof)
-		fmt.Fprintf(os.Stderr, "  [%d/%d] %s\n", i+1, len(hooks.BeforeLaunch), cmdStr)
-
 		shell := hook.Shell
 		if shell == "" {
 			shell = defaultShell()
 		}
+		// Escape shell metacharacters to prevent injection
+		cmdStr = escapeShellArg(cmdStr, shell)
+		// Expand env AFTER escaping, so injected env vars can't add shell metacharacters
+		cmdStr = os.ExpandEnv(cmdStr)
+
+		fmt.Fprintf(os.Stderr, "  [%d/%d] %s\n", i+1, len(hooks.BeforeLaunch), cmdStr)
 
 		var cmd *exec.Cmd
 		switch shell {
-		case "powershell", "pwsh":
+		case "powershell":
 			cmd = exec.Command("powershell", "-NoProfile", "-Command", cmdStr)
+		case "pwsh":
+			cmd = exec.Command("pwsh", "-NoProfile", "-Command", cmdStr)
 		case "bash":
 			cmd = exec.Command("bash", "-c", cmdStr)
 		case "zsh":
@@ -66,17 +98,23 @@ func RunAfterHooks(hooks *profile.HooksConfig, prof *profile.Profile, launchErr 
 
 	for i, hook := range hooks.AfterLaunch {
 		cmdStr := expandHookVars(hook.Command, prof)
-		fmt.Fprintf(os.Stderr, "  [%d/%d] %s\n", i+1, len(hooks.AfterLaunch), cmdStr)
-
 		shell := hook.Shell
 		if shell == "" {
 			shell = defaultShell()
 		}
+		// Escape shell metacharacters to prevent injection
+		cmdStr = escapeShellArg(cmdStr, shell)
+		// Expand env AFTER escaping, so injected env vars can't add shell metacharacters
+		cmdStr = os.ExpandEnv(cmdStr)
+
+		fmt.Fprintf(os.Stderr, "  [%d/%d] %s\n", i+1, len(hooks.AfterLaunch), cmdStr)
 
 		var cmd *exec.Cmd
 		switch shell {
-		case "powershell", "pwsh":
+		case "powershell":
 			cmd = exec.Command("powershell", "-NoProfile", "-Command", cmdStr)
+		case "pwsh":
+			cmd = exec.Command("pwsh", "-NoProfile", "-Command", cmdStr)
 		case "bash":
 			cmd = exec.Command("bash", "-c", cmdStr)
 		case "zsh":
@@ -99,6 +137,8 @@ func RunAfterHooks(hooks *profile.HooksConfig, prof *profile.Profile, launchErr 
 }
 
 // expandHookVars expands template variables in hook commands.
+// Note: os.ExpandEnv is called AFTER escapeShellArg, not here,
+// to prevent injection via environment variables.
 func expandHookVars(cmd string, prof *profile.Profile) string {
 	result := cmd
 	result = strings.ReplaceAll(result, "{{.Profile.ID}}", prof.ID)
@@ -106,7 +146,6 @@ func expandHookVars(cmd string, prof *profile.Profile) string {
 	result = strings.ReplaceAll(result, "{{.Profile.DisplayName}}", prof.DisplayName)
 	result = strings.ReplaceAll(result, "{{.Profile.Tool}}", prof.Tool)
 	result = strings.ReplaceAll(result, "{{.Profile.Command}}", prof.Command)
-	result = os.ExpandEnv(result)
 	return result
 }
 

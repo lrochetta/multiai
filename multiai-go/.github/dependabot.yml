@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: "gomod"
+    directory: "/multiai-go"
+    schedule:
+      interval: "weekly"
+    assignees:
+      - "lrochetta"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    assignees:
+      - "lrochetta"
+
+  - package-ecosystem: "npm"
+    directory: "/code-cli-router-pack/code-cli-router-pack"
+    schedule:
+      interval: "weekly"

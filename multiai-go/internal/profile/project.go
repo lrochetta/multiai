@@ -1,6 +1,7 @@
 package profile
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,8 +24,13 @@ func FindProjectConfig() (*ProfileYAML, string, error) {
 				if err != nil {
 					return nil, "", fmt.Errorf("cannot read %s: %w", configPath, err)
 				}
+				const maxYAMLSize = 1 << 20 // 1 Mo max
+				if len(data) > maxYAMLSize {
+					return nil, "", fmt.Errorf("YAML file too large: %s (%d bytes, max %d)", configPath, len(data), maxYAMLSize)
+				}
 				var py ProfileYAML
-				if err := yaml.Unmarshal(data, &py); err != nil {
+				decoder := yaml.NewDecoder(bytes.NewReader(data))
+				if err := decoder.Decode(&py); err != nil {
 					return nil, "", fmt.Errorf("cannot parse %s: %w", configPath, err)
 				}
 				return &py, configPath, nil
