@@ -115,10 +115,18 @@ $ProviderCatalog = [ordered]@{
         Note      = 'Codex CLI (codex55/54/mini) utilise son propre login - pas de cle a configurer ici.'
     }
     'OpenRouter' = @{
-        Display   = 'OpenRouter (Qwen / Kimi / MiniMax)'
+        Display   = 'OpenRouter (Fusion + 300 modeles)'
         Url       = 'https://openrouter.ai/settings/keys'
-        Shortcuts = @('ocqwen', 'ockimi', 'ocminimax')
-        VarMap    = @{ 'ocqwen' = 'OPENROUTER_API_KEY'; 'ockimi' = 'OPENROUTER_API_KEY'; 'ocminimax' = 'OPENROUTER_API_KEY' }
+        Shortcuts = @('or-fusion', 'codex-fusion', 'oc-fusion', 'ocqwen', 'ockimi', 'ocminimax')
+        VarMap    = @{
+            'or-fusion'     = 'ANTHROPIC_AUTH_TOKEN'
+            'codex-fusion'  = 'OPENAI_API_KEY'
+            'oc-fusion'     = 'OPENROUTER_API_KEY'
+            'ocqwen'        = 'OPENROUTER_API_KEY'
+            'ockimi'        = 'OPENROUTER_API_KEY'
+            'ocminimax'     = 'OPENROUTER_API_KEY'
+        }
+        Note      = 'Fusion = panel multi-modele automatique. Une seule cle pour tous les profils OpenRouter.'
     }
 }
 
@@ -693,6 +701,102 @@ function Show-BmadMenu {
     }
 }
 
+# ── OpenRouter Models ─────────────────────────────────────────────────────────
+
+function Show-OpenRouterMenu {
+    param([object[]]$Profiles)
+
+    Write-Host ''
+    Write-Info 'OpenRouter -- Decouvrir et ajouter des modeles'
+    Write-Host ('-' * 58) -ForegroundColor DarkGray
+    Write-Host ''
+    Write-Host '  Fusion est deja integre (3 profils).'
+    Write-Host '  Pour ajouter d''autres modeles OpenRouter :'
+    Write-Host ''
+    Write-Host '  1. Voir la liste des 300+ modeles sur https://openrouter.ai/models'
+    Write-Host '  2. Creer un profil .env personnalise dans :'
+    Write-Host ("     {0}" -f $ProfilesDir) -ForegroundColor DarkGray
+    Write-Host '  3. Ou utiliser le modele ci-dessous :'
+    Write-Host ''
+    Write-Host '  Exemple de profil OpenRouter personnalise :' -ForegroundColor Yellow
+    Write-Host '  ┌─────────────────────────────────────────────┐'
+    Write-Host '  │ PROFILE_ID=claude-monmodele                 │'
+    Write-Host '  │ SHORTCUT=or-mymodel                         │'
+    Write-Host '  │ TOOL=claude                                 │'
+    Write-Host '  │ DISPLAY_NAME=Mon Modele via OpenRouter       │'
+    Write-Host '  │ ORDER=50                                    │'
+    Write-Host '  │ COMMAND=claude                              │'
+    Write-Host '  │ ANTHROPIC_BASE_URL=https://openrouter.ai/api/v1│'
+    Write-Host '  │ ANTHROPIC_MODEL=fournisseur/modele           │'
+    Write-Host '  │ ANTHROPIC_AUTH_TOKEN=%OPENROUTER_API_KEY%    │'
+    Write-Host '  │ CLEAR_ENV=true                              │'
+    Write-Host '  │ REQUIRED_SECRETS=OPENROUTER_API_KEY          │'
+    Write-Host '  │ OPENROUTER_API_KEY=PASTE_OPENROUTER_API_KEY_HERE│'
+    Write-Host '  └─────────────────────────────────────────────┘'
+    Write-Host ''
+    Write-Host '  Modeles recommandes (copier le slug) :' -ForegroundColor Cyan
+    Write-Host '    openrouter/fusion      - Panel multi-modele automatique (deja installe)'
+    Write-Host '    deepseek/deepseek-v4-pro - DeepSeek V4 Pro'
+    Write-Host '    anthropic/claude-sonnet-4.6 - Claude Sonnet 4.6'
+    Write-Host '    openai/gpt-5.5          - GPT-5.5'
+    Write-Host '    minimax/minimax-m3      - MiniMax M3 (populaire)'
+    Write-Host '    qwen/qwen3.7-plus       - Qwen 3.7 Plus'
+    Write-Host '    google/gemini-3.5-flash - Gemini 3.5 Flash'
+    Write-Host '    x-ai/grok-4.3           - Grok 4.3'
+    Write-Host '    nvidia/nemotron-3-ultra - Nemotron 3 Ultra (GRATUIT)'
+    Write-Host '    openrouter/owl-alpha    - Owl Alpha (GRATUIT)'
+    Write-Host ''
+    Write-Host ('-' * 58) -ForegroundColor DarkGray
+    Write-Host '  Creer un profil rapide :' -ForegroundColor Cyan
+    Write-Host '    or-add DeepSeek V4 Pro deepseek/deepseek-v4-pro claude' -ForegroundColor DarkGray
+    Write-Host ''
+
+    # Quick add function
+    function New-OpenRouterProfile {
+        param($DisplayName, $ModelSlug, $Tool)
+        $shortcut = "or-" + ($DisplayName -replace '[^a-zA-Z0-9]','' -replace ' ','').ToLower().Substring(0, [Math]::Min(8, ($DisplayName -replace '[^a-zA-Z0-9]','').Length))
+        $fileName = "99-" + $shortcut + ".env"
+        $filePath = Join-Path $ProfilesDir $fileName
+
+        $isAnthropic = $Tool -eq 'claude'
+        $authVar = if ($isAnthropic) { 'ANTHROPIC_AUTH_TOKEN' } elseif ($Tool -eq 'codex') { 'OPENAI_API_KEY' } else { 'OPENROUTER_API_KEY' }
+
+        $content = @"
+PROFILE_ID=$shortcut
+SHORTCUT=$shortcut
+TOOL=$Tool
+DISPLAY_NAME=$DisplayName (via OR)
+DESCRIPTION=OpenRouter: $ModelSlug
+ORDER=50
+COMMAND=$Tool
+CLEAR_ENV=true
+REQUIRED_SECRETS=OPENROUTER_API_KEY
+$authVar=%OPENROUTER_API_KEY%
+$($(if ($isAnthropic) { "ANTHROPIC_BASE_URL=https://openrouter.ai/api/v1`nANTHROPIC_MODEL=$ModelSlug" } elseif ($Tool -eq 'codex') { "OPENAI_BASE_URL=https://openrouter.ai/api/v1`nOPENAI_MODEL=$ModelSlug" } else { "OPENROUTER_MODEL=$ModelSlug" }))
+OPENROUTER_API_KEY=PASTE_OPENROUTER_API_KEY_HERE
+"@
+        Set-Content -LiteralPath $filePath -Value $content -Encoding UTF8
+        Write-Ok "Profil cree : $DisplayName [$shortcut] -> $filePath"
+        Write-Host "  Configurer la cle : multiai config -> OpenRouter"
+    }
+
+    Write-Host '  Ajout interactif rapide :'
+    Write-Host ''
+    $name = Read-Host '  Nom du modele (ex: DeepSeek V4 Pro)'
+    if ($name) {
+        $slug = Read-Host '  Slug OpenRouter (ex: deepseek/deepseek-v4-pro)'
+        if ($slug) {
+            $toolChoice = Read-Host '  CLI (claude/codex/opencode) [claude]'
+            if (-not $toolChoice) { $toolChoice = 'claude' }
+            New-OpenRouterProfile -DisplayName $name -ModelSlug $slug -Tool $toolChoice
+            Write-Host ''
+            Write-Host "  Relancer le menu pour voir le nouveau profil !" -ForegroundColor Yellow
+        }
+    }
+    Write-Host ''
+    $null = Read-Host '  Entree pour revenir'
+}
+
 # ── Menu principal ─────────────────────────────────────────────────────────────
 
 function Show-TopMenu {
@@ -700,9 +804,10 @@ function Show-TopMenu {
     Write-Info ("Laurent ROCHETTA's MultiAI (AI Code CLI Router) v{0}" -f $RouterVersion)
     Write-Host ('-' * 58) -ForegroundColor DarkGray
     Write-Host ''
-    Write-Host '1. Lancer'                               -ForegroundColor Cyan
-    Write-Host '2. Configurer les cles API'              -ForegroundColor Cyan
-    Write-Host '3. BMAD+ -- installer dans un projet'     -ForegroundColor Cyan
+    Write-Host '1. Lancer'                                  -ForegroundColor Cyan
+    Write-Host '2. Configurer les cles API'                 -ForegroundColor Cyan
+    Write-Host '3. BMAD+ -- Gestion du framework'           -ForegroundColor Cyan
+    Write-Host '4. OpenRouter -- Modeles disponibles'       -ForegroundColor Cyan
     Write-Host ''
     return (Read-Host 'Choix')
 }
@@ -762,6 +867,7 @@ while ($true) {
         switch ($menuChoice) {
             '2' { Show-ConfigMenu -Profiles $profiles ; continue }  # retour menu apres config
             '3' { Show-BmadMenu ; continue }                        # retour menu apres BMAD
+            '4' { Show-OpenRouterMenu -Profiles $profiles ; continue }  # retour menu apres OpenRouter
             '1' { }  # continue vers selection outil
             default { continue }
         }
