@@ -76,46 +76,27 @@ $KnownEnvVars = @(
     'DATABASE_URL', 'SSH_AUTH_SOCK', 'PGPASSWORD',
     'OPENAI_ORG_ID', 'ANTHROPIC_ORG_ID',
     'GOOGLE_API_KEY', 'COHERE_API_KEY', 'MISTRAL_API_KEY',
-    'HUGGINGFACE_TOKEN', 'REPLICATE_API_TOKEN'
+    'HUGGINGFACE_TOKEN', 'REPLICATE_API_TOKEN',
+    'STEPFUN_API_KEY', 'SILICONFLOW_API_KEY', 'MIMO_API_KEY',
+    'LITELLM_API_KEY', 'REQUESTY_API_KEY', 'DASHSCOPE_API_KEY'
 )
 
 $MetadataKeys = @(
     'PROFILE_ID', 'SHORTCUT', 'TOOL', 'TOOL_LABEL', 'DISPLAY_NAME', 'DESCRIPTION',
-    'ORDER', 'COMMAND', 'ARGS', 'CLEAR_ENV', 'REQUIRED_SECRETS', 'SKIP_SECRET_CHECK', 'NOTES'
+    'ORDER', 'COMMAND', 'ARGS', 'CLEAR_ENV', 'REQUIRED_SECRETS', 'SKIP_SECRET_CHECK', 'NOTES',
+    'FALLBACK', 'REGION'
 )
 
 # Mapping fournisseur -> profils + URL pour creer les cles
 # Une seule cle par fournisseur, appliquee a tous les profils du groupe.
+# Region : affichage groupe dans le menu de config.
 $ProviderCatalog = [ordered]@{
-    'Anthropic' = @{
-        Display   = 'Anthropic (officiel)'
-        Url       = 'https://console.anthropic.com/settings/keys'
-        Shortcuts = @('ca', 'ocanthropic')
-        VarMap    = @{ 'ca' = 'ANTHROPIC_API_KEY'; 'ocanthropic' = 'ANTHROPIC_API_KEY' }
-    }
-    'ZAI' = @{
-        Display   = 'Z.ai / BigModel (GLM-5.2)'
-        Url       = 'https://bigmodel.cn/usercenter/apikeys'
-        Shortcuts = @('cg', 'cgalt', 'oczai')
-        VarMap    = @{ 'cg' = 'ANTHROPIC_AUTH_TOKEN'; 'cgalt' = 'ANTHROPIC_API_KEY'; 'oczai' = 'ZAI_API_KEY' }
-        Note      = 'Meme cle Z.ai pour tous les profils - variable differente selon le CLI.'
-    }
-    'DeepSeek' = @{
-        Display   = 'DeepSeek'
-        Url       = 'https://platform.deepseek.com/api_keys'
-        Shortcuts = @('ds', 'dsf', 'ocdeepseek')
-        VarMap    = @{ 'ds' = 'ANTHROPIC_AUTH_TOKEN'; 'dsf' = 'ANTHROPIC_AUTH_TOKEN'; 'ocdeepseek' = 'DEEPSEEK_API_KEY' }
-        Note      = 'Meme cle DeepSeek pour tous les profils - variable differente selon le CLI.'
-    }
-    'OpenAI' = @{
-        Display   = 'OpenAI'
-        Url       = 'https://platform.openai.com/api-keys'
-        Shortcuts = @('ocopenai')
-        VarMap    = @{ 'ocopenai' = 'OPENAI_API_KEY' }
-        Note      = 'Codex CLI (codex55/54/mini) utilise son propre login - pas de cle a configurer ici.'
-    }
+    # ═══════════════════════════════════════════════════════════════════════
+    # 🌍 Global / Agregateurs
+    # ═══════════════════════════════════════════════════════════════════════
     'OpenRouter' = @{
         Display   = 'OpenRouter (Fusion + 300 modeles)'
+        Region    = '🌍 Global / Agregateurs'
         Url       = 'https://openrouter.ai/settings/keys'
         Shortcuts = @('or-fusion', 'codex-fusion', 'oc-fusion', 'ocqwen', 'ockimi', 'ocminimax')
         VarMap    = @{
@@ -127,6 +108,109 @@ $ProviderCatalog = [ordered]@{
             'ocminimax'     = 'OPENROUTER_API_KEY'
         }
         Note      = 'Fusion = panel multi-modele automatique. Une seule cle pour tous les profils OpenRouter.'
+    }
+    'Requesty' = @{
+        Display   = 'Requesty (Gateway EU, gratuit 200req/j)'
+        Region    = '🌍 Global / Agregateurs'
+        Url       = 'https://app.requesty.ai/api-keys'
+        Shortcuts = @('req-cc', 'req-codex', 'req-oc')
+        VarMap    = @{ 'req-cc' = 'REQUESTY_API_KEY'; 'req-codex' = 'REQUESTY_API_KEY'; 'req-oc' = 'REQUESTY_API_KEY' }
+        Note      = 'Gateway managé avec fallback, cache, EU. Anthropic + OpenAI compatible.'
+    }
+    'LiteLLM' = @{
+        Display   = 'LiteLLM (proxy local, Docker/WSL2)'
+        Region    = '🌍 Global / Agregateurs'
+        Url       = 'https://docs.litellm.ai/docs/proxy/quick_start'
+        Shortcuts = @('litellm')
+        VarMap    = @{ 'litellm' = 'LITELLM_API_KEY' }
+        Note      = 'Proxy local sur localhost:4000. Necessite Docker ou WSL2 (pas de pip natif Windows).'
+    }
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # 🇨🇳 Chine
+    # ═══════════════════════════════════════════════════════════════════════
+    'DeepSeek' = @{
+        Display   = 'DeepSeek (V4 Pro 1M / Flash)'
+        Region    = '🇨🇳 Chine'
+        Url       = 'https://platform.deepseek.com/api_keys'
+        Shortcuts = @('ds', 'dsf', 'ocdeepseek', 'cp', 'cf')
+        VarMap    = @{ 'ds' = 'ANTHROPIC_AUTH_TOKEN'; 'dsf' = 'ANTHROPIC_AUTH_TOKEN'; 'ocdeepseek' = 'DEEPSEEK_API_KEY'; 'cp' = 'ANTHROPIC_AUTH_TOKEN'; 'cf' = 'ANTHROPIC_AUTH_TOKEN' }
+        Note      = 'Meme cle DeepSeek pour tous les profils. Anthropic + OpenAI compatible.'
+    }
+    'ZAI' = @{
+        Display   = 'Z.ai / BigModel (GLM-5.2)'
+        Region    = '🇨🇳 Chine'
+        Url       = 'https://bigmodel.cn/usercenter/apikeys'
+        Shortcuts = @('cg', 'cgalt', 'oczai')
+        VarMap    = @{ 'cg' = 'ANTHROPIC_AUTH_TOKEN'; 'cgalt' = 'ANTHROPIC_API_KEY'; 'oczai' = 'ZAI_API_KEY' }
+        Note      = 'Meme cle Z.ai pour tous les profils. Anthropic + OpenAI compatible.'
+    }
+    'DashScope' = @{
+        Display   = 'Qwen / DashScope (Alibaba)'
+        Region    = '🇨🇳 Chine'
+        Url       = 'https://dashscope.aliyun.com/api-key-management'
+        Shortcuts = @('codex-qwen', 'ocqwen-direct')
+        VarMap    = @{ 'codex-qwen' = 'DASHSCOPE_API_KEY'; 'ocqwen-direct' = 'DASHSCOPE_API_KEY' }
+        Note      = 'OpenAI-compatible (Singapour/US/CN). Qwen3-Coder pour Codex/OpenCode.'
+    }
+    'MiniMax' = @{
+        Display   = 'MiniMax (M3 1M)'
+        Region    = '🇨🇳 Chine'
+        Url       = 'https://platform.minimax.io/account/api-keys'
+        Shortcuts = @('mm', 'ocmini')
+        VarMap    = @{ 'mm' = 'MINIMAX_API_KEY'; 'ocmini' = 'MINIMAX_API_KEY' }
+        Note      = 'Anthropic + OpenAI compatible. M3 = 1M tokens, Extended Thinking.'
+    }
+    'Moonshot' = @{
+        Display   = 'Kimi / Moonshot (K2.7 Code)'
+        Region    = '🇨🇳 Chine'
+        Url       = 'https://platform.moonshot.ai/console/api-keys'
+        Shortcuts = @('ockimi-direct')
+        VarMap    = @{ 'ockimi-direct' = 'MOONSHOT_API_KEY' }
+        Note      = 'OpenAI-compatible. K2.7-code = specialise coding. Ne pas confondre avec ockimi (OpenRouter).'
+    }
+    'StepFun' = @{
+        Display   = 'StepFun (Step Plan)'
+        Region    = '🇨🇳 Chine'
+        Url       = 'https://platform.stepfun.ai/api-keys'
+        Shortcuts = @('stepfun')
+        VarMap    = @{ 'stepfun' = 'STEPFUN_API_KEY' }
+        Note      = 'Anthropic-compatible uniquement. Pour Claude Code.'
+    }
+    'SiliconFlow' = @{
+        Display   = 'SiliconFlow (Aggreg. open-source)'
+        Region    = '🇨🇳 Chine'
+        Url       = 'https://cloud.siliconflow.cn/api-keys'
+        Shortcuts = @('codex-sf', 'oc-siliconflow')
+        VarMap    = @{ 'codex-sf' = 'SILICONFLOW_API_KEY'; 'oc-siliconflow' = 'SILICONFLOW_API_KEY' }
+        Note      = 'Agregateur de modeles open-source chinois. OpenAI-compatible.'
+    }
+    'MiMo' = @{
+        Display   = 'Xiaomi MiMo (V2.5 Pro)'
+        Region    = '🇨🇳 Chine'
+        Url       = 'https://api.xiaomimimo.com/dashboard/api-keys'
+        Shortcuts = @('mimo', 'ocmimo')
+        VarMap    = @{ 'mimo' = 'MIMO_API_KEY'; 'ocmimo' = 'MIMO_API_KEY' }
+        Note      = 'Anthropic + OpenAI compatible. Tier gratuit disponible (mimo-auto).'
+    }
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # 🇺🇸 USA
+    # ═══════════════════════════════════════════════════════════════════════
+    'Anthropic' = @{
+        Display   = 'Anthropic (officiel)'
+        Region    = '🇺🇸 USA'
+        Url       = 'https://console.anthropic.com/settings/keys'
+        Shortcuts = @('ca', 'ocanthropic')
+        VarMap    = @{ 'ca' = 'ANTHROPIC_API_KEY'; 'ocanthropic' = 'ANTHROPIC_API_KEY' }
+    }
+    'OpenAI' = @{
+        Display   = 'OpenAI'
+        Region    = '🇺🇸 USA'
+        Url       = 'https://platform.openai.com/api-keys'
+        Shortcuts = @('ocopenai')
+        VarMap    = @{ 'ocopenai' = 'OPENAI_API_KEY' }
+        Note      = 'Codex CLI (codex55/54/mini) utilise son propre login - pas de cle a configurer ici.'
     }
 }
 
@@ -354,14 +438,6 @@ function Apply-ProfileEnv {
         if ($MetadataKeys -contains $key) { continue }
         $value = Expand-RouterValue -Value $env[$key]
         [Environment]::SetEnvironmentVariable($key, $value, 'Process')
-        # Stocker aussi comme SecureString pour minimiser l'exposition memoire
-        if ($key -match '(KEY|TOKEN|SECRET|PASSWORD|AUTH|CREDENTIAL)') {
-            try {
-                $secureKey = "${key}_SECURE"
-                $null = ConvertTo-SecureString $value -AsPlainText -Force
-                [Environment]::SetEnvironmentVariable($secureKey, '', 'Process')
-            } catch { }
-        }
     }
 }
 
@@ -617,8 +693,17 @@ function Show-ConfigMenu {
         Write-Host ('-' * 58) -ForegroundColor DarkGray
         Write-Host ''
 
+        $currentRegion = $null
+        $globalIdx = 0
         for ($i = 0; $i -lt $provKeys.Count; $i++) {
             $prov  = $ProviderCatalog[$provKeys[$i]]
+            $region = if ($prov.Contains('Region')) { $prov['Region'] } else { '' }
+            if ($region -and $region -ne $currentRegion) {
+                $currentRegion = $region
+                Write-Host ''
+                Write-Host ("  $currentRegion") -ForegroundColor White
+                Write-Host ('  ' + '-' * 48) -ForegroundColor DarkGray
+            }
             $total = 0; $configured = 0
             foreach ($sc in $prov.Shortcuts) {
                 if (-not $byShortcut.Contains($sc)) { continue }
@@ -627,13 +712,14 @@ function Show-ConfigMenu {
                 $val     = if ($byShortcut[$sc].Env.Contains($varName)) { $byShortcut[$sc].Env[$varName] } else { $null }
                 if (-not (Test-IsPlaceholder $val)) { $configured++ }
             }
+            $globalIdx++
             $statusStr   = if ($configured -eq $total -and $total -gt 0) { '[OK] ' } elseif ($configured -gt 0) { '[~~] ' } else { '[--] ' }
             $statusColor = if ($configured -eq $total -and $total -gt 0) { 'Green' } elseif ($configured -gt 0) { 'Yellow' } else { 'Red' }
 
-            Write-Host ("{0}. {1,-36}" -f ($i + 1), $prov.Display) -ForegroundColor Cyan -NoNewline
+            Write-Host ("  {0}. {1,-36}" -f $globalIdx, $prov.Display) -ForegroundColor Cyan -NoNewline
             Write-Host $statusStr -ForegroundColor $statusColor -NoNewline
             Write-Host ("({0}/{1})" -f $configured, $total) -ForegroundColor DarkGray
-            Write-Host ("   -> {0}" -f $prov.Url) -ForegroundColor DarkGray
+            Write-Host ("     -> {0}" -f $prov.Url) -ForegroundColor DarkGray
         }
 
         Write-Host ''
@@ -921,6 +1007,19 @@ function Write-ErrorLog {
     } catch { }
 }
 
+function Write-CostLog {
+    param([object]$Selected, [int]$ExitCode, [string]$Duration)
+    try {
+        $logDir = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'multiai'
+        if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Force -Path $logDir | Out-Null }
+        $logFile = Join-Path $logDir 'costs.log'
+        $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | $($selected.Shortcut) | $($selected.DisplayName) | exit=$ExitCode"
+        if ($Duration) { $line += " | duree=$Duration" }
+        $line += " | profile=$($selected.Path)"
+        Add-Content -LiteralPath $logFile -Value $line -Encoding UTF8
+    } catch { }
+}
+
 # ── Point d entree ─────────────────────────────────────────────────────────────
 # Codes de sortie :
 #   0 = Succes
@@ -991,10 +1090,15 @@ if ($routerHash) {
 }
 
 if ($DryRun) {
+    $dryRunArgs = @(Split-ArgsSimple -ArgString $selected.Args)
+    if ($ExtraArgs -and $ExtraArgs.Count -gt 0) {
+        if ($ExtraArgs[0] -eq '--') { $ExtraArgs = @($ExtraArgs | Select-Object -Skip 1) }
+        $dryRunArgs += $ExtraArgs
+    }
     Write-Host ''
     Write-Info "[DRY RUN] Simulation sans lancement"
     Show-EffectiveEnv -Selected $selected
-    Write-Ok "[DRY RUN] Commande qui serait lancee : $($selected.Command) $($launchArgs -join ' ')"
+    Write-Ok "[DRY RUN] Commande qui serait lancee : $($selected.Command) $($dryRunArgs -join ' ')"
     exit 0 }  # Succes
 
 if ($ShowEnv)  { Show-EffectiveEnv -Selected $selected -Json:$Json }
@@ -1022,5 +1126,40 @@ Write-Ok ("Lancement : {0} {1}" -f $command, ($launchArgs -join ' '))
 Write-Host ("Dossier courant : {0}" -f (Get-Location)) -ForegroundColor DarkGray
 Write-Host ''
 
+$startTime = Get-Date
 & $command @launchArgs
-$exitCode = if ($LASTEXITCODE -ne $null) { $LASTEXITCODE } else { 4 }; exit $exitCode
+$exitCode = if ($LASTEXITCODE -ne $null) { $LASTEXITCODE } else { 4 }
+$duration = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
+Write-CostLog -Selected $selected -ExitCode $exitCode -Duration "${duration}s"
+
+# ── Fallback chain ─────────────────────────────────────────────────────────
+if ($exitCode -ne 0 -and $selected.Env.Contains('FALLBACK')) {
+    $fallbackChain = @($selected.Env['FALLBACK'] -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    foreach ($fbShortcut in $fallbackChain) {
+        Write-Host ''
+        Write-Warn ("Echec ($command, exit=$exitCode) -> fallback vers '$fbShortcut'...")
+        try {
+            $fbProfile = Find-Profile -Profiles $profiles -ProfileName $fbShortcut
+            Apply-ProfileEnv -Selected $fbProfile
+            Test-RequiredSecrets -Selected $fbProfile
+            $fbArgs = @(Split-ArgsSimple -ArgString $fbProfile.Args)
+            if ($ExtraArgs -and $ExtraArgs.Count -gt 0) {
+                if ($ExtraArgs[0] -eq '--') { $ExtraArgs = @($ExtraArgs | Select-Object -Skip 1) }
+                $fbArgs += $ExtraArgs
+            }
+            Assert-CommandExists -Command $fbProfile.Command
+            Write-Ok ("Lancement fallback : {0} {1}" -f $fbProfile.Command, ($fbArgs -join ' '))
+            $fbStart = Get-Date
+            & $fbProfile.Command @fbArgs
+            $exitCode = if ($LASTEXITCODE -ne $null) { $LASTEXITCODE } else { 4 }
+            $fbDuration = [math]::Round(((Get-Date) - $fbStart).TotalSeconds, 1)
+            Write-CostLog -Selected $fbProfile -ExitCode $exitCode -Duration "${fbDuration}s"
+            if ($exitCode -eq 0) { break }  # fallback reussi, on sort de la boucle
+        } catch {
+            Write-Bad ("Fallback '$fbShortcut' a echoue : $($_.Exception.Message)")
+            $exitCode = 4
+        }
+    }
+}
+
+exit $exitCode
