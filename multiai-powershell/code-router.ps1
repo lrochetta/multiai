@@ -119,8 +119,8 @@ $ProviderCatalog = [ordered]@{
         Url       = 'https://openrouter.ai/settings/keys'
         Shortcuts = @('or-fusion', 'codex-fusion', 'oc-fusion', 'ocqwen', 'ockimi', 'ocminimax')
         VarMap    = @{
-            'or-fusion'     = 'ANTHROPIC_AUTH_TOKEN'
-            'codex-fusion'  = 'OPENAI_API_KEY'
+            'or-fusion'     = 'OPENROUTER_API_KEY'
+            'codex-fusion'  = 'OPENROUTER_API_KEY'
             'oc-fusion'     = 'OPENROUTER_API_KEY'
             'ocqwen'        = 'OPENROUTER_API_KEY'
             'ockimi'        = 'OPENROUTER_API_KEY'
@@ -713,74 +713,42 @@ function Show-OpenRouterMenu {
     Write-Host '  Fusion est deja integre (3 profils).'
     Write-Host '  Pour ajouter d''autres modeles OpenRouter :'
     Write-Host ''
-    Write-Host '  1. Voir la liste des 300+ modeles sur https://openrouter.ai/models'
-    Write-Host '  2. Creer un profil .env personnalise dans :'
+    Write-Host '  1. Voir les 300+ modeles : https://openrouter.ai/models'
+    Write-Host '  2. Profils existants dans :'
     Write-Host ("     {0}" -f $ProfilesDir) -ForegroundColor DarkGray
-    Write-Host '  3. Ou utiliser le modele ci-dessous :'
     Write-Host ''
-    Write-Host '  Exemple de profil OpenRouter personnalise :' -ForegroundColor Yellow
-    Write-Host '  ┌─────────────────────────────────────────────┐'
-    Write-Host '  │ PROFILE_ID=claude-monmodele                 │'
-    Write-Host '  │ SHORTCUT=or-mymodel                         │'
-    Write-Host '  │ TOOL=claude                                 │'
-    Write-Host '  │ DISPLAY_NAME=Mon Modele via OpenRouter       │'
-    Write-Host '  │ ORDER=50                                    │'
-    Write-Host '  │ COMMAND=claude                              │'
-    Write-Host '  │ ANTHROPIC_BASE_URL=https://openrouter.ai/api/v1│'
-    Write-Host '  │ ANTHROPIC_MODEL=fournisseur/modele           │'
-    Write-Host '  │ ANTHROPIC_AUTH_TOKEN=%OPENROUTER_API_KEY%    │'
-    Write-Host '  │ CLEAR_ENV=true                              │'
-    Write-Host '  │ REQUIRED_SECRETS=OPENROUTER_API_KEY          │'
-    Write-Host '  │ OPENROUTER_API_KEY=PASTE_OPENROUTER_API_KEY_HERE│'
-    Write-Host '  └─────────────────────────────────────────────┘'
+    Write-Host '  Exemple de profil .env personnalise :' -ForegroundColor Yellow
+    Write-Host '  ----'
+    Write-Host '  PROFILE_ID=claude-monmodele'
+    Write-Host '  SHORTCUT=or-mymodel'
+    Write-Host '  TOOL=claude'
+    Write-Host '  DISPLAY_NAME=Mon Modele via OpenRouter'
+    Write-Host '  ORDER=50'
+    Write-Host '  COMMAND=claude'
+    Write-Host '  CLEAR_ENV=true'
+    Write-Host '  REQUIRED_SECRETS=OPENROUTER_API_KEY'
+    Write-Host '  OPENROUTER_API_KEY=PASTE_OPENROUTER_API_KEY_HERE'
+    Write-Host '  ANTHROPIC_BASE_URL=https://openrouter.ai/api'
+    Write-Host '  ANTHROPIC_MODEL=fournisseur/modele'
+    Write-Host '  ANTHROPIC_AUTH_TOKEN=%OPENROUTER_API_KEY%'
+    Write-Host '  ANTHROPIC_API_KEY='
+    Write-Host '  ----'
     Write-Host ''
-    Write-Host '  Modeles recommandes (copier le slug) :' -ForegroundColor Cyan
-    Write-Host '    openrouter/fusion      - Panel multi-modele automatique (deja installe)'
-    Write-Host '    deepseek/deepseek-v4-pro - DeepSeek V4 Pro'
-    Write-Host '    anthropic/claude-sonnet-4.6 - Claude Sonnet 4.6'
-    Write-Host '    openai/gpt-5.5          - GPT-5.5'
-    Write-Host '    minimax/minimax-m3      - MiniMax M3 (populaire)'
-    Write-Host '    qwen/qwen3.7-plus       - Qwen 3.7 Plus'
-    Write-Host '    google/gemini-3.5-flash - Gemini 3.5 Flash'
-    Write-Host '    x-ai/grok-4.3           - Grok 4.3'
-    Write-Host '    nvidia/nemotron-3-ultra - Nemotron 3 Ultra (GRATUIT)'
-    Write-Host '    openrouter/owl-alpha    - Owl Alpha (GRATUIT)'
+    Write-Host '  Modeles recommandes (slug a copier) :' -ForegroundColor Cyan
+    Write-Host '    openrouter/fusion           - Panel multi-modele (deja installe)'
+    Write-Host '    deepseek/deepseek-v4-pro    - DeepSeek V4 Pro'
+    Write-Host '    anthropic/claude-sonnet-4.6  - Claude Sonnet 4.6'
+    Write-Host '    openai/gpt-5.5              - GPT-5.5'
+    Write-Host '    minimax/minimax-m3          - MiniMax M3 (populaire)'
+    Write-Host '    qwen/qwen3.7-plus           - Qwen 3.7 Plus'
+    Write-Host '    google/gemini-3.5-flash     - Gemini 3.5 Flash'
+    Write-Host '    x-ai/grok-4.3               - Grok 4.3'
+    Write-Host '    nvidia/nemotron-3-ultra     - Nemotron 3 Ultra (GRATUIT)'
+    Write-Host '    openrouter/owl-alpha        - Owl Alpha (GRATUIT)'
     Write-Host ''
     Write-Host ('-' * 58) -ForegroundColor DarkGray
-    Write-Host '  Creer un profil rapide :' -ForegroundColor Cyan
-    Write-Host '    or-add DeepSeek V4 Pro deepseek/deepseek-v4-pro claude' -ForegroundColor DarkGray
-    Write-Host ''
 
-    # Quick add function
-    function New-OpenRouterProfile {
-        param($DisplayName, $ModelSlug, $Tool)
-        $shortcut = "or-" + ($DisplayName -replace '[^a-zA-Z0-9]','' -replace ' ','').ToLower().Substring(0, [Math]::Min(8, ($DisplayName -replace '[^a-zA-Z0-9]','').Length))
-        $fileName = "99-" + $shortcut + ".env"
-        $filePath = Join-Path $ProfilesDir $fileName
-
-        $isAnthropic = $Tool -eq 'claude'
-        $authVar = if ($isAnthropic) { 'ANTHROPIC_AUTH_TOKEN' } elseif ($Tool -eq 'codex') { 'OPENAI_API_KEY' } else { 'OPENROUTER_API_KEY' }
-
-        $content = @"
-PROFILE_ID=$shortcut
-SHORTCUT=$shortcut
-TOOL=$Tool
-DISPLAY_NAME=$DisplayName (via OR)
-DESCRIPTION=OpenRouter: $ModelSlug
-ORDER=50
-COMMAND=$Tool
-CLEAR_ENV=true
-REQUIRED_SECRETS=OPENROUTER_API_KEY
-$authVar=%OPENROUTER_API_KEY%
-$($(if ($isAnthropic) { "ANTHROPIC_BASE_URL=https://openrouter.ai/api/v1`nANTHROPIC_MODEL=$ModelSlug" } elseif ($Tool -eq 'codex') { "OPENAI_BASE_URL=https://openrouter.ai/api/v1`nOPENAI_MODEL=$ModelSlug" } else { "OPENROUTER_MODEL=$ModelSlug" }))
-OPENROUTER_API_KEY=PASTE_OPENROUTER_API_KEY_HERE
-"@
-        Set-Content -LiteralPath $filePath -Value $content -Encoding UTF8
-        Write-Ok "Profil cree : $DisplayName [$shortcut] -> $filePath"
-        Write-Host "  Configurer la cle : multiai config -> OpenRouter"
-    }
-
-    Write-Host '  Ajout interactif rapide :'
+    Write-Host '  Ajout rapide interactif :' -ForegroundColor Cyan
     Write-Host ''
     $name = Read-Host '  Nom du modele (ex: DeepSeek V4 Pro)'
     if ($name) {
@@ -795,6 +763,48 @@ OPENROUTER_API_KEY=PASTE_OPENROUTER_API_KEY_HERE
     }
     Write-Host ''
     $null = Read-Host '  Entree pour revenir'
+}
+
+function New-OpenRouterProfile {
+    param($DisplayName, $ModelSlug, $Tool)
+    $shortcut = "or-" + ($DisplayName -replace '[^a-zA-Z0-9]','').ToLower()
+    if ($shortcut.Length -gt 12) { $shortcut = $shortcut.Substring(0, 12) }
+    $fileName = "99-" + $shortcut + ".env"
+    $filePath = Join-Path $ProfilesDir $fileName
+
+    $isAnthropic = $Tool -eq 'claude'
+
+    # Construire les lignes specifiques a l'outil
+    $toolLines = if ($isAnthropic) {
+        # /api sans /v1 : Claude Code ajoute automatiquement /v1/messages
+        "ANTHROPIC_AUTH_TOKEN=%OPENROUTER_API_KEY%`r`nANTHROPIC_BASE_URL=https://openrouter.ai/api`r`nANTHROPIC_MODEL=$ModelSlug`r`nANTHROPIC_API_KEY="
+    } elseif ($Tool -eq 'codex') {
+        "OPENAI_API_KEY=%OPENROUTER_API_KEY%`r`nOPENAI_BASE_URL=https://openrouter.ai/api/v1"
+    } else {
+        # OpenCode : OPENROUTER_API_KEY est la variable native, pas de reference
+        ""
+    }
+
+    $content = @"
+PROFILE_ID=$shortcut
+SHORTCUT=$shortcut
+TOOL=$Tool
+TOOL_LABEL=$Tool
+DISPLAY_NAME=$DisplayName (via OR)
+DESCRIPTION=OpenRouter: $ModelSlug
+ORDER=50
+COMMAND=$Tool
+CLEAR_ENV=true
+REQUIRED_SECRETS=OPENROUTER_API_KEY
+OPENROUTER_API_KEY=PASTE_OPENROUTER_API_KEY_HERE
+$toolLines
+"@
+    # Nettoyer les trailing whitespaces et normaliser les fins de ligne
+    $content = ($content -replace '[ \t]+$', '') -replace '\r?\n', "`r`n"
+    $content = $content.Trim() + "`r`n"
+    Set-Content -LiteralPath $filePath -Value $content -Encoding UTF8
+    Write-Ok "Profil cree : $DisplayName [$shortcut] -> $fileName"
+    Write-Host "  Configurer la cle : multiai config -> OpenRouter"
 }
 
 # ── Menu principal ─────────────────────────────────────────────────────────────
