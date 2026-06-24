@@ -465,6 +465,86 @@ function Set-ProfileSecret {
     return $found
 }
 
+function Erase-ProviderKeys {
+    param([hashtable]$ByShortcut, [string]$ProviderKey)
+    $prov = $ProviderCatalog[$ProviderKey]
+    $erased = 0
+    foreach ($sc in $prov.Shortcuts) {
+        if (-not $ByShortcut.Contains($sc)) { continue }
+        $prof    = $ByShortcut[$sc]
+        $varName = $prov.VarMap[$sc]
+        $placeholder = "PASTE_${varName}_HERE"
+        if (Set-ProfileSecret -ProfilePath $prof.Path -VarName $varName -NewValue $placeholder) {
+            $erased++
+            $prof.Env[$varName] = $placeholder
+        }
+    }
+    return $erased
+}
+
+function Show-EraseKeysMenu {
+    param([hashtable]$ByShortcut)
+    $provKeys = @($ProviderCatalog.Keys)
+
+    Write-Host ''
+    Write-Info 'Effacer des cles API'
+    Write-Host ('-' * 58) -ForegroundColor DarkGray
+    Write-Host ''
+
+    for ($i = 0; $i -lt $provKeys.Count; $i++) {
+        $prov  = $ProviderCatalog[$provKeys[$i]]
+        $total = 0; $configured = 0
+        foreach ($sc in $prov.Shortcuts) {
+            if (-not $ByShortcut.Contains($sc)) { continue }
+            $total++
+            $varName = $prov.VarMap[$sc]
+            $val     = if ($ByShortcut[$sc].Env.Contains($varName)) { $ByShortcut[$sc].Env[$varName] } else { $null }
+            if (-not (Test-IsPlaceholder $val)) { $configured++ }
+        }
+        $statusStr   = if ($configured -gt 0) { "[$configured cle(s)]" } else { '[aucune]' }
+        $statusColor = if ($configured -gt 0) { 'Yellow' } else { 'DarkGray' }
+
+        Write-Host ("{0}. {1,-36}" -f ($i + 1), $prov.Display) -ForegroundColor Cyan -NoNewline
+        Write-Host " $statusStr" -ForegroundColor $statusColor
+        Write-Host ("    -> {0} profil(s) concerne(s)" -f $total) -ForegroundColor DarkGray
+    }
+
+    Write-Host ''
+    Write-Host 'a. Effacer TOUTES les cles (tous les fournisseurs)' -ForegroundColor Red
+    Write-Host '0. Retour' -ForegroundColor DarkGray
+    Write-Host ''
+
+    $choice = Read-Host 'Choix'
+    if ($choice -eq '0') { return }
+
+    if ($choice -ieq 'a') {
+        Write-Host ''
+        Write-Warn 'ATTENTION : Toutes les cles API vont etre effacees !'
+        $confirm = Read-Host 'Tape "oui" pour confirmer'
+        if ($confirm -ne 'oui') { Write-Host 'Annule.' -ForegroundColor DarkGray; return }
+        $totalErased = 0
+        foreach ($pk in $provKeys) { $totalErased += (Erase-ProviderKeys -ByShortcut $ByShortcut -ProviderKey $pk) }
+        Write-Host ''
+        Write-Ok ("$totalErased cle(s) effacee(s) au total.")
+        return
+    }
+
+    $idx = 0
+    if ([int]::TryParse($choice, [ref]$idx) -and $idx -ge 1 -and $idx -le $provKeys.Count) {
+        $pk   = $provKeys[$idx - 1]
+        $prov = $ProviderCatalog[$pk]
+        Write-Host ''
+        Write-Warn ("Effacer la cle pour : $($prov.Display)")
+        $confirm = Read-Host 'Tape "oui" pour confirmer'
+        if ($confirm -ne 'oui') { Write-Host 'Annule.' -ForegroundColor DarkGray; return }
+        $n = Erase-ProviderKeys -ByShortcut $ByShortcut -ProviderKey $pk
+        Write-Host ''
+        Write-Ok ("$n cle(s) effacee(s) pour $($prov.Display).")
+    } else {
+        Write-Warn 'Choix invalide.'
+    }
+}
+
 function Invoke-ConfigureProvider {
     param([hashtable]$ByShortcut, [string]$ProviderKey)
     $prov = $ProviderCatalog[$ProviderKey]
@@ -558,6 +638,7 @@ function Show-ConfigMenu {
 
         Write-Host ''
         Write-Host 'a. Configurer tous les fournisseurs en sequence' -ForegroundColor Yellow
+        Write-Host 'e. Effacer des cles API' -ForegroundColor Magenta
         Write-Host '0. Retour' -ForegroundColor DarkGray
         Write-Host ''
 
@@ -569,6 +650,13 @@ function Show-ConfigMenu {
             Write-Host ''
             Write-Ok 'Configuration terminee.'
             return
+        }
+
+        if ($choice -ieq 'e') {
+            Show-EraseKeysMenu -ByShortcut $byShortcut
+            Write-Host ''
+            $null = Read-Host 'Entree pour revenir'
+            continue
         }
 
         $idx = 0

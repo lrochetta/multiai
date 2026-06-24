@@ -1,6 +1,6 @@
 {
   "name": "multiai",
-  "version": "0.2.12",
+  "version": "0.2.13",
   "description": "Route multiple AI CLIs (Claude Code, Codex, OpenCode) with isolated env profiles — Windows, macOS, Linux",
   "keywords": [
     "ai",
