@@ -1,0 +1,176 @@
+# CI for the Go reference implementation (multiai-go/).
+#
+# MONOREPO NOTE: GitHub only executes workflows located in
+# <repo root>/.github/workflows/. This file is maintained here (next to the Go
+# module) and must be deployed to the repo root with:
+#   multiai-go/scripts/sync-workflows.ps1
+#
+# All actions are pinned by full commit SHA (audit v0.2.1, finding #14).
+# gofmt + go vet + gosec + govulncheck + golangci-lint cover the essentials.
+
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - "multiai-go/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    paths:
+      - "multiai-go/**"
+      - ".github/workflows/ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: multiai-go
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: multiai-go/go.mod
+          cache-dependency-path: multiai-go/go.sum
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "gofmt needed on:"
+            echo "$unformatted"
+            exit 1
+          fi
+      - name: go vet
+        run: go vet ./...
+      - name: gosec
+        # G104 (unhandled errors on prints/exits) excluded, as in .golangci.yml.
+        run: go run github.com/securego/gosec/v2/cmd/gosec@latest -exclude=G104 ./...
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@55c14478432e0f56f8b6fd1c1e7c1a18c79987d7 # v7
+        with:
+          working-directory: multiai-go
+          version: latest
+
+  test:
+    name: Test (${{ matrix.os }})
+    needs: lint
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: multiai-go/go.mod
+          cache-dependency-path: multiai-go/go.sum
+      - name: Test
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+      - name: Upload coverage
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: coverage
+          path: multiai-go/coverage.out
+
+  security:
+    name: Security scan
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: multiai-go/go.mod
+          cache-dependency-path: multiai-go/go.sum
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  benchmark:
+    name: Benchmark
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: multiai-go/go.mod
+          cache-dependency-path: multiai-go/go.sum
+      - name: Run benchmarks
+        run: go test -bench=. -benchmem ./tests/ 2>&1 | tee benchmark.txt
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: benchmark
+          path: multiai-go/benchmark.txt
+
+  build:
+    name: Build (${{ matrix.os }})
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: multiai-go/go.mod
+          cache-dependency-path: multiai-go/go.sum
+      - name: Build
+        run: go build -o multiai${{ startsWith(matrix.os, 'windows') && '.exe' || '' }} ./cmd/multiai/
+      - name: Upload artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: multiai-${{ matrix.os }}
+          path: multiai-go/multiai${{ startsWith(matrix.os, 'windows') && '.exe' || '' }}
+
+  smoke:
+    name: Smoke test
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version-file: multiai-go/go.mod
+          cache-dependency-path: multiai-go/go.sum
+      - name: Build and smoke
+        run: |
+          cd multiai-go
+          go build -o multiai ./cmd/multiai/
+          ./multiai version
+          ./multiai list
+
+  release-check:
+    name: GoReleaser config check
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: multiai-go/go.mod
+          cache-dependency-path: multiai-go/go.sum
+      - name: Install GoReleaser
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          install-only: true
+      - name: goreleaser check
+        run: goreleaser check
+      - name: goreleaser snapshot build
+        run: goreleaser build --snapshot --clean

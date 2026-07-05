@@ -1,0 +1,24 @@
+# MONOREPO NOTE: Dependabot only reads <repo root>/.github/dependabot.yml.
+# This file is maintained here (next to the Go module) and must be deployed
+# to the repo root with: multiai-go/scripts/sync-workflows.ps1
+version: 2
+updates:
+  - package-ecosystem: "gomod"
+    directory: "/multiai-go"
+    schedule:
+      interval: "weekly"
+    assignees:
+      - "lrochetta"
+
+  # Workflows live in <repo root>/.github/workflows once synced.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    assignees:
+      - "lrochetta"
+
+  - package-ecosystem: "npm"
+    directory: "/multiai-powershell"
+    schedule:
+      interval: "weekly"
