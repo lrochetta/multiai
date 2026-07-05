@@ -6,12 +6,14 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/lrochetta/multiai/internal/catalog"
 	"github.com/lrochetta/multiai/internal/cli"
+	"github.com/lrochetta/multiai/internal/env"
 	"github.com/lrochetta/multiai/internal/profile"
 	"github.com/lrochetta/multiai/internal/secret"
 	"github.com/lrochetta/multiai/pkg/dotenv"
@@ -124,7 +126,12 @@ func runConfigMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile,
 			} else if configured > 0 {
 				status = "[~~]"
 			}
-			fmt.Printf("  %d. %-36s %s (%d/%d)\n", i+1, prov.Display, status, configured, total)
+			color := cli.StatusColor(configured, total)
+			line := fmt.Sprintf("  %d. %-36s %s", i+1, prov.Display, status)
+			if configured > 0 {
+				line += fmt.Sprintf(" (%d/%d)", configured, total)
+			}
+			fmt.Println(cli.Colorize(line, color))
 			fmt.Printf("     -> %s\n", prov.URL)
 		}
 
@@ -197,54 +204,91 @@ func configureProvider(prov Provider, byShortcut map[string]*profile.Profile, re
 	}
 	fmt.Printf("  Profils : %s\n", strings.Join(shortcuts, ", "))
 
-	// Current status, read from the first installed profile of the group.
-	firstProf := byShortcut[shortcuts[0]]
-	firstVar := prov.VarMap[shortcuts[0]]
-	currentVal := firstProf.Env[firstVar]
-	fmt.Print("  Statut actuel : ")
-	if currentVal == secret.Sentinel {
-		fmt.Println("[configuree - stockee dans le credential store]")
-	} else if dotenv.IsPlaceholder(currentVal) {
-		cli.PrintError("[non configuree]")
+	// Determine the key variable for the first installed shortcut.
+	varName := prov.VarMap[shortcuts[0]]
+	p := byShortcut[shortcuts[0]]
+	currentValue := p.Env[varName]
+
+	isSentinel := currentValue == secret.Sentinel
+
+	// Show current value (masked).
+	masked := env.MaskSecret(currentValue)
+	fmt.Printf("  Variable  : %s\n", varName)
+	if isSentinel {
+		fmt.Printf("  Valeur    : %s (stockee dans le credential store)\n", cli.Colorize(masked, "\033[32m"))
+	} else if !dotenv.IsPlaceholder(currentValue) {
+		fmt.Printf("  Valeur    : %s (en clair dans le .env)\n", cli.Colorize(masked, "\033[33m"))
 	} else {
-		masked := currentVal
-		if len(masked) > 8 {
-			masked = masked[:4] + "..." + masked[len(masked)-4:]
-		} else if len(masked) > 0 {
-			masked = "****"
-		}
-		fmt.Println(masked)
+		fmt.Printf("  Valeur    : %s\n", cli.Colorize(masked, "\033[90m"))
+	}
+	fmt.Println()
+
+	// Build the key prompt.
+	prompt := fmt.Sprintf("Nouvelle cle API (vide = inchanger) : ")
+	if isSentinel {
+		prompt = fmt.Sprintf("Nouvelle cle API (vide = inchanger, effacer = e) : ")
 	}
 
-	fmt.Println()
-	fmt.Print("  Nouvelle valeur (vide = ignorer) : ")
-	newVal, _ := reader.ReadString('\n')
-	newVal = strings.TrimSpace(newVal)
+	fmt.Print(prompt)
+	newKey, _ := reader.ReadString('\n')
+	newKey = strings.TrimSpace(newKey)
 
-	if newVal == "" {
-		fmt.Println("  -> Ignore.")
+	if newKey == "" {
+		fmt.Println("  Aucune modification.")
 		return
 	}
 
-	if valid, msg := validateAPIKey(prov, newVal); !valid {
-		cli.PrintWarning(fmt.Sprintf("  Attention: %s", msg))
-		fmt.Print("  Continuer quand meme ? (o/N) : ")
+	if newKey == "e" && isSentinel {
+		// Erase from store and restore placeholder.
+		store, err := secret.NewStore()
+		if err != nil {
+			cli.PrintWarning(fmt.Sprintf("  Credential store inaccessible : %v", err))
+			return
+		}
+		isSentinel = false
+		for _, sc := range shortcuts {
+			v := prov.VarMap[sc]
+			if err := store.Delete(secret.ServiceForProfile(byShortcut[sc].Path), v); err != nil {
+				cli.PrintWarning(fmt.Sprintf("  Erreur effacement %s : %v", sc, err))
+				continue
+			}
+			if err := setEnvVarInFile(byShortcut[sc].Path, v, "PASTE_" + v + "_HERE"); err != nil {
+				cli.PrintWarning(fmt.Sprintf("  Erreur mise a jour %s : %v", sc, err))
+				continue
+			}
+			// Reload in-memory so the menu status refreshes.
+			byShortcut[sc].Env[v] = "PASTE_" + v + "_HERE"
+		}
+		cli.PrintSuccess("Cle effacee du credential store.")
+		return
+	}
+
+	// Validate format.
+	if valid, msg := validateAPIKey(prov, newKey); !valid {
+		cli.PrintWarning(fmt.Sprintf("  Format invalide : %s", msg))
+		fmt.Print("  Confirmer quand meme ? (o/N) : ")
 		confirm, _ := reader.ReadString('\n')
-		if strings.TrimSpace(strings.ToLower(confirm)) != "o" {
+		if strings.ToLower(strings.TrimSpace(confirm)) != "o" {
+			fmt.Println("  Annule.")
 			return
 		}
 	}
 
+	// Apply to all installed profiles.
 	updated := 0
 	for _, sc := range shortcuts {
-		p := byShortcut[sc]
-		varName := prov.VarMap[sc]
-		// Update file first, then memory, so the display stays honest.
-		if err := updateEnvFile(p.Path, varName, newVal, false); err == nil {
-			p.Env[varName] = newVal
-			updated++
-			fmt.Printf("    + %-30s [%s]\n", p.DisplayName, p.Shortcut)
+		v := prov.VarMap[sc]
+		pp := byShortcut[sc]
+
+		// Use the allow-plaintext flag when the credential store is
+		// unavailable so the user intent is explicit.
+		if err := updateEnvFile(pp.Path, v, newKey, false); err != nil {
+			cli.PrintWarning(fmt.Sprintf("  %s : %v", sc, err))
+			continue
 		}
+		// Reload in-memory.
+		pp.Env[v] = newKey
+		updated++
 	}
 	if updated > 0 {
 		cli.PrintSuccess(fmt.Sprintf("  %d profil(s) mis a jour.", updated))
@@ -312,17 +356,31 @@ func setEnvVarInFile(path, varName, value string) error {
 		}
 	}
 	if !found {
-		return fmt.Errorf("variable %s non trouvee dans %s", varName, path)
+		// Append the variable at the end.
+		lines = append(lines, "")
+		lines = append(lines, varName+"="+value)
 	}
 
-	newContent := []byte(strings.Join(lines, "\n"))
-	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, newContent, 0600); err != nil {
-		return fmt.Errorf("cannot write temp file: %w", err)
+	newContent := strings.Join(lines, "\n")
+
+	// Atomic write via temp file + rename (fsync on temp file before rename).
+	tmpFile, err := os.CreateTemp(filepath.Dir(path), ".tmp-*.env")
+	if err != nil {
+		return err
 	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		os.Remove(tmpPath)
-		return fmt.Errorf("cannot replace %s: %w", path, err)
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
+
+	if _, err := tmpFile.WriteString(newContent); err != nil {
+		tmpFile.Close()
+		return err
 	}
-	return nil
+	if err := tmpFile.Sync(); err != nil {
+		tmpFile.Close()
+		return err
+	}
+	if err := tmpFile.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpPath, path)
 }

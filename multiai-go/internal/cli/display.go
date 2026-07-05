@@ -13,12 +13,29 @@ import (
 // noColor disables ANSI escape codes when the NO_COLOR env var is set.
 var noColor = os.Getenv("NO_COLOR") != ""
 
-// colorize wraps text in the given ANSI code, respecting NO_COLOR.
-func colorize(text, ansiCode string) string {
+// Colorize wraps text in the given ANSI code, respecting NO_COLOR.
+func Colorize(text, ansiCode string) string {
 	if noColor {
 		return text
 	}
 	return ansiCode + text + "\033[0m"
+}
+
+// colorize keeps the internal name for backwards compat within this package.
+func colorize(text, ansiCode string) string {
+	return Colorize(text, ansiCode)
+}
+
+// StatusColor returns an ANSI color code for a configuration status.
+//  [OK] → green, [~~] → yellow, [--] → dim/grey
+func StatusColor(configured, total int) string {
+	if configured == total && total > 0 {
+		return "\033[32m" // green
+	}
+	if configured > 0 {
+		return "\033[33m" // yellow
+	}
+	return "\033[90m" // dim grey
 }
 
 // ListProfiles displays all profiles.

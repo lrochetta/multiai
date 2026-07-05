@@ -96,8 +96,12 @@ func TestUpdateEnvFile_VariableNotFound(t *testing.T) {
 	if err := os.WriteFile(profPath, []byte("SHORTCUT=ca\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := updateEnvFile(profPath, "MISSING_VAR", "x", false); err == nil {
-		t.Fatal("expected error for missing variable")
+	if err := updateEnvFile(profPath, "MISSING_VAR", "x", false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	data, _ := os.ReadFile(profPath)
+	if !strings.Contains(string(data), "MISSING_VAR=") {
+		t.Errorf("variable not appended:\n%s", string(data))
 	}
 }
 
