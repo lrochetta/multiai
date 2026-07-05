@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
+	"github.com/lrochetta/multiai/internal/catalog"
 	"github.com/lrochetta/multiai/internal/cli"
 	"github.com/lrochetta/multiai/internal/config"
 	"github.com/lrochetta/multiai/internal/logging"
@@ -14,11 +16,27 @@ import (
 	"github.com/lrochetta/multiai/pkg/dotenv"
 )
 
+// varRefRe matches a pure PS-style %NAME% indirection. Twenty of the 37
+// shipped profiles wire their auth token to another variable of the same
+// file (e.g. ANTHROPIC_AUTH_TOKEN=%OPENROUTER_API_KEY%): that value is not
+// a configured key, only the referenced variable is.
+var varRefRe = regexp.MustCompile(`^%[A-Za-z_][A-Za-z0-9_]*%$`)
+
 // IsFirstRun returns true if no profiles have configured API keys.
 func IsFirstRun(profiles []profile.Profile) bool {
 	for _, p := range profiles {
 		for k, v := range p.Env {
-			if isSecretLike(k) && !dotenv.IsPlaceholder(v) && v != "__MULTIAI_CREDSTORE__" {
+			if !isSecretLike(k) {
+				continue
+			}
+			// %VAR% indirections ship in the pristine templates; skip them
+			// so a fresh install is still detected as a first run.
+			if varRefRe.MatchString(strings.TrimSpace(v)) {
+				continue
+			}
+			// A credential-store sentinel means the key IS configured
+			// (real value lives in the store, written by 'multiai config').
+			if !dotenv.IsPlaceholder(v) {
 				return false // At least one key is configured
 			}
 		}
@@ -36,8 +54,9 @@ func RunWelcome(profiles []profile.Profile) {
 	cli.PrintInfo("========================================")
 	fmt.Println()
 	fmt.Println("Il semble que ce soit votre premiere utilisation.")
-	fmt.Printf("  %d profils disponibles\n", len(profiles))
-	fmt.Println("  5 fournisseurs : Anthropic, DeepSeek, Z.ai, OpenAI, OpenRouter")
+	fmt.Printf("  %d profils disponibles, %d fournisseurs supportes\n",
+		len(profiles), len(catalog.Default().Providers))
+	fmt.Println("  (liste complete : multiai config)")
 	fmt.Println()
 	fmt.Println("Etapes recommandees :")
 	fmt.Println("  1. Configurer vos cles API")
@@ -65,11 +84,36 @@ func RunWelcome(profiles []profile.Profile) {
 	markFirstRunDone()
 }
 
+// firstRunMarkerPath returns the file recording that the welcome wizard
+// already ran once (completed or declined). Empty when no home dir exists.
+func firstRunMarkerPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	return filepath.Join(home, ".multiai", ".first-run-done")
+}
+
+// FirstRunMarkerExists reports whether the welcome wizard already ran.
+// Callers combine it with IsFirstRun: the wizard shows only when no key is
+// configured AND this marker is absent (an existing marker is respected).
+func FirstRunMarkerExists() bool {
+	path := firstRunMarkerPath()
+	if path == "" {
+		return true // no home dir: never nag, never re-prompt
+	}
+	_, err := os.Stat(path)
+	return err == nil
+}
+
 func markFirstRunDone() {
-	home, _ := os.UserHomeDir()
-	markerDir := filepath.Join(home, ".multiai")
-	os.MkdirAll(markerDir, 0700)
-	os.WriteFile(filepath.Join(markerDir, ".first-run-done"), []byte("1"), 0600)
+	path := firstRunMarkerPath()
+	if path == "" {
+		return
+	}
+	// Best-effort: a failed marker write must never break the CLI.
+	_ = os.MkdirAll(filepath.Dir(path), 0700)
+	_ = os.WriteFile(path, []byte("1"), 0600)
 }
 
 func isSecretLike(key string) bool {

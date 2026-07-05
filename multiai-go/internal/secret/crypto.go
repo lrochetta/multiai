@@ -14,7 +14,11 @@ import (
 
 // DeriveKey derives a 32-byte AES key from a passphrase and salt using
 // PBKDF2-HMAC-SHA256 with 10,000 iterations.
-// This replaces the original single-hash derivation for brute-force resistance.
+//
+// RESERVED, not yet wired: the current file store uses a random master key
+// with no passphrase (see the package doc threat model). This helper exists
+// for the planned passphrase-protected / native-backend mode (roadmap 1.10);
+// GenerateSalt is its companion. Do not assume the store derives keys today.
 func DeriveKey(passphrase string, salt []byte) []byte {
 	iterations := 10000
 	keyLen := 32

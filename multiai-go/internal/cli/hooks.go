@@ -51,10 +51,10 @@ func RunBeforeHooks(hooks *profile.HooksConfig, prof *profile.Profile) error {
 		if shell == "" {
 			shell = defaultShell()
 		}
-		// Escape shell metacharacters to prevent injection
-		cmdStr = escapeShellArg(cmdStr, shell)
-		// Expand env AFTER escaping, so injected env vars can't add shell metacharacters
+		// Expand env FIRST, so injected env var values are escaped below
 		cmdStr = os.ExpandEnv(cmdStr)
+		// Escape shell metacharacters to prevent injection (including expanded env values)
+		cmdStr = escapeShellArg(cmdStr, shell)
 
 		fmt.Fprintf(os.Stderr, "  [%d/%d] %s\n", i+1, len(hooks.BeforeLaunch), cmdStr)
 
@@ -102,10 +102,10 @@ func RunAfterHooks(hooks *profile.HooksConfig, prof *profile.Profile, launchErr 
 		if shell == "" {
 			shell = defaultShell()
 		}
-		// Escape shell metacharacters to prevent injection
-		cmdStr = escapeShellArg(cmdStr, shell)
-		// Expand env AFTER escaping, so injected env vars can't add shell metacharacters
+		// Expand env FIRST, so injected env var values are escaped below
 		cmdStr = os.ExpandEnv(cmdStr)
+		// Escape shell metacharacters to prevent injection (including expanded env values)
+		cmdStr = escapeShellArg(cmdStr, shell)
 
 		fmt.Fprintf(os.Stderr, "  [%d/%d] %s\n", i+1, len(hooks.AfterLaunch), cmdStr)
 
@@ -137,8 +137,8 @@ func RunAfterHooks(hooks *profile.HooksConfig, prof *profile.Profile, launchErr 
 }
 
 // expandHookVars expands template variables in hook commands.
-// Note: os.ExpandEnv is called AFTER escapeShellArg, not here,
-// to prevent injection via environment variables.
+// Note: os.ExpandEnv is called BEFORE escapeShellArg, not here,
+// so that any injected shell metacharacters in env values get escaped.
 func expandHookVars(cmd string, prof *profile.Profile) string {
 	result := cmd
 	result = strings.ReplaceAll(result, "{{.Profile.ID}}", prof.ID)

@@ -3,6 +3,9 @@
 configs/profiles/*.env
 .credentials/
 
+# Embedded profile templates (sanitized placeholders only) MUST be tracked
+!multiai-go/internal/assets/profiles/*.env
+
 # Build
 multiai-go/build/
 multiai-go/vendor/
@@ -21,13 +24,26 @@ Thumbs.db
 .DS_Store
 Desktop.ini
 
+# VitePress (multiai-go/docs source IS tracked)
+multiai-go/docs/node_modules/
+multiai-go/docs/.vitepress/dist/
+multiai-go/docs/.vitepress/cache/
+
 # Exclure : pas de code source
 _bmad/
 _bmad-output/
 .agents/
-audit/
-brainstorm*
-docs/
+/brainstorm*
+/_local*
+/docs/
 AGENTS.md
 GEMINI.md
 .commit-msg
+
+# Build artifacts & coverage
+multiai-go/dist/
+multiai-go/.gocache/
+log/
+multiai-go/$prof
+*.out
+multiai.exe

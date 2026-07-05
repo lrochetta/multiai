@@ -4,40 +4,110 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/lrochetta/multiai/internal/assets"
+	"github.com/lrochetta/multiai/internal/catalog"
 	"github.com/lrochetta/multiai/internal/cli"
 	"github.com/lrochetta/multiai/internal/config"
 	"github.com/lrochetta/multiai/internal/menu"
+	"github.com/lrochetta/multiai/internal/onboarding"
+	"github.com/lrochetta/multiai/internal/openrouter"
 	"github.com/lrochetta/multiai/internal/profile"
 )
 
-const version = "0.2.1"
+// version is the single source of truth for the CLI version (also shown in
+// the interactive menu title). Release builds override it with
+// `-ldflags "-X main.version=X.Y.Z"` (goreleaser).
+var version = "0.4.0-dev"
 
-// getProfilesDir returns the path to the profiles directory.
+// commands is the subcommand registry. Feature files (cmd_*.go) contribute
+// commands from an init() via register(), so main.go stays free of merge
+// hotspots when several features land in parallel.
+var commands = map[string]func(args []string) int{}
+
+func register(name string, fn func(args []string) int) { commands[name] = fn }
+
+// getProfilesDir resolves the profiles directory, in priority order:
+//  1. MULTIAI_PROFILES_DIR environment variable (tests, portable setups)
+//  2. <executable dir>/configs/profiles when present (zip installs)
+//  3. ./configs/profiles when present AND MULTIAI_DEV is set (dev mode only,
+//     opt-in: loading profiles from an arbitrary CWD is an attack surface)
+//  4. <user config dir>/multiai/profiles, created and seeded from the
+//     embedded templates on first run (go install / npm binary).
 func getProfilesDir() string {
-	// Try relative to executable first
-	exe, err := os.Executable()
-	if err == nil {
+	if dir := os.Getenv("MULTIAI_PROFILES_DIR"); dir != "" {
+		ensureProfiles(dir)
+		return dir
+	}
+	if exe, err := os.Executable(); err == nil {
 		dir := filepath.Join(filepath.Dir(exe), "configs", "profiles")
-		if info, err := os.Stat(dir); err == nil && info.IsDir() {
+		if isDir(dir) {
 			return dir
 		}
 	}
-	// Fallback: relative to working directory
-	dir := filepath.Join("configs", "profiles")
-	if info, err := os.Stat(dir); err == nil && info.IsDir() {
-		return dir
+	// CWD-relative profiles are OPT-IN only (MULTIAI_DEV). Honouring them
+	// unconditionally is an attack surface: a hostile directory could ship
+	// ./configs/profiles that shadows the user's real profiles and, via the
+	// credential-store service namespace (basename-derived), exfiltrate their
+	// stored secrets. The PowerShell reference never reads the CWD.
+	if os.Getenv("MULTIAI_DEV") != "" {
+		if dir := filepath.Join("configs", "profiles"); isDir(dir) {
+			return dir
+		}
 	}
-	// Last resort
+	cfg, err := os.UserConfigDir()
+	if err != nil {
+		// No user config dir available: fall back to the dev-mode path so
+		// the caller reports a readable "cannot read profiles directory".
+		return filepath.Join("configs", "profiles")
+	}
+	dir := filepath.Join(cfg, "multiai", "profiles")
+	ensureProfiles(dir)
 	return dir
 }
 
+// ensureProfiles seeds dir with the embedded profile templates when it does
+// not exist yet or contains no .env file. User files are never overwritten.
+func ensureProfiles(dir string) {
+	if hasEnvFiles(dir) {
+		return
+	}
+	n, err := assets.ExtractProfiles(dir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Avertissement: impossible d'installer les profils dans %s : %v\n", dir, err)
+		return
+	}
+	if n > 0 {
+		fmt.Fprintf(os.Stderr, "Profils installes dans %s (%d fichiers)\n", dir, n)
+	}
+}
+
+func isDir(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}
+
+func hasEnvFiles(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".env") {
+			return true
+		}
+	}
+	return false
+}
+
 func printHelp() {
-	fmt.Println(`multiai — Routeur multi-IA (Claude Code, Codex CLI, OpenCode)
+	fmt.Println(`multiai -- Routeur multi-IA (Claude Code, Codex CLI, OpenCode)
 
 Usage:
   multiai                         Menu interactif
@@ -47,8 +117,12 @@ Usage:
   multiai launch -p ds --dry-run  Simulation sans lancer
   multiai list                    Liste des profils
   multiai list --json             Liste en JSON
-  multiai config                  Configurer les clés API
+  multiai config                  Configurer les cles API
   multiai config --provider <id>  Configurer un fournisseur specifique
+  multiai models                  Modeles OpenRouter (top, --offline: cache)
+  multiai search <terme>          Rechercher un modele OpenRouter
+  multiai compare <slug> ...      Comparer des modeles OpenRouter
+  multiai bmad                    Gestion BMAD+ (install/update via npx)
   multiai completion <shell>      Completion shell (bash/zsh/fish/powershell)
   multiai version                 Afficher la version
   multiai help                    Cette aide
@@ -94,12 +168,21 @@ func printConfigHelp() {
   multiai config                              Configuration interactive des cles API
   multiai config --provider <id>              Configurer un fournisseur specifique
 
-Fournisseurs disponibles:
-  anthropic   Anthropic (officiel)
-  zai         Z.ai / BigModel
-  deepseek    DeepSeek
-  openai      OpenAI
-  openrouter  OpenRouter`)
+Fournisseurs disponibles:`)
+	// Data-driven from the embedded catalog so this list can never go stale.
+	for _, prov := range catalog.Default().Providers {
+		fmt.Printf("  %-14s %s\n", prov.ID, prov.Display)
+	}
+}
+
+func printBmadHelp() {
+	fmt.Println(`Usage:
+  multiai bmad    Gestion BMAD+ dans le dossier courant :
+                  detection de l'installation (_bmad/, package.json, .agents/),
+                  installation / mise a jour via npx bmad-plus
+                  (confirmation demandee avant chaque execution)
+
+Necessite Node.js (npx) : https://nodejs.org`)
 }
 
 func main() {
@@ -108,19 +191,28 @@ func main() {
 		return
 	}
 
-	// Handle subcommand --help
+	// Handle subcommand --help. Registered commands (models, search,
+	// compare, ...) are NOT intercepted: they own their --help output.
 	if len(os.Args) >= 3 && os.Args[2] == "--help" {
 		switch os.Args[1] {
 		case "launch":
 			printLaunchHelp()
+			os.Exit(0)
 		case "list":
 			printListHelp()
+			os.Exit(0)
 		case "config":
 			printConfigHelp()
+			os.Exit(0)
+		case "bmad":
+			printBmadHelp()
+			os.Exit(0)
 		default:
-			printHelp()
+			if _, ok := commands[os.Args[1]]; !ok {
+				printHelp()
+				os.Exit(0)
+			}
 		}
-		os.Exit(0)
 	}
 
 	switch os.Args[1] {
@@ -149,7 +241,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
 			os.Exit(2)
 		}
-		result := runLaunch(profiles)
+		result, err := runLaunch(profiles)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
+			os.Exit(1)
+		}
 		if result != nil && result.ExitCode != 0 {
 			os.Exit(result.ExitCode)
 		}
@@ -160,10 +256,27 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
 			os.Exit(2)
 		}
-		if err := config.InteractiveConfig(profiles); err != nil {
+		if hasFlag(os.Args, "--provider") {
+			providerID := getFlagValue(os.Args, "--provider")
+			if providerID == "" {
+				fmt.Fprintln(os.Stderr, "Erreur: --provider attend un identifiant de fournisseur")
+				fmt.Println()
+				printConfigHelp()
+				os.Exit(1)
+			}
+			if err := config.ConfigureProviderByID(profiles, providerID, bufio.NewReader(os.Stdin)); err != nil {
+				fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
+				os.Exit(1)
+			}
+		} else if err := config.InteractiveConfig(profiles); err != nil {
 			fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
 			os.Exit(1)
 		}
+
+	case "bmad":
+		// One-shot parity with the PowerShell -Bmad flag: show the menu,
+		// run the chosen npx action, exit 0.
+		menu.ShowBmadMenu()
 
 	case "completion":
 		shell := "bash"
@@ -176,6 +289,9 @@ func main() {
 		}
 
 	default:
+		if fn, ok := commands[os.Args[1]]; ok {
+			os.Exit(fn(os.Args[2:]))
+		}
 		fmt.Fprintf(os.Stderr, "Commande inconnue : %s\n", os.Args[1])
 		printHelp()
 		os.Exit(1)
@@ -183,36 +299,55 @@ func main() {
 }
 
 func runInteractiveLoop() {
+	// First-run onboarding: interactive mode only, shown at most once.
+	// An existing marker file is respected even if all keys were erased
+	// later (the wizard never nags twice).
+	if profiles, err := profile.LoadDir(getProfilesDir()); err == nil {
+		if onboarding.IsFirstRun(profiles) && !onboarding.FirstRunMarkerExists() {
+			onboarding.RunWelcome(profiles)
+		}
+	}
+
 	for {
 		profiles, err := profile.LoadDir(getProfilesDir())
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "[X] %v\n", err)
 			os.Exit(2)
 		}
-		choice := menu.ShowTopMenu(len(profiles))
+		choice := menu.ShowTopMenu(version, len(profiles))
 		switch choice {
 		case "1":
-			result := runLaunch(profiles)
-			if result != nil && result.ExitCode != 0 {
+			result, err := runLaunch(profiles)
+			if err != nil {
+				cli.PrintError(fmt.Sprintf("%v", err))
+			} else if result != nil && result.ExitCode != 0 {
 				cli.PrintWarning(fmt.Sprintf("Le processus s'est termine avec le code: %d", result.ExitCode))
 			}
 			fmt.Println()
 		case "2":
 			if err := config.InteractiveConfig(profiles); err != nil {
-				fmt.Fprintf(os.Stderr, "[X] %v\n", err)
+				cli.PrintError(fmt.Sprintf("%v", err))
 			}
 			fmt.Println()
 		case "3":
-			fmt.Println("\nBMAD+ -- lancement de npx bmad-plus install...")
-			fmt.Println("(BMAD+ n'est pas encore integre dans la version Go)")
+			menu.ShowBmadMenu()
 			fmt.Println()
+		case "4":
+			if err := openrouter.InteractiveMenu(); err != nil {
+				cli.PrintError(fmt.Sprintf("OpenRouter : %v", err))
+			}
+			fmt.Println()
+		case "0", "q", "quit", "exit":
+			return
 		default:
-			fmt.Println("Choix invalide. Options : 1, 2, 3")
+			fmt.Println("Choix invalide. Options : 1-4, 0 pour quitter")
 		}
 	}
 }
 
-func runLaunch(profiles []profile.Profile) *cli.LaunchResult {
+// runLaunch returns (nil, nil) when the user navigates back, and a non-nil
+// error on real failures so callers can exit non-zero (v0.2.1 finding #7).
+func runLaunch(profiles []profile.Profile) (*cli.LaunchResult, error) {
 	var selected *profile.Profile
 
 	// Check for -p / --profile flag
@@ -224,34 +359,30 @@ func runLaunch(profiles []profile.Profile) *cli.LaunchResult {
 		var err error
 		selected, err = profile.FindByShortcut(profiles, profileName)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
-			return nil
+			return nil, err
 		}
 	} else if toolName != "" {
 		var err error
 		selected, err = menu.SelectProfile(profiles, toolName)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
-			return nil
+			return nil, err
 		}
 		if selected == nil {
-			return nil
+			return nil, nil
 		}
 	} else {
 		for {
 			tool, err := menu.SelectTool(profiles)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
-				return nil
+				return nil, err
 			}
 			if tool == "" {
-				return nil // back to menu
+				return nil, nil // back to menu
 			}
 
 			selected, err = menu.SelectProfile(profiles, tool)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
-				return nil
+				return nil, err
 			}
 			if selected != nil {
 				break
@@ -272,10 +403,9 @@ func runLaunch(profiles []profile.Profile) *cli.LaunchResult {
 		ExtraArgs:          extraArgs,
 	}
 
-	result, err := cli.ValidateAndLaunch(selected, opts)
+	result, err := cli.LaunchWithFallback(profiles, selected, opts)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
-		return nil
+		return nil, err
 	}
 
 	if opts.JSON && result != nil {
@@ -284,7 +414,7 @@ func runLaunch(profiles []profile.Profile) *cli.LaunchResult {
 		_ = enc.Encode(result)
 	}
 
-	return result
+	return result, nil
 }
 
 // --- Helper functions ---

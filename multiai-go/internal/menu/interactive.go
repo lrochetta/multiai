@@ -13,15 +13,19 @@ import (
 )
 
 // ShowTopMenu displays the main menu and returns the user's choice.
-func ShowTopMenu(profileCount int) string {
+// The version comes from the caller (single source in main, ldflags-friendly)
+// so the title can never drift from `multiai version` again.
+func ShowTopMenu(version string, profileCount int) string {
 	fmt.Println()
-	cli.PrintInfo(fmt.Sprintf("Laurent ROCHETTA's MultiAI (v0.2.1) — %d profils", profileCount))
-	fmt.Println(strings.Repeat("─", 58))
+	cli.PrintInfo(fmt.Sprintf("Laurent ROCHETTA's MultiAI (AI Code CLI Router) v%s - %d profils", version, profileCount))
+	fmt.Println(strings.Repeat("-", 58))
 	fmt.Println()
 	fmt.Println("1. Lancer")
-	fmt.Println("2. Configurer les clés API")
-	fmt.Println("3. BMAD+ — installer dans un projet")
+	fmt.Println("2. Configurer les cles API")
+	fmt.Println("3. BMAD+ -- Gestion du framework")
+	fmt.Println("4. OpenRouter -- Decouvrir les modeles")
 	fmt.Println()
+	fmt.Println("0. Quitter")
 	fmt.Print("Choix : ")
 	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')
@@ -37,30 +41,23 @@ func ShowTopMenu(profileCount int) string {
 
 // SelectTool lets the user choose a tool from the available ones.
 func SelectTool(profiles []profile.Profile) (string, error) {
-	// Group by tool
-	toolMap := make(map[string]struct {
-		Label string
-		Count int
-	})
-	for _, p := range profiles {
-		t := toolMap[p.Tool]
-		t.Label = p.ToolLabel
-		t.Count++
-		toolMap[p.Tool] = t
-	}
-
-	// Get ordered list of tools
-	var tools []struct {
+	// Group by tool, preserving first-appearance order (profiles are already
+	// sorted by tool/order) so the numbering is stable across runs — a map
+	// iteration here would shuffle the menu on every launch.
+	type toolEntry struct {
 		ID    string
 		Label string
 		Count int
 	}
-	for id, t := range toolMap {
-		tools = append(tools, struct {
-			ID    string
-			Label string
-			Count int
-		}{id, t.Label, t.Count})
+	var tools []toolEntry
+	index := make(map[string]int)
+	for _, p := range profiles {
+		if i, ok := index[p.Tool]; ok {
+			tools[i].Count++
+			continue
+		}
+		index[p.Tool] = len(tools)
+		tools = append(tools, toolEntry{ID: p.Tool, Label: p.ToolLabel, Count: 1})
 	}
 
 	fmt.Println()

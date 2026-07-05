@@ -1,0 +1,193 @@
+# providers.yaml — multiai provider catalog (embedded in internal/catalog)
+#
+# Source of truth extracted from multiai-powershell/code-router.ps1
+# ($ProviderCatalog, lines 93-215) for functional parity with v0.3.0.
+#
+# Schema (version 1, keep stable):
+#   version           int    — schema version, bump only on breaking change
+#   regions[]         list   — display groups, in menu order
+#     id              string — stable identifier referenced by providers[].region
+#     label           string — UI label, French WITHOUT accents (CP850-safe)
+#     flag            string — optional emoji; UI may ignore it (CP850 consoles)
+#   providers[]       list   — IN MENU ORDER (config + erase menus iterate this order)
+#     id              string — stable lowercase identifier (used by `config --provider <id>`)
+#     display         string — UI label, French without accents
+#     region          string — regions[].id
+#     console_url     string — where the user creates the API key
+#     note            string — optional one-line hint shown in config menu
+#     key_pattern     string — optional regex for key format validation.
+#                              EMPTY everywhere: the PS reference has no per-provider
+#                              format validation (only placeholder detection). Reserved.
+#     shortcuts       map    — profile shortcut -> env var name that receives the key
+#                              in that profile's .env. One key per provider, written to
+#                              ALL listed profiles (PS: Invoke-ConfigureProvider L624-682).
+#                              Erase rewrites each var to "PASTE_<VAR>_HERE" (L544-559).
+#
+# Placeholder detection (PS Test-IsPlaceholder, L222-230) — a value is "not configured" if:
+#   empty/blank, OR matches ^(PASTE_|YOUR_|TA_CLE|REPLACE_ME|CHANGE_ME|sk-xxxx|xxx|TODO)
+#   (case-insensitive), OR ends with _HERE or ICI.
+
+version: 1
+
+regions:
+  - id: global
+    label: "Global / Agregateurs"
+    flag: "🌍"
+  - id: cn
+    label: "Chine"
+    flag: "🇨🇳"
+  - id: us
+    label: "USA"
+    flag: "🇺🇸"
+
+providers:
+  # ── Global / Agregateurs ──────────────────────────────────────────────
+
+  - id: openrouter                                    # PS 'OpenRouter' L97-111
+    display: "OpenRouter (Fusion + 300 modeles)"
+    region: global
+    console_url: "https://openrouter.ai/settings/keys"
+    note: "Fusion = panel multi-modele automatique. Une seule cle pour tous les profils OpenRouter."
+    key_pattern: ""
+    shortcuts:
+      or-fusion: OPENROUTER_API_KEY
+      codex-fusion: OPENROUTER_API_KEY
+      oc-fusion: OPENROUTER_API_KEY
+      ocqwen: OPENROUTER_API_KEY
+      ockimi: OPENROUTER_API_KEY
+      ocminimax: OPENROUTER_API_KEY
+
+  - id: requesty                                      # PS 'Requesty' L112-119
+    display: "Requesty (Gateway EU, gratuit 200req/j)"
+    region: global
+    console_url: "https://app.requesty.ai/api-keys"
+    # PS note has an accent ("managé", L118) — de-accented per product convention.
+    note: "Gateway manage avec fallback, cache, EU. Anthropic + OpenAI compatible."
+    key_pattern: ""
+    shortcuts:
+      req-cc: REQUESTY_API_KEY
+      req-codex: REQUESTY_API_KEY
+      req-oc: REQUESTY_API_KEY
+      # GAP FIX vs PS: profile 03-code-eu (ceu) requires REQUESTY_API_KEY
+      # (router.eu.requesty.ai, EU Frankfurt) but was missing from the PS
+      # catalog — configure/erase could never reach it. Added for the Go port.
+      ceu: REQUESTY_API_KEY
+
+  - id: litellm                                       # PS 'LiteLLM' L120-127
+    display: "LiteLLM (proxy local, Docker/WSL2)"
+    region: global
+    console_url: "https://docs.litellm.ai/docs/proxy/quick_start"
+    note: "Proxy local sur localhost:4000. Necessite Docker ou WSL2 (pas de pip natif Windows)."
+    key_pattern: ""
+    shortcuts:
+      litellm: LITELLM_API_KEY
+
+  # ── Chine ─────────────────────────────────────────────────────────────
+
+  - id: deepseek                                      # PS 'DeepSeek' L132-139
+    display: "DeepSeek (V4 Pro 1M / Flash)"
+    region: cn
+    console_url: "https://platform.deepseek.com/api_keys"
+    note: "Meme cle DeepSeek pour tous les profils. Anthropic + OpenAI compatible."
+    key_pattern: ""
+    shortcuts:
+      ds: ANTHROPIC_AUTH_TOKEN
+      dsf: ANTHROPIC_AUTH_TOKEN
+      cp: ANTHROPIC_AUTH_TOKEN
+      cf: ANTHROPIC_AUTH_TOKEN
+      ocdeepseek: DEEPSEEK_API_KEY
+
+  - id: zai                                           # PS 'ZAI' L140-147
+    display: "Z.ai / BigModel (GLM-5.2)"
+    region: cn
+    console_url: "https://bigmodel.cn/usercenter/apikeys"
+    note: "Meme cle Z.ai pour tous les profils. Anthropic + OpenAI compatible."
+    key_pattern: ""
+    shortcuts:
+      cg: ANTHROPIC_AUTH_TOKEN      # api.z.ai/api/anthropic
+      cgalt: ANTHROPIC_API_KEY      # api.z.ai/api/coding/paas/v4 (alt endpoint)
+      oczai: ZAI_API_KEY
+
+  - id: dashscope                                     # PS 'DashScope' L148-155
+    display: "Qwen / DashScope (Alibaba)"
+    region: cn
+    console_url: "https://dashscope.aliyun.com/api-key-management"
+    note: "OpenAI-compatible (Singapour/US/CN). Qwen3-Coder pour Codex/OpenCode."
+    key_pattern: ""
+    shortcuts:
+      codex-qwen: DASHSCOPE_API_KEY
+      ocqwen-direct: DASHSCOPE_API_KEY
+
+  - id: minimax                                       # PS 'MiniMax' L156-163
+    display: "MiniMax (M3 1M)"
+    region: cn
+    console_url: "https://platform.minimax.io/account/api-keys"
+    note: "Anthropic + OpenAI compatible. M3 = 1M tokens, Extended Thinking."
+    key_pattern: ""
+    shortcuts:
+      mm: MINIMAX_API_KEY
+      ocmini: MINIMAX_API_KEY
+
+  - id: moonshot                                      # PS 'Moonshot' L164-171
+    display: "Kimi / Moonshot (K2.7 Code)"
+    region: cn
+    console_url: "https://platform.moonshot.ai/console/api-keys"
+    note: "OpenAI-compatible. K2.7-code = specialise coding. Ne pas confondre avec ockimi (OpenRouter)."
+    key_pattern: ""
+    shortcuts:
+      ockimi-direct: MOONSHOT_API_KEY
+
+  - id: stepfun                                       # PS 'StepFun' L172-179
+    display: "StepFun (Step Plan)"
+    region: cn
+    console_url: "https://platform.stepfun.ai/api-keys"
+    note: "Anthropic-compatible uniquement. Pour Claude Code."
+    key_pattern: ""
+    shortcuts:
+      stepfun: STEPFUN_API_KEY
+
+  - id: siliconflow                                   # PS 'SiliconFlow' L180-187
+    display: "SiliconFlow (Aggreg. open-source)"
+    region: cn
+    console_url: "https://cloud.siliconflow.cn/api-keys"
+    note: "Agregateur de modeles open-source chinois. OpenAI-compatible."
+    key_pattern: ""
+    shortcuts:
+      codex-sf: SILICONFLOW_API_KEY
+      oc-siliconflow: SILICONFLOW_API_KEY
+
+  - id: mimo                                          # PS 'MiMo' L188-195
+    display: "Xiaomi MiMo (V2.5 Pro)"
+    region: cn
+    console_url: "https://api.xiaomimimo.com/dashboard/api-keys"
+    note: "Anthropic + OpenAI compatible. Tier gratuit disponible (mimo-auto)."
+    key_pattern: ""
+    shortcuts:
+      mimo: MIMO_API_KEY
+      ocmimo: MIMO_API_KEY
+
+  # ── USA ───────────────────────────────────────────────────────────────
+
+  - id: anthropic                                     # PS 'Anthropic' L200-206
+    display: "Anthropic (officiel)"
+    region: us
+    console_url: "https://console.anthropic.com/settings/keys"
+    note: ""                                          # only provider with no note in PS
+    key_pattern: ""
+    shortcuts:
+      ca: ANTHROPIC_API_KEY
+      ocanthropic: ANTHROPIC_API_KEY
+
+  - id: openai                                        # PS 'OpenAI' L207-214
+    display: "OpenAI"
+    region: us
+    console_url: "https://platform.openai.com/api-keys"
+    note: "Codex CLI (codex55/54/mini) utilise son propre login - pas de cle a configurer ici."
+    key_pattern: ""
+    shortcuts:
+      ocopenai: OPENAI_API_KEY
+
+# Shortcuts intentionally NOT in the catalog (keyless profiles, SKIP_SECRET_CHECK=true):
+#   co (Claude login), codex55/codex54/codexmini (Codex login), ocdefault (OpenCode /connect).
+# All 37 profile shortcuts accounted for: 32 in this catalog (31 from PS + ceu gap fix)
+# + 5 keyless = 37.

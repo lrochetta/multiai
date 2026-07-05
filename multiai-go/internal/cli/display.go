@@ -32,7 +32,7 @@ func ListProfiles(profiles []profile.Profile, asJSON bool) error {
 			Command     string `json:"command"`
 			Args        string `json:"args,omitempty"`
 		}
-		var out []profileJSON
+		out := make([]profileJSON, 0, len(profiles))
 		for _, p := range profiles {
 			out = append(out, profileJSON{
 				Tool:        p.Tool,

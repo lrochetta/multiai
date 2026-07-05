@@ -79,11 +79,15 @@ Lancement : claude
 | Plateforme | Architecture | Installation |
 |-----------|-------------|-------------|
 | **Windows** | amd64 | `scoop install multiai` / `go install` |
-| **macOS Intel** | amd64 | `brew install lrochetta/tap/multiai` |
-| **macOS Apple Silicon** | arm64 | `brew install lrochetta/tap/multiai` |
+| **macOS Intel** | amd64 | `brew install --cask lrochetta/tap/multiai` |
+| **macOS Apple Silicon** | arm64 | `brew install --cask lrochetta/tap/multiai` |
 | **Linux** | amd64, arm64 | `go install` / `.deb` / AUR |
 
-### ⚡ 17 profils inclus
+> Homebrew/Scoop/`.deb`/AUR nécessitent la release v0.4.0 (tap/bucket à créer). `npx multiai install` et `go install` marchent dès maintenant.
+
+### ⚡ 37 profils inclus
+
+13 fournisseurs, 3 outils (17 Claude Code, 8 Codex, 12 OpenCode). Liste complète : `multiai list`. Extrait :
 
 | Shortcut | Tool | Display Name | Provider |
 |----------|------|-------------|----------|
@@ -130,9 +134,9 @@ npx multiai install
 go install github.com/lrochetta/multiai@latest
 ```
 
-### Homebrew (macOS)
+### Homebrew (macOS) — à partir de la release v0.4.0
 ```bash
-brew install lrochetta/tap/multiai
+brew install --cask lrochetta/tap/multiai
 ```
 
 ### Scoop (Windows)

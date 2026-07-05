@@ -2,47 +2,33 @@
 
 package secret
 
-import (
-	"encoding/base64"
-	"fmt"
-)
-
-type keychainStore struct{}
-
-func newPlatformStore() (*keychainStore, error) {
-	return &keychainStore{}, nil
+// keychainStore delegates to the AES-256-GCM encrypted file store.
+// Native macOS Keychain support is planned (roadmap item 1.10);
+// until then we use one honest, working backend instead of a half-stub.
+type keychainStore struct {
+	fallback *encryptedFileStore
 }
 
-// Uses macOS Keychain via security CLI
-// In production, this would use CGO + Security.framework
-func (s *keychainStore) Get(service, key string) (string, error) {
+func newPlatformStore() (*keychainStore, error) {
 	fallback, err := newEncryptedFileStore()
 	if err != nil {
-		return "", fmt.Errorf("credential store unavailable: %w", err)
+		return nil, err
 	}
-	return fallback.Get(service, key)
+	return &keychainStore{fallback: fallback}, nil
+}
+
+func (s *keychainStore) Get(service, key string) (string, error) {
+	return s.fallback.Get(service, key)
 }
 
 func (s *keychainStore) Set(service, key, value string) error {
-	fallback, err := newEncryptedFileStore()
-	if err != nil {
-		return fmt.Errorf("credential store unavailable: %w", err)
-	}
-	return fallback.Set(service, key, base64.StdEncoding.EncodeToString([]byte(value)))
+	return s.fallback.Set(service, key, value)
 }
 
 func (s *keychainStore) Delete(service, key string) error {
-	fallback, err := newEncryptedFileStore()
-	if err != nil {
-		return fmt.Errorf("credential store unavailable: %w", err)
-	}
-	return fallback.Delete(service, key)
+	return s.fallback.Delete(service, key)
 }
 
 func (s *keychainStore) List(service string) (map[string]string, error) {
-	fallback, err := newEncryptedFileStore()
-	if err != nil {
-		return nil, fmt.Errorf("credential store unavailable: %w", err)
-	}
-	return fallback.List(service)
+	return s.fallback.List(service)
 }

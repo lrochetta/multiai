@@ -43,6 +43,70 @@ func TestBuildCleanEnv(t *testing.T) {
 	}
 }
 
+func TestExpandProfileEnv(t *testing.T) {
+	os.Setenv("USERPROFILE", `C:\Users\test`)
+	defer os.Unsetenv("USERPROFILE")
+
+	profileEnv := map[string]string{
+		// fusion-style indirection: the auth token points at another key
+		"OPENROUTER_API_KEY":   "sk-or-real-value",
+		"ANTHROPIC_AUTH_TOKEN": "%OPENROUTER_API_KEY%",
+		// allow-listed system var
+		"CLAUDE_CONFIG_DIR": `%USERPROFILE%\.claude-fusion`,
+		// unknown reference: kept literal, like PS
+		"KEEP_LITERAL": "%NOT_A_KNOWN_VAR%",
+		// no reference: untouched
+		"ANTHROPIC_MODEL": "openrouter/fusion",
+	}
+
+	got := ExpandProfileEnv(profileEnv)
+
+	if got["ANTHROPIC_AUTH_TOKEN"] != "sk-or-real-value" {
+		t.Errorf("indirection not resolved: got %q", got["ANTHROPIC_AUTH_TOKEN"])
+	}
+	if got["CLAUDE_CONFIG_DIR"] != `C:\Users\test\.claude-fusion` {
+		t.Errorf("system var not resolved: got %q", got["CLAUDE_CONFIG_DIR"])
+	}
+	if got["KEEP_LITERAL"] != "%NOT_A_KNOWN_VAR%" {
+		t.Errorf("unknown var should stay literal: got %q", got["KEEP_LITERAL"])
+	}
+	if got["ANTHROPIC_MODEL"] != "openrouter/fusion" {
+		t.Errorf("plain value altered: got %q", got["ANTHROPIC_MODEL"])
+	}
+	// The source map must not be mutated.
+	if profileEnv["ANTHROPIC_AUTH_TOKEN"] != "%OPENROUTER_API_KEY%" {
+		t.Error("ExpandProfileEnv mutated its input")
+	}
+}
+
+func TestExpandWindowsVarsCycleGuard(t *testing.T) {
+	// A -> B -> A must not loop; depth cap leaves a literal, never hangs.
+	profileEnv := map[string]string{
+		"A": "%B%",
+		"B": "%A%",
+	}
+	got := ExpandProfileEnv(profileEnv) // must return, not deadlock
+	if got["A"] == "" {
+		t.Error("cyclic expansion should degrade to a literal, not empty")
+	}
+}
+
+func TestBuildCleanEnvResolvesIndirection(t *testing.T) {
+	profileEnv := map[string]string{
+		"OPENROUTER_API_KEY":   "sk-or-xyz",
+		"ANTHROPIC_AUTH_TOKEN": "%OPENROUTER_API_KEY%",
+	}
+	envMap := make(map[string]string)
+	for _, kv := range BuildCleanEnv(profileEnv) {
+		if idx := strings.Index(kv, "="); idx >= 0 {
+			envMap[kv[:idx]] = kv[idx+1:]
+		}
+	}
+	if envMap["ANTHROPIC_AUTH_TOKEN"] != "sk-or-xyz" {
+		t.Errorf("BuildCleanEnv did not resolve indirection: got %q", envMap["ANTHROPIC_AUTH_TOKEN"])
+	}
+}
+
 func TestIsSecretKey(t *testing.T) {
 	tests := []struct {
 		key      string

@@ -26,7 +26,18 @@ type Profile struct {
 	Env             map[string]string `json:"env"`
 	ClearEnv        bool              `json:"clear_env"`
 	RequiredSecrets []string          `json:"required_secrets,omitempty"`
-	Path            string            `json:"path"` // filesystem path to the .env file
+	// Fallback lists profile shortcuts/ids to try, in order, when the
+	// launched process exits non-zero (FALLBACK=ds,cg). Single level:
+	// a fallback profile's own chain is never followed.
+	Fallback []string `json:"fallback,omitempty"`
+	// Region is informational metadata (REGION=eu). No routing logic reads
+	// it; it exists so the key never leaks into the child environment and
+	// stays available for display grouping.
+	Region string `json:"region,omitempty"`
+	// SkipSecretCheck bypasses the REQUIRED_SECRETS placeholder validation
+	// when SKIP_SECRET_CHECK=true (parity with code-router.ps1 L455-458).
+	SkipSecretCheck bool   `json:"skip_secret_check,omitempty"`
+	Path            string `json:"path"` // filesystem path to the .env file
 }
 
 // MetadataKeys are .env keys that are metadata, not environment variables.
@@ -35,6 +46,7 @@ var MetadataKeys = map[string]bool{
 	"DISPLAY_NAME": true, "DESCRIPTION": true, "ORDER": true, "COMMAND": true,
 	"ARGS": true, "CLEAR_ENV": true, "REQUIRED_SECRETS": true,
 	"SKIP_SECRET_CHECK": true, "NOTES": true,
+	"FALLBACK": true, "REGION": true,
 }
 
 // LoadDir loads all .env profiles from a directory.
@@ -53,11 +65,13 @@ func LoadDir(dir string) ([]Profile, error) {
 		fullPath := filepath.Join(dir, entry.Name())
 		f, err := os.Open(fullPath)
 		if err != nil {
-			continue // skip unreadable files
+			fmt.Fprintf(os.Stderr, "[!] profil ignore (illisible) : %s : %v\n", entry.Name(), err)
+			continue
 		}
 		envMap, err := dotenv.Parse(f)
 		f.Close()
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "[!] profil ignore (malforme) : %s : %v\n", entry.Name(), err)
 			continue
 		}
 
@@ -115,13 +129,23 @@ func LoadDir(dir string) ([]Profile, error) {
 			p.ClearEnv = low != "false" && low != "0" && low != "no"
 		}
 
-		if rs, ok := envMap["REQUIRED_SECRETS"]; ok && rs != "" {
-			for _, s := range strings.Split(rs, ",") {
-				s = strings.TrimSpace(s)
-				if s != "" {
-					p.RequiredSecrets = append(p.RequiredSecrets, s)
-				}
-			}
+		if rs, ok := envMap["REQUIRED_SECRETS"]; ok {
+			p.RequiredSecrets = splitCSV(rs)
+		}
+
+		if fb, ok := envMap["FALLBACK"]; ok {
+			p.Fallback = splitCSV(fb)
+		}
+
+		if region, ok := envMap["REGION"]; ok {
+			p.Region = strings.TrimSpace(region)
+		}
+
+		if skip, ok := envMap["SKIP_SECRET_CHECK"]; ok {
+			// Parity with Test-RequiredSecrets (code-router.ps1 L458):
+			// '^(true|1|yes)$', case-insensitive.
+			low := strings.ToLower(strings.TrimSpace(skip))
+			p.SkipSecretCheck = low == "true" || low == "1" || low == "yes"
 		}
 
 		// Store non-metadata keys as environment variables
@@ -166,6 +190,19 @@ func FindByShortcut(profiles []Profile, name string) (*Profile, error) {
 		return nil, fmt.Errorf("plusieurs profils correspondent a : %s. Utilise l'id exact.", name)
 	}
 	return &matches[0], nil
+}
+
+// splitCSV splits a comma-separated metadata value, trimming whitespace and
+// dropping empty items (parity with the PS reference: split, trim, filter).
+func splitCSV(s string) []string {
+	var out []string
+	for _, item := range strings.Split(s, ",") {
+		item = strings.TrimSpace(item)
+		if item != "" {
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 // splitArgs parses a string of arguments respecting quoted substrings.

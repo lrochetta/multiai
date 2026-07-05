@@ -1,0 +1,5 @@
+# Downloaded by install.js (postinstall) — never committed, never published
+# (package.json "files" whitelist already excludes it from the npm tarball).
+bin/native/
+node_modules/
+*.tgz

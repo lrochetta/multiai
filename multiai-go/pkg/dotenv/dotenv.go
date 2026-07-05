@@ -21,10 +21,20 @@ func Parse(r io.Reader) (map[string]string, error) {
 	result := make(map[string]string)
 	scanner := bufio.NewScanner(r)
 	lineNum := 0
+	first := true
 
 	for scanner.Scan() {
 		lineNum++
-		line := strings.TrimSpace(scanner.Text())
+		raw := scanner.Text()
+		if first {
+			// Strip a leading UTF-8 BOM: files saved by Notepad, VS Code
+			// "UTF-8 with BOM", or PowerShell Out-File/Set-Content -Encoding
+			// utf8 start with U+FEFF, which TrimSpace does NOT remove — it
+			// would otherwise mangle the first key (e.g. U+FEFF prefixing TOOL).
+			raw = strings.TrimPrefix(raw, "\uFEFF")
+			first = false
+		}
+		line := strings.TrimSpace(raw)
 
 		// Skip empty lines and comments
 		if line == "" || strings.HasPrefix(line, "#") {

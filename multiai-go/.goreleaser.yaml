@@ -1,0 +1,177 @@
+# GoReleaser v2 configuration for multiai (Go reference implementation).
+#
+# Monorepo note: this module lives in multiai-go/ inside the repository.
+# GoReleaser must run FROM this directory (the release workflow sets
+# `workdir: multiai-go`). Tags are repo-wide (v*).
+#
+# Version injection: cmd/multiai/main.go MUST declare
+#     var version = "..."
+# (a `const` cannot be overridden by -ldflags -X; the release workflow has a
+# preflight check that fails fast if main.go still uses `const version`).
+#
+# Signing (0 EUR plan):
+#   - checksums.txt for every archive (sha256)
+#   - Cosign keyless signature of checksums.txt (OIDC via GitHub Actions)
+#   - GitHub build provenance attestation (done in the workflow, not here)
+#
+# Verify a download:
+#   cosign verify-blob \
+#     --certificate checksums.txt.pem \
+#     --signature checksums.txt.sig \
+#     --certificate-identity-regexp 'https://github.com/lrochetta/multiai' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+#     checksums.txt
+#   sha256sum --check --ignore-missing checksums.txt
+
+version: 2
+
+project_name: multiai
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: multiai
+    main: ./cmd/multiai
+    binary: multiai
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    goos:
+      - windows
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      # windows/arm64 is not a supported target (yet).
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - id: default
+    # multiai_<version>_<os>_<arch>.tar.gz|.zip — keep in sync with
+    # packaging/npm/install.js and scripts/install.sh.
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: ["tar.gz"]
+    format_overrides:
+      - goos: windows
+        formats: ["zip"]
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+# Keyless Cosign signature of checksums.txt. Requires `id-token: write` in the
+# workflow and the cosign binary on the runner (sigstore/cosign-installer).
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sig"
+    certificate: "${artifact}.pem"
+    output: true
+    args:
+      - sign-blob
+      - "--output-signature=${signature}"
+      - "--output-certificate=${certificate}"
+      - "--yes"
+      - "${artifact}"
+
+# Debian packages built natively by GoReleaser (nfpm). This replaces the
+# checksum-less local script packaging/deb/build-deb.sh (kept as a dev
+# fallback only).
+nfpms:
+  - id: deb
+    package_name: multiai
+    formats: [deb]
+    maintainer: Laurent Rochetta <laurent@rochetta.fr>
+    homepage: https://rochetta.fr
+    license: MIT
+    section: devel
+    priority: optional
+    bindir: /usr/bin
+    description: |-
+      Route multiple AI CLIs with isolated env profiles.
+      multiai routes between multiple AI CLIs (Claude Code, Codex CLI,
+      OpenCode) using isolated environment profiles. It provides a unified
+      interface for launching different AI tools with provider-specific
+      API keys and configuration.
+    scripts:
+      postinstall: packaging/deb/postinst
+
+# Homebrew cask and Scoop manifest are GENERATED at release time into
+# dist/homebrew/ and dist/scoop/ with the real sha256 of the archives.
+# (`brews` is deprecated since GoReleaser 2.10; casks are the supported way
+# to ship prebuilt binaries.) skip_upload stays true until the tap/bucket
+# repositories exist; the first publications are manual (copy the generated
+# files). To automate, create lrochetta/homebrew-tap and
+# lrochetta/scoop-bucket, add a TAP_GITHUB_TOKEN secret, set
+# `token: "{{ .Env.TAP_GITHUB_TOKEN }}"` under repository, and flip
+# skip_upload to false.
+homebrew_casks:
+  - name: multiai
+    skip_upload: true
+    directory: Casks
+    repository:
+      owner: lrochetta
+      name: homebrew-tap
+      branch: main
+    homepage: https://rochetta.fr
+    description: Route multiple AI CLIs (Claude Code, Codex, OpenCode) with isolated env profiles
+    # The binary is not Apple-signed/notarized (0 EUR signing plan): drop the
+    # quarantine attribute so macOS lets it run after `brew install`.
+    hooks:
+      post:
+        install: |
+          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/multiai"]
+          end
+
+scoops:
+  - name: multiai
+    skip_upload: true
+    repository:
+      owner: lrochetta
+      name: scoop-bucket
+      branch: main
+    homepage: https://rochetta.fr
+    description: Route multiple AI CLIs (Claude Code, Codex, OpenCode) with isolated env profiles
+    license: MIT
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-dev"
+
+release:
+  github:
+    owner: lrochetta
+    name: multiai
+  draft: false
+  prerelease: auto
+  footer: |
+    ## Verifier un telechargement
+
+    ```sh
+    sha256sum --check --ignore-missing checksums.txt
+    cosign verify-blob \
+      --certificate checksums.txt.pem \
+      --signature checksums.txt.sig \
+      --certificate-identity-regexp 'https://github.com/lrochetta/multiai' \
+      --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+      checksums.txt
+    ```
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - Merge pull request
+      - Merge branch

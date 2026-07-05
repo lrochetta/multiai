@@ -12,7 +12,7 @@ $goPath = Get-Command go -ErrorAction SilentlyContinue
 if (-not $goPath) {
     Write-Host "Go non trouve. Installation..." -ForegroundColor Yellow
 
-    $goVersion = "1.23.2"
+    $goVersion = "1.26.0"
     $goZip = "$env:TEMP\go$goVersion.zip"
     $goUrl = "https://go.dev/dl/go$goVersion.windows-amd64.zip"
 
@@ -58,9 +58,19 @@ go test -race -v ./...
 Write-Host ''
 Write-Host "Cross-compilation..." -ForegroundColor Cyan
 $env:CGO_ENABLED = '0'
-GOOS=linux   GOARCH=amd64 go build -ldflags="-s -w" -o build/multiai-linux-amd64   ./cmd/multiai/
-GOOS=darwin  GOARCH=amd64 go build -ldflags="-s -w" -o build/multiai-darwin-amd64  ./cmd/multiai/
-GOOS=darwin  GOARCH=arm64 go build -ldflags="-s -w" -o build/multiai-darwin-arm64  ./cmd/multiai/
+$targets = @(
+    @{ GOOS = 'linux';  GOARCH = 'amd64'; Out = 'build/multiai-linux-amd64' },
+    @{ GOOS = 'linux';  GOARCH = 'arm64'; Out = 'build/multiai-linux-arm64' },
+    @{ GOOS = 'darwin'; GOARCH = 'amd64'; Out = 'build/multiai-darwin-amd64' },
+    @{ GOOS = 'darwin'; GOARCH = 'arm64'; Out = 'build/multiai-darwin-arm64' }
+)
+foreach ($t in $targets) {
+    $env:GOOS = $t.GOOS
+    $env:GOARCH = $t.GOARCH
+    go build -ldflags="-s -w" -o $t.Out ./cmd/multiai/
+    if ($LASTEXITCODE -ne 0) { throw "cross-build $($t.GOOS)/$($t.GOARCH) a echoue" }
+}
+Remove-Item Env:GOOS, Env:GOARCH -ErrorAction SilentlyContinue
 
 Write-Host ''
 Write-Host "Binaires generes :" -ForegroundColor Green

@@ -9,7 +9,7 @@ echo ""
 # ── Install Go if missing ──────────────────────────────────────────────────
 if ! command -v go &>/dev/null; then
     echo "Go non trouve. Installation..."
-    GO_VERSION="1.23.2"
+    GO_VERSION="1.26.0"
     if [[ "$(uname)" == "Darwin" ]]; then
         brew install go
     else

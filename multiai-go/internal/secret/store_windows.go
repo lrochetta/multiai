@@ -2,60 +2,33 @@
 
 package secret
 
-import (
-	"encoding/base64"
-	"fmt"
-	"os/exec"
-	"strings"
-)
-
-type winCredStore struct{}
-
-func newPlatformStore() (*winCredStore, error) {
-	return &winCredStore{}, nil
+// winCredStore delegates to the AES-256-GCM encrypted file store.
+// Native Windows Credential Manager support is planned (roadmap item 1.10);
+// until then we use one honest, working backend instead of a half-stub.
+type winCredStore struct {
+	fallback *encryptedFileStore
 }
 
-// Uses PowerShell to access Windows Credential Manager
-// In production, this would use golang.org/x/sys/windows or syscall
-func (s *winCredStore) Get(service, key string) (string, error) {
-	// Attempt via cmdkey first
-	cmd := exec.Command("cmdkey", "/list")
-	out, _ := cmd.Output()
-	if strings.Contains(string(out), service+":"+key) {
-		// Fallback to encrypted file for now
-		fallback, err := newEncryptedFileStore()
-		if err != nil {
-			return "", fmt.Errorf("credential store unavailable: %w", err)
-		}
-		return fallback.Get(service, key)
-	}
+func newPlatformStore() (*winCredStore, error) {
 	fallback, err := newEncryptedFileStore()
 	if err != nil {
-		return "", fmt.Errorf("credential store unavailable: %w", err)
+		return nil, err
 	}
-	return fallback.Get(service, key)
+	return &winCredStore{fallback: fallback}, nil
+}
+
+func (s *winCredStore) Get(service, key string) (string, error) {
+	return s.fallback.Get(service, key)
 }
 
 func (s *winCredStore) Set(service, key, value string) error {
-	fallback, err := newEncryptedFileStore()
-	if err != nil {
-		return fmt.Errorf("credential store unavailable: %w", err)
-	}
-	return fallback.Set(service, key, base64.StdEncoding.EncodeToString([]byte(value)))
+	return s.fallback.Set(service, key, value)
 }
 
 func (s *winCredStore) Delete(service, key string) error {
-	fallback, err := newEncryptedFileStore()
-	if err != nil {
-		return fmt.Errorf("credential store unavailable: %w", err)
-	}
-	return fallback.Delete(service, key)
+	return s.fallback.Delete(service, key)
 }
 
 func (s *winCredStore) List(service string) (map[string]string, error) {
-	fallback, err := newEncryptedFileStore()
-	if err != nil {
-		return nil, fmt.Errorf("credential store unavailable: %w", err)
-	}
-	return fallback.List(service)
+	return s.fallback.List(service)
 }

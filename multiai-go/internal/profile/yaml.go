@@ -25,6 +25,8 @@ type ProfileYAML struct {
 	Env             map[string]string `yaml:"env" json:"env"`
 	ClearEnv        *bool             `yaml:"clear_env,omitempty" json:"clear_env,omitempty"`
 	RequiredSecrets []string          `yaml:"required_secrets,omitempty" json:"required_secrets,omitempty"`
+	Fallback        []string          `yaml:"fallback,omitempty" json:"fallback,omitempty"`
+	Region          string            `yaml:"region,omitempty" json:"region,omitempty"`
 	Provider        string            `yaml:"provider,omitempty" json:"provider,omitempty"`
 
 	// Project profile (.multiai.yaml)
@@ -89,7 +91,8 @@ func LoadDirYAML(dir string) ([]Profile, error) {
 			fullPath := filepath.Join(dir, name)
 			p, err := LoadYAML(fullPath)
 			if err != nil {
-				continue // skip invalid files
+				fmt.Fprintf(os.Stderr, "[!] profil YAML ignore (malforme) : %s : %v\n", name, err)
+				continue
 			}
 			profiles = append(profiles, *p)
 		}
@@ -120,8 +123,12 @@ func LoadAllProfiles(dir string) ([]Profile, error) {
 func sortProfilesSlice(profiles []Profile) {
 	sort.Slice(profiles, func(i, j int) bool {
 		pi, pj := profiles[i], profiles[j]
-		if pi.Tool != pj.Tool { return pi.Tool < pj.Tool }
-		if pi.Order != pj.Order { return pi.Order < pj.Order }
+		if pi.Tool != pj.Tool {
+			return pi.Tool < pj.Tool
+		}
+		if pi.Order != pj.Order {
+			return pi.Order < pj.Order
+		}
 		return pi.DisplayName < pj.DisplayName
 	})
 }
@@ -141,6 +148,8 @@ func yamlToProfile(py *ProfileYAML, path string) *Profile {
 		Args:            py.Args,
 		Env:             py.Env,
 		RequiredSecrets: py.RequiredSecrets,
+		Fallback:        py.Fallback,
+		Region:          py.Region,
 	}
 
 	// Apply defaults

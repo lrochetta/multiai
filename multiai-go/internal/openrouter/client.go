@@ -1,96 +1,107 @@
+// Package openrouter implements the OpenRouter model discovery features
+// of multiai: fetching the public /models catalog, caching it locally,
+// full-text search, model comparison and dynamic launch profile creation.
+//
+// Note: these capabilities go beyond the PowerShell reference (which only
+// shows a static help screen plus a .env generator); the network-backed
+// discovery is a Go-only feature.
 package openrouter
 
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"time"
 )
 
-const baseURL = "https://openrouter.ai/api/v1"
+const (
+	defaultAPIBase = "https://openrouter.ai/api/v1"
+	userAgent      = "multiai"
+	httpTimeout    = 10 * time.Second
 
+	// CacheTTL is how long the cached model list is considered fresh.
+	CacheTTL = time.Hour
+)
+
+// apiBase is a variable so tests can point the client at a local server.
+var apiBase = defaultAPIBase
+
+// maxResponseBytes caps the size of the /models payload. Variable so
+// tests can exercise the limit without generating tens of megabytes.
+var maxResponseBytes int64 = 32 << 20
+
+// ModelInfo mirrors one entry of the OpenRouter /models response.
 type ModelInfo struct {
-	ID            string        `json:"id"`
-	Name          string        `json:"name"`
-	ContextLength int           `json:"context_length"`
-	Architecture  string        `json:"architecture"`
-	Pricing       ModelPricing  `json:"pricing"`
-	TopProvider   ProviderInfo  `json:"top_provider"`
-	Description   string        `json:"description"`
+	ID            string       `json:"id"`
+	Name          string       `json:"name"`
+	Created       int64        `json:"created"`
+	Description   string       `json:"description"`
+	ContextLength int          `json:"context_length"`
+	Architecture  Architecture `json:"architecture"`
+	Pricing       ModelPricing `json:"pricing"`
+	TopProvider   TopProvider  `json:"top_provider"`
 }
 
+// Architecture describes the model modality and tokenizer.
+type Architecture struct {
+	Modality  string `json:"modality"`
+	Tokenizer string `json:"tokenizer"`
+}
+
+// ModelPricing holds per-token USD prices as decimal strings, as returned
+// by the API (e.g. "0.000003" per token = 3.00 USD per million tokens).
 type ModelPricing struct {
 	Prompt     string `json:"prompt"`
 	Completion string `json:"completion"`
 }
 
-type ProviderInfo struct {
-	Name string `json:"name"`
-	Slug string `json:"slug"`
+// TopProvider mirrors the top_provider block of the API.
+type TopProvider struct {
+	ContextLength       int  `json:"context_length"`
+	MaxCompletionTokens int  `json:"max_completion_tokens"`
+	IsModerated         bool `json:"is_moderated"`
 }
 
-// FetchModels retrieves available models from OpenRouter API.
+// FetchModels retrieves the model catalog from the OpenRouter API.
+// The /models endpoint is public: apiKey may be empty; when provided it
+// is sent as a Bearer token.
 func FetchModels(apiKey string) ([]ModelInfo, error) {
-	req, _ := http.NewRequest("GET", baseURL+"/models", nil)
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("User-Agent", "multiai/0.2.1")
+	req, err := http.NewRequest(http.MethodGet, apiBase+"/models", nil)
+	if err != nil {
+		return nil, err
+	}
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Accept", "application/json")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: httpTimeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("API OpenRouter inaccessible: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("API OpenRouter error %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API OpenRouter: statut HTTP %d", resp.StatusCode)
+	}
+
+	lr := &io.LimitedReader{R: resp.Body, N: maxResponseBytes + 1}
+	data, err := io.ReadAll(lr)
+	if err != nil {
+		return nil, fmt.Errorf("lecture de la reponse OpenRouter impossible: %w", err)
+	}
+	if lr.N <= 0 {
+		return nil, fmt.Errorf("reponse OpenRouter trop volumineuse (limite %d octets)", maxResponseBytes)
 	}
 
 	var result struct {
 		Data []ModelInfo `json:"data"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("cannot parse OpenRouter response: %w", err)
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("reponse OpenRouter illisible: %w", err)
 	}
 	return result.Data, nil
-}
-
-// CacheModels caches models locally to avoid hitting the API too often.
-func CacheModels(models []ModelInfo) error {
-	cacheDir, _ := os.UserHomeDir()
-	cacheDir = filepath.Join(cacheDir, ".multiai", "cache")
-	os.MkdirAll(cacheDir, 0700)
-
-	data, _ := json.MarshalIndent(models, "", "  ")
-	return os.WriteFile(filepath.Join(cacheDir, "openrouter-models.json"), data, 0600)
-}
-
-// LoadCachedModels loads models from cache.
-func LoadCachedModels() ([]ModelInfo, error) {
-	cacheDir, _ := os.UserHomeDir()
-	cachePath := filepath.Join(cacheDir, ".multiai", "cache", "openrouter-models.json")
-
-	data, err := os.ReadFile(cachePath)
-	if err != nil {
-		return nil, err
-	}
-
-	var models []ModelInfo
-	if err := json.Unmarshal(data, &models); err != nil {
-		return nil, err
-	}
-	return models, nil
-}
-
-// IsCacheValid returns true if the cache is less than maxAge old.
-func IsCacheValid(maxAge time.Duration) bool {
-	cacheDir, _ := os.UserHomeDir()
-	cachePath := filepath.Join(cacheDir, ".multiai", "cache", "openrouter-models.json")
-	info, err := os.Stat(cachePath)
-	if err != nil {
-		return false
-	}
-	return time.Since(info.ModTime()) < maxAge
 }

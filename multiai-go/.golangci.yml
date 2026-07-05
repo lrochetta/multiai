@@ -1,3 +1,5 @@
+version: "2"
+
 linters:
   enable:
     - gofmt
@@ -9,11 +11,14 @@ linters:
     - unused
     - misspell
     - gosec
+    - unparam
+    - prealloc
+    - nakedret
 
 linters-settings:
   gosec:
     excludes:
-      - G104  # syscall exit after Printf is fine for CLI
+      - G104
   misspell:
     locale: US
 

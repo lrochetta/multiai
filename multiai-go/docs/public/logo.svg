@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
+  <rect width="256" height="256" rx="40" fill="#1a1a2e"/>
+  <!-- Cercle central style IA -->
+  <circle cx="128" cy="128" r="70" fill="none" stroke="#6c63ff" stroke-width="8" opacity="0.3"/>
+  <circle cx="128" cy="128" r="45" fill="none" stroke="#6c63ff" stroke-width="6"/>
+  <circle cx="128" cy="128" r="20" fill="#6c63ff"/>
+  <!-- Points orbitaux representant les multiples IA -->
+  <circle cx="128" cy="58" r="8" fill="#ff6584"/>
+  <circle cx="128" cy="198" r="8" fill="#45e3ff"/>
+  <circle cx="58" cy="128" r="8" fill="#ffd166"/>
+  <circle cx="198" cy="128" r="8" fill="#06d6a0"/>
+  <!-- Traits de connexion -->
+  <line x1="128" y1="78" x2="128" y2="108" stroke="#ff6584" stroke-width="2" opacity="0.5"/>
+  <line x1="128" y1="148" x2="128" y2="178" stroke="#45e3ff" stroke-width="2" opacity="0.5"/>
+  <line x1="78" y1="128" x2="108" y2="128" stroke="#ffd166" stroke-width="2" opacity="0.5"/>
+  <line x1="148" y1="128" x2="178" y2="128" stroke="#06d6a0" stroke-width="2" opacity="0.5"/>
+</svg>

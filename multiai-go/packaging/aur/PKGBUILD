@@ -1,6 +1,11 @@
 # Maintainer: Laurent Rochetta <laurent@rochetta.fr>
+#
+# Source-build AUR package. Before publishing to the AUR, pin the real
+# tarball checksum and regenerate .SRCINFO with:
+#   multiai-go/scripts/update-aur-checksums.sh <version>
+# 'SKIP' is the development value only — never push SKIP to the AUR.
 pkgname=multiai
-pkgver=0.5.0
+pkgver=0.4.0
 pkgrel=1
 pkgdesc="Route multiple AI CLIs (Claude Code, Codex, OpenCode) with isolated env profiles"
 arch=('x86_64' 'aarch64')
@@ -8,21 +13,28 @@ url="https://rochetta.fr"
 license=('MIT')
 makedepends=('go')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/lrochetta/multiai/archive/refs/tags/v${pkgver}.tar.gz")
-sha256sums=('REPLACE_WITH_ACTUAL_SHA256') # Will be filled by goreleaser on release
+sha256sums=('SKIP')
+
+# The GitHub repository is a monorepo: the Go module lives in multiai-go/.
+_moddir="${pkgname}-${pkgver}/multiai-go"
 
 build() {
-    cd "${srcdir}/${pkgname}-${pkgver}"
-    go build -ldflags "-s -w -X main.version=${pkgver}" -o multiai ./cmd/multiai/
-}
-
-package() {
-    cd "${srcdir}/${pkgname}-${pkgver}"
-    install -Dm755 multiai "${pkgdir}/usr/bin/multiai"
-    install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
-    install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+    cd "${srcdir}/${_moddir}"
+    export CGO_ENABLED=0
+    go build -trimpath -ldflags "-s -w -X main.version=${pkgver}" -o multiai ./cmd/multiai/
 }
 
 check() {
-    cd "${srcdir}/${pkgname}-${pkgver}"
+    cd "${srcdir}/${_moddir}"
     go test ./...
+}
+
+package() {
+    cd "${srcdir}/${_moddir}"
+    install -Dm755 multiai "${pkgdir}/usr/bin/multiai"
+    install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+    # LICENSE file is not in the repository yet; picked up once it lands.
+    if [ -f LICENSE ]; then
+        install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    fi
 }

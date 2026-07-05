@@ -1,141 +1,136 @@
+// Package config implements the interactive API key configuration wizard,
+// driven by the embedded provider catalog (internal/catalog).
 package config
 
 import (
 	"bufio"
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/lrochetta/multiai/internal/catalog"
 	"github.com/lrochetta/multiai/internal/cli"
 	"github.com/lrochetta/multiai/internal/profile"
 	"github.com/lrochetta/multiai/internal/secret"
 	"github.com/lrochetta/multiai/pkg/dotenv"
 )
 
-// Provider represents an API key provider.
-type Provider struct {
-	ID        string
-	Display   string
-	URL       string
-	Shortcuts []string
-	VarMap    map[string]string
-	Note      string
+// Provider is the catalog provider type, re-exported for this package's
+// consumers.
+type Provider = catalog.Provider
+
+// DefaultProviders returns the provider catalog in menu order. The list is
+// data-driven (internal/catalog, embedded providers.yaml): adding a provider
+// means editing the YAML, not this package.
+func DefaultProviders() []Provider {
+	return catalog.Default().Providers
 }
 
-// validateAPIKey validates an API key format for a given provider.
-func validateAPIKey(providerID, key string) (bool, string) {
+// validateAPIKey validates an API key against the provider's optional
+// KeyPattern from the catalog. Failures are advisory: the caller lets the
+// user override (parity with PS, which has no format validation at all).
+func validateAPIKey(prov Provider, key string) (bool, string) {
 	if dotenv.IsPlaceholder(key) {
 		return false, "placeholder non configure"
 	}
 	if len(key) < 10 {
 		return false, "cle trop courte (min 10 caracteres)"
 	}
-
-	patterns := map[string]string{
-		"anthropic":  "^sk-ant-api\\d{2}-",
-		"deepseek":   "^sk-",
-		"openai":     "^sk-(proj-)?[A-Za-z0-9]{20,}",
-		"zai":        "^[A-Za-z0-9]{20,}",
-		"openrouter": "^sk-or-",
+	if prov.KeyPattern == "" {
+		return true, "" // no pattern in the catalog: accept
 	}
-
-	pattern, ok := patterns[providerID]
-	if !ok {
-		return true, "" // pas de pattern connu, on accepte
+	re, err := regexp.Compile(prov.KeyPattern)
+	if err != nil {
+		// The catalog validates patterns at load time; never block on this.
+		return true, ""
 	}
-
-	matched, _ := regexp.MatchString(pattern, key)
-	if !matched {
-		return false, fmt.Sprintf("format invalide pour %s (attendu: %s)", providerID, pattern)
+	if !re.MatchString(key) {
+		return false, fmt.Sprintf("format invalide pour %s (attendu: %s)", prov.ID, prov.KeyPattern)
 	}
 	return true, ""
 }
 
-// DefaultProviders returns the built-in provider catalog.
-func DefaultProviders() []Provider {
-	return []Provider{
-		{
-			ID: "anthropic", Display: "Anthropic (officiel)",
-			URL:       "https://console.anthropic.com/settings/keys",
-			Shortcuts: []string{"ca", "ocanthropic"},
-			VarMap:    map[string]string{"ca": "ANTHROPIC_API_KEY", "ocanthropic": "ANTHROPIC_API_KEY"},
-		},
-		{
-			ID: "zai", Display: "Z.ai / BigModel (GLM-5.2)",
-			URL:       "https://bigmodel.cn/usercenter/apikeys",
-			Shortcuts: []string{"cg", "cgalt", "oczai"},
-			VarMap:    map[string]string{"cg": "ANTHROPIC_AUTH_TOKEN", "cgalt": "ANTHROPIC_API_KEY", "oczai": "ZAI_API_KEY"},
-			Note:      "Meme cle Z.ai pour tous les profils.",
-		},
-		{
-			ID: "deepseek", Display: "DeepSeek",
-			URL:       "https://platform.deepseek.com/api_keys",
-			Shortcuts: []string{"ds", "dsf", "ocdeepseek"},
-			VarMap:    map[string]string{"ds": "ANTHROPIC_AUTH_TOKEN", "dsf": "ANTHROPIC_AUTH_TOKEN", "ocdeepseek": "DEEPSEEK_API_KEY"},
-			Note:      "Meme cle DeepSeek pour tous les profils.",
-		},
-		{
-			ID: "openai", Display: "OpenAI",
-			URL:       "https://platform.openai.com/api-keys",
-			Shortcuts: []string{"ocopenai"},
-			VarMap:    map[string]string{"ocopenai": "OPENAI_API_KEY"},
-			Note:      "Codex CLI utilise son propre login - pas de cle a configurer ici.",
-		},
-		{
-			ID: "openrouter", Display: "OpenRouter (Qwen / Kimi / MiniMax)",
-			URL:       "https://openrouter.ai/settings/keys",
-			Shortcuts: []string{"ocqwen", "ockimi", "ocminimax"},
-			VarMap:    map[string]string{"ocqwen": "OPENROUTER_API_KEY", "ockimi": "OPENROUTER_API_KEY", "ocminimax": "OPENROUTER_API_KEY"},
-		},
-	}
-}
-
-// InteractiveConfig runs the interactive API key configuration.
-func InteractiveConfig(profiles []profile.Profile) error {
-	// Build shortcut -> profile index
-	byShortcut := make(map[string]*profile.Profile)
+// shortcutIndex maps profile shortcuts to their profile, so a provider's
+// key can be propagated to every installed profile of the group.
+func shortcutIndex(profiles []profile.Profile) map[string]*profile.Profile {
+	byShortcut := make(map[string]*profile.Profile, len(profiles))
 	for i := range profiles {
 		byShortcut[profiles[i].Shortcut] = &profiles[i]
 	}
+	return byShortcut
+}
 
-	providers := DefaultProviders()
-	reader := bufio.NewReader(os.Stdin)
+// providerStatus counts the installed profiles of a provider group and how
+// many of them hold a configured (non-placeholder) key. The credential-store
+// sentinel counts as configured.
+func providerStatus(prov Provider, byShortcut map[string]*profile.Profile) (configured, total int) {
+	for _, sc := range prov.Shortcuts {
+		p, ok := byShortcut[sc]
+		if !ok {
+			continue
+		}
+		total++
+		if !dotenv.IsPlaceholder(p.Env[prov.VarMap[sc]]) {
+			configured++
+		}
+	}
+	return configured, total
+}
 
+// InteractiveConfig runs the interactive API key configuration menu.
+func InteractiveConfig(profiles []profile.Profile) error {
+	return runConfigMenu(catalog.Default(), shortcutIndex(profiles), bufio.NewReader(os.Stdin))
+}
+
+// ConfigureProviderByID runs the key prompt for a single provider selected
+// by its catalog id (e.g. "openrouter"), skipping the menu — backs
+// `multiai config --provider <id>`. A nil reader defaults to stdin.
+func ConfigureProviderByID(profiles []profile.Profile, providerID string, reader *bufio.Reader) error {
+	cat := catalog.Default()
+	prov, ok := cat.ProviderByID(providerID)
+	if !ok {
+		return fmt.Errorf("fournisseur inconnu : %q (valides : %s)",
+			providerID, strings.Join(cat.ProviderIDs(), ", "))
+	}
+	if reader == nil {
+		reader = bufio.NewReader(os.Stdin)
+	}
+	configureProvider(prov, shortcutIndex(profiles), reader)
+	return nil
+}
+
+// runConfigMenu is the menu loop, split from InteractiveConfig so tests can
+// drive it with a scripted reader.
+func runConfigMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile, reader *bufio.Reader) error {
 	for {
 		fmt.Println()
 		cli.PrintInfo("Configuration des cles API")
-		fmt.Println(strings.Repeat("─", 58))
-		fmt.Println()
+		fmt.Println(strings.Repeat("-", 58))
 
-		for i, prov := range providers {
-			total := 0
-			configured := 0
-			for _, sc := range prov.Shortcuts {
-				if _, ok := byShortcut[sc]; !ok {
-					continue
-				}
-				total++
-				varName := prov.VarMap[sc]
-				val := byShortcut[sc].Env[varName]
-				if !dotenv.IsPlaceholder(val) {
-					configured++
-				}
+		currentRegion := ""
+		for i, prov := range cat.Providers {
+			if prov.Region != currentRegion {
+				currentRegion = prov.Region
+				fmt.Println()
+				fmt.Printf("  %s\n", cat.RegionLabel(currentRegion))
+				fmt.Println("  " + strings.Repeat("-", 48))
 			}
+			configured, total := providerStatus(prov, byShortcut)
 			status := "[--]"
 			if configured == total && total > 0 {
 				status = "[OK]"
 			} else if configured > 0 {
 				status = "[~~]"
 			}
-			fmt.Printf("%d. %-36s %s (%d/%d)\n", i+1, prov.Display, status, configured, total)
-			fmt.Printf("   -> %s\n", prov.URL)
+			fmt.Printf("  %d. %-36s %s (%d/%d)\n", i+1, prov.Display, status, configured, total)
+			fmt.Printf("     -> %s\n", prov.URL)
 		}
 
 		fmt.Println()
 		fmt.Println("a. Configurer tous les fournisseurs en sequence")
+		fmt.Println("e. Effacer des cles API")
 		fmt.Println("0. Retour")
 		fmt.Println()
 		fmt.Print("Choix : ")
@@ -143,13 +138,13 @@ func InteractiveConfig(profiles []profile.Profile) error {
 		choice, _ := reader.ReadString('\n')
 		choice = strings.TrimSpace(choice)
 
-		if choice == "0" {
+		switch {
+		case choice == "0":
 			return nil
-		}
 
-		if choice == "a" {
-			for _, prov := range providers {
-				configureProvider(prov, byShortcut)
+		case strings.EqualFold(choice, "a"):
+			for _, prov := range cat.Providers {
+				configureProvider(prov, byShortcut, reader)
 			}
 			cli.PrintSuccess("Configuration terminee.")
 			fmt.Println()
@@ -160,20 +155,28 @@ func InteractiveConfig(profiles []profile.Profile) error {
 				fmt.Println("Lancez 'multiai list' pour voir les profils disponibles.")
 			}
 			return nil
-		}
 
-		idx, err := strconv.Atoi(choice)
-		if err != nil || idx < 1 || idx > len(providers) {
-			cli.PrintWarning("Choix invalide.")
-			continue
+		case strings.EqualFold(choice, "e"):
+			runEraseMenu(cat, byShortcut, reader)
+			fmt.Println()
+			fmt.Print("Entree pour revenir : ")
+			_, _ = reader.ReadString('\n')
+
+		default:
+			idx, err := strconv.Atoi(choice)
+			if err != nil || idx < 1 || idx > len(cat.Providers) {
+				cli.PrintWarning("Choix invalide.")
+				continue
+			}
+			configureProvider(cat.Providers[idx-1], byShortcut, reader)
 		}
-		configureProvider(providers[idx-1], byShortcut)
 	}
 }
 
-func configureProvider(prov Provider, byShortcut map[string]*profile.Profile) {
-	reader := bufio.NewReader(os.Stdin)
-
+// configureProvider shares the caller's reader: a second bufio.Reader on
+// os.Stdin would lose whatever the first one already buffered (piped input
+// like `printf "1\nsk-...\n0\n" | multiai config` would silently read EOF).
+func configureProvider(prov Provider, byShortcut map[string]*profile.Profile, reader *bufio.Reader) {
 	fmt.Println()
 	cli.PrintInfo(fmt.Sprintf("  %s", prov.Display))
 	fmt.Printf("  Creer une cle : %s\n", prov.URL)
@@ -181,24 +184,27 @@ func configureProvider(prov Provider, byShortcut map[string]*profile.Profile) {
 		fmt.Printf("  Note : %s\n", prov.Note)
 	}
 
-	// Show current status
-	var firstProf *profile.Profile
-	var firstVar string
+	// Collect installed profiles of the group, keeping catalog order.
+	var shortcuts []string
 	for _, sc := range prov.Shortcuts {
-		if p, ok := byShortcut[sc]; ok {
-			firstProf = p
-			firstVar = prov.VarMap[sc]
-			break
+		if _, ok := byShortcut[sc]; ok {
+			shortcuts = append(shortcuts, sc)
 		}
 	}
-	if firstProf == nil {
+	if len(shortcuts) == 0 {
 		cli.PrintWarning("  Aucun profil installe pour ce fournisseur.")
 		return
 	}
+	fmt.Printf("  Profils : %s\n", strings.Join(shortcuts, ", "))
 
+	// Current status, read from the first installed profile of the group.
+	firstProf := byShortcut[shortcuts[0]]
+	firstVar := prov.VarMap[shortcuts[0]]
 	currentVal := firstProf.Env[firstVar]
 	fmt.Print("  Statut actuel : ")
-	if dotenv.IsPlaceholder(currentVal) {
+	if currentVal == secret.Sentinel {
+		fmt.Println("[configuree - stockee dans le credential store]")
+	} else if dotenv.IsPlaceholder(currentVal) {
 		cli.PrintError("[non configuree]")
 	} else {
 		masked := currentVal
@@ -215,34 +221,27 @@ func configureProvider(prov Provider, byShortcut map[string]*profile.Profile) {
 	newVal, _ := reader.ReadString('\n')
 	newVal = strings.TrimSpace(newVal)
 
-	if newVal != "" {
-		valid, msg := validateAPIKey(prov.ID, newVal)
-		if !valid {
-			cli.PrintWarning(fmt.Sprintf("  Attention: %s", msg))
-			fmt.Print("  Continuer quand meme ? (o/N) : ")
-			confirm, _ := reader.ReadString('\n')
-			if strings.TrimSpace(strings.ToLower(confirm)) != "o" {
-				return
-			}
-		}
-	}
-
 	if newVal == "" {
 		fmt.Println("  -> Ignore.")
 		return
 	}
 
-	updated := 0
-	for _, sc := range prov.Shortcuts {
-		p, ok := byShortcut[sc]
-		if !ok {
-			continue
+	if valid, msg := validateAPIKey(prov, newVal); !valid {
+		cli.PrintWarning(fmt.Sprintf("  Attention: %s", msg))
+		fmt.Print("  Continuer quand meme ? (o/N) : ")
+		confirm, _ := reader.ReadString('\n')
+		if strings.TrimSpace(strings.ToLower(confirm)) != "o" {
+			return
 		}
+	}
+
+	updated := 0
+	for _, sc := range shortcuts {
+		p := byShortcut[sc]
 		varName := prov.VarMap[sc]
-		// Update in-memory
-		p.Env[varName] = newVal
-		// Update file
-		if err := updateEnvFile(p.Path, varName, newVal); err == nil {
+		// Update file first, then memory, so the display stays honest.
+		if err := updateEnvFile(p.Path, varName, newVal, false); err == nil {
+			p.Env[varName] = newVal
 			updated++
 			fmt.Printf("    + %-30s [%s]\n", p.DisplayName, p.Shortcut)
 		}
@@ -250,23 +249,64 @@ func configureProvider(prov Provider, byShortcut map[string]*profile.Profile) {
 	if updated > 0 {
 		cli.PrintSuccess(fmt.Sprintf("  %d profil(s) mis a jour.", updated))
 	} else {
-		cli.PrintWarning("  Aucun profil mis a jour.")
+		cli.PrintWarning("  Aucun profil mis a jour (variable introuvable dans les .env).")
 	}
 }
 
-func updateEnvFile(path, varName, newValue string) error {
+// updateEnvFile persists a secret for one profile: real value in the
+// credential store, sentinel in the .env file.
+// When allowPlaintext is false and the credential store is inaccessible, it
+// returns an error to prevent silent plaintext downgrade.
+func updateEnvFile(path, varName, newValue string, allowPlaintext bool) error {
+	// Credential store FIRST: the file only receives the sentinel when the
+	// store write succeeded (invariant: sentinel in file => value in store,
+	// otherwise launch would export a dangling sentinel as the API key).
+	fileValue := newValue
+	storeErrMsg := ""
+	if store, err := secret.NewStore(); err == nil {
+		if err := store.Set(secret.ServiceForProfile(path), varName, newValue); err == nil {
+			fileValue = secret.Sentinel
+		} else {
+			storeErrMsg = fmt.Sprintf("  Credential store inaccessible : %v", err)
+		}
+	} else {
+		storeErrMsg = fmt.Sprintf("  Credential store inaccessible : %v", err)
+	}
+	if fileValue != secret.Sentinel {
+		if !allowPlaintext {
+			return fmt.Errorf("%s. Utilisez --allow-plaintext pour forcer l'ecriture en clair de %s dans %s",
+				storeErrMsg, varName, path)
+		}
+		cli.PrintWarning(fmt.Sprintf("  Credential store indisponible : %s sera ecrit EN CLAIR dans %s", varName, path))
+	}
+	return setEnvVarInFile(path, varName, fileValue)
+}
+
+// setEnvVarInFile replaces the value of the first non-commented `VAR=` line
+// in a .env file, atomically (temp file + rename). It writes the value
+// verbatim — secret handling is the caller's business.
+func setEnvVarInFile(path, varName, value string) error {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
 
 	lines := strings.Split(string(content), "\n")
-	pattern := varName + "="
 	found := false
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		if !strings.HasPrefix(trimmed, "#") && strings.HasPrefix(trimmed, pattern) {
-			lines[i] = varName + "=__MULTIAI_CREDSTORE__"
+		if strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		// Match the key tolerating spaces around '=' (dotenv.Parse accepts
+		// "VAR = value"); an exact "VAR=" prefix would miss such a line and
+		// silently orphan a credential-store entry.
+		eq := strings.IndexByte(trimmed, '=')
+		if eq < 0 {
+			continue
+		}
+		if strings.TrimSpace(trimmed[:eq]) == varName {
+			lines[i] = varName + "=" + value
 			found = true
 			break
 		}
@@ -275,7 +315,6 @@ func updateEnvFile(path, varName, newValue string) error {
 		return fmt.Errorf("variable %s non trouvee dans %s", varName, path)
 	}
 
-	// Ecriture atomique : fichier temporaire + rename
 	newContent := []byte(strings.Join(lines, "\n"))
 	tmpPath := path + ".tmp"
 	if err := os.WriteFile(tmpPath, newContent, 0600); err != nil {
@@ -285,14 +324,5 @@ func updateEnvFile(path, varName, newValue string) error {
 		os.Remove(tmpPath)
 		return fmt.Errorf("cannot replace %s: %w", path, err)
 	}
-
-	// Stocker dans le credential store (best-effort, apres l'ecriture du fichier)
-	store, err := secret.NewStore()
-	if err != nil {
-		return nil // fichier mis a jour, credential store pas dispo
-	}
-	profileID := strings.TrimSuffix(filepath.Base(path), ".env")
-	_ = store.Set("multiai:"+profileID, varName, newValue)
 	return nil
 }
-
