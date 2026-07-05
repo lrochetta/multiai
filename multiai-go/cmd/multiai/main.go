@@ -19,6 +19,7 @@ import (
 	"github.com/lrochetta/multiai/internal/onboarding"
 	"github.com/lrochetta/multiai/internal/openrouter"
 	"github.com/lrochetta/multiai/internal/profile"
+	"github.com/lrochetta/multiai/internal/update"
 )
 
 // version is the single source of truth for the CLI version (also shown in
@@ -186,6 +187,10 @@ Necessite Node.js (npx) : https://nodejs.org`)
 }
 
 func main() {
+	// Auto-update: check GitHub for a newer release before dispatching.
+	// Silent on failure — never blocks the launch.
+	update.Check(version)
+
 	if len(os.Args) < 2 {
 		runInteractiveLoop()
 		return
