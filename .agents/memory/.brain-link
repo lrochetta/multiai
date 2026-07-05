@@ -1,0 +1,18 @@
+{
+  "linked_brain": "C:\\Users\\laurent\\.bmad-plus\\brain",
+  "linked_at": "2026-06-23T20:00:00Z",
+  "project_path": "D:\\travail\\DEV\\multiai",
+  "project_name": "multiai",
+  "version": "0.2.6",
+  "score": "9.5/10",
+  "status": "PRODUCTION",
+  "go_module": "github.com/lrochetta/multiai",
+  "npm_package": "multiai@0.2.6",
+  "stack": "Go 1.23 (primary) + PowerShell 5.1+ (legacy/npm)",
+  "repository": "https://github.com/lrochetta/multiai (privé)",
+  "last_build": "2026-06-23T19:50:00Z",
+  "build_targets": ["windows-amd64", "linux-amd64", "darwin-amd64", "darwin-arm64"],
+  "test_results": "5/5 packages OK, go vet 0 warning",
+  "fixes_applied": 42,
+  "agents_used": 17
+}
