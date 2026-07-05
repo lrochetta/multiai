@@ -68,11 +68,11 @@ Lancement : claude (OpenRouter Fusion — panel multi-modele)
 
 | Méthode | Commande | Disponibilité |
 |---------|----------|---------------|
-| **npm** | `npx multiai install` | ✅ v0.4.0 (binaire Go natif, SHA256 vérifié) |
+| **npm** | `npx multiai install` | ✅ v0.4.2 (binaire Go natif, SHA256 vérifié) |
 | **Go** | `go install github.com/lrochetta/multiai/multiai-go/cmd/multiai@latest` | ✅ maintenant |
-| **Homebrew** | `brew install --cask lrochetta/tap/multiai` | à partir de v0.4.0 (tap requis) |
-| **Scoop** | `scoop install multiai` | à partir de v0.4.0 (bucket requis) |
-| **Script** | `curl -fsSL https://rochetta.fr/multiai/install.sh \| bash` | v0.4.0 |
+| **Homebrew** | `brew install --cask lrochetta/tap/multiai` | à partir de v0.4.2 (tap requis) |
+| **Scoop** | `scoop install multiai` | à partir de v0.4.2 (bucket requis) |
+| **Script** | `curl -fsSL https://rochetta.fr/multiai/install.sh \| bash` | v0.4.2 |
 
 ---
 
@@ -80,7 +80,7 @@ Lancement : claude (OpenRouter Fusion — panel multi-modele)
 
 | Composant | Version | Rôle |
 |-----------|---------|------|
-| `multiai-go/` | **v0.4.0** | Implémentation de référence : binaire Go natif, 37 profils, 13 fournisseurs, fallback chains, credential store AES-256-GCM, Cosign keyless |
+| `multiai-go/` | **v0.4.2** | Implémentation de référence : binaire Go natif, 37 profils, 13 fournisseurs, fallback chains, credential store AES-256-GCM, menus colorés, Cosign keyless |
 | `multiai-powershell/` | v0.3.0 (gelée) | Version d'origine, archivée — le package npm a basculé sur le binaire Go en v0.4.0 |
 
 ---
@@ -93,7 +93,8 @@ multiai launch -p ds           # DeepSeek V4 Pro via Claude Code
 multiai launch -p or-fusion    # OpenRouter Fusion (panel multi-modele)
 multiai launch -p codex55      # Codex GPT-5.5
 multiai list --json            # Liste tous les profils en JSON
-multiai config                 # Configurer les cles API (menu colore)
+multiai config                 # Configurer les cles API (menu colore vert/jaune/gris)
+multiai launch -t claude        # Choisir un profil Claude Code (menu colore)
 multiai models                 # Decouvrir les modeles OpenRouter (300+)
 multiai search "claude"        # Rechercher un modele
 multiai completion bash        # Autocompletion bash
@@ -197,7 +198,7 @@ Windows amd64 • macOS Intel • macOS Apple Silicon • Linux amd64/arm64
 │   │   ├── config/              → Wizard interactif + erase keys
 │   │   ├── env/                 → Isolation + expansion %VAR%
 │   │   ├── logging/             → Journal de sessions JSONL
-│   │   ├── menu/                → Menus interactifs (top, tool, profile, BMAD)
+│   │   │   ├── menu/                → Menus interactifs colorés (top, tool, profile, BMAD)
 │   │   ├── onboarding/          → Assistant premier démarrage
 │   │   ├── openrouter/          → Client API, cache, search, compare, profilegen
 │   │   ├── profile/             → Chargement .env, YAML, projet
