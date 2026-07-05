@@ -7,6 +7,13 @@ project: "multiai"
 
 # Decisions
 
+## 2026-07-06 — Auto-update via GitHub Releases
+- **Context**: Les utilisateurs npm/go install doivent réinstaller manuellement pour obtenir la dernière version. Aucune notification de mise à jour.
+- **Decision**: Ajouter `internal/update/` — au lancement, vérifie l'API GitHub Releases (cache 1h), télécharge le nouveau binaire si plus récent, vérifie SHA256, extrait, re-exec. Tout est silencieux (timeout 5s, jamais bloquant).
+- **Rationale**: Maintient les utilisateurs à jour sans friction. Pas de dépendance externe (stdlib uniquement).
+- **Consequences**: `update.Check(version)` dans `main()`, package `internal/update/`, cache dans `UserConfigDir/multiai/update-check.json`.
+- **Status**: active
+
 ## 2026-07-06 — Menus colorés selon statut de configuration
 - **Context**: Les utilisateurs ne savaient pas quels profils/fournisseurs étaient configurés sans entrer dans le wizard.
 - **Decision**: Colorer les lignes des menus config et profils : vert [OK] si toutes les clés configurées, jaune [~~] si partiel, gris [--] si aucune. Fonction `StatusColor` exportée dans `internal/cli/display.go`.

@@ -3,13 +3,13 @@ title: Project Context
 description: Living state — updated by Zecher
 created: "2026-06-23"
 project: "multiai"
-last_updated: "2026-07-06T01:00:00Z"
-version: "0.4.2"
+last_updated: "2026-07-06T01:30:00Z"
+version: "0.4.3"
 score: "8.5/10"
 status: "PRODUCTION"
 ---
 
-# Project Context — multiai v0.4.2
+# Project Context — multiai v0.4.3
 
 ## Project Identity
 
@@ -17,7 +17,7 @@ status: "PRODUCTION"
 - **Version** : **0.4.2** (npm + Go)
 - **Path** : `D:\travail\DEV\multiai`
 - **Go module** : `github.com/lrochetta/multiai` (multiai-go/)
-- **npm** : `multiai@0.4.2` (publié, binaire Go natif)
+- **npm** : `multiai@0.4.3` (publié, binaire Go natif)
 - **Stack** : Go 1.22 (référence) + PowerShell 5.1+ (gelé/archivé)
 - **Score** : **8.5/10** (audit BMAD+ 3 agents, 2026-07-05)
 
@@ -36,6 +36,8 @@ status: "PRODUCTION"
 | 2026-07-05 23:30 | v0.4.1 : README corrigé, 37 profils, audit public |
 | 2026-07-06 00:00 | Menu profils coloré (même système que config) |
 | 2026-07-06 00:30 | v0.4.2 : README final, npm publié |
+| 2026-07-06 01:00 | Auto-update : `internal/update/`, check GitHub Releases au lancement |
+| 2026-07-06 01:30 | v0.4.3 : npm publié avec auto-update |
 
 ## v0.4.x — Nouveautés (2026-07-05/06)
 
@@ -54,6 +56,12 @@ status: "PRODUCTION"
 - LICENSE MIT ajouté (était absent)
 - Credential store obligatoire — plus de fallback silencieux en texte clair
 - CI/CD : `.golangci.yml` v2, golangci-lint activé, smoketest
+
+### Auto-update (v0.4.3)
+- **Check au lancement** : `update.Check(version)` dans `main()`
+- GitHub Releases API, cache 1h, timeout 5s, silent fail
+- Télécharge, vérifie SHA256, extrait, re-exec le nouveau binaire
+- `MULTIAI_SKIP_UPDATE=1` pour désactiver
 
 ### UX améliorée
 - **Menus colorés** : vert (configuré), jaune (partiel), gris (non configuré)
