@@ -10,6 +10,7 @@ import (
 
 	"github.com/lrochetta/multiai/internal/cli"
 	"github.com/lrochetta/multiai/internal/profile"
+	"github.com/lrochetta/multiai/pkg/dotenv"
 )
 
 // ShowTopMenu displays the main menu and returns the user's choice.
@@ -107,7 +108,13 @@ func SelectProfile(profiles []profile.Profile, toolFilter string) (*profile.Prof
 	cli.PrintInfo(fmt.Sprintf("Profils disponibles pour %s", filtered[0].ToolLabel))
 	fmt.Println()
 	for i, p := range filtered {
-		fmt.Printf("%d. %s [%s]\n", i+1, p.DisplayName, p.Shortcut)
+		configured, total := countSecrets(&p)
+		color := cli.StatusColor(configured, total)
+		line := fmt.Sprintf("%d. %s [%s]", i+1, p.DisplayName, p.Shortcut)
+		if configured > 0 {
+			line += fmt.Sprintf(" (%d/%d)", configured, total)
+		}
+		fmt.Println(cli.Colorize(line, color))
 		if p.Description != "" {
 			fmt.Printf("   %s\n", p.Description)
 		}
@@ -135,4 +142,19 @@ func SelectProfile(profiles []profile.Profile, toolFilter string) (*profile.Prof
 		return nil, fmt.Errorf("choix invalide")
 	}
 	return &filtered[idx-1], nil
+}
+
+// countSecrets counts how many secret keys (non-metadata) are configured
+// (non-placeholder) in a profile, and the total number of secret keys.
+func countSecrets(p *profile.Profile) (configured, total int) {
+	for k, v := range p.Env {
+		if profile.MetadataKeys[k] {
+			continue
+		}
+		total++
+		if !dotenv.IsPlaceholder(v) {
+			configured++
+		}
+	}
+	return
 }
