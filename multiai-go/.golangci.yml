@@ -15,7 +15,7 @@ linters:
     - prealloc
     - nakedret
 
-linters-settings:
+settings:
   gosec:
     excludes:
       - G104
