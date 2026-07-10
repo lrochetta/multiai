@@ -68,7 +68,7 @@ jobs:
           cache-dependency-path: multiai-go/go.sum
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@c3667d9947d113e93a28be82640172b407ba8e2a # v3.11.0
+        uses: sigstore/cosign-installer@v3.11.0
 
       - name: Preflight — version must be injectable
         run: |
