@@ -1,0 +1,36 @@
+{
+  "global": {
+    "exclude": [
+      "G104"
+    ],
+    "nosec": false,
+    "audit": false
+  },
+  "analyzers": [
+    {
+      "id": "G204",
+      "exclude": true,
+      "comment": "multiai is a command launcher — launching subprocesses with user-provided paths is by design"
+    },
+    {
+      "id": "G702",
+      "exclude": true,
+      "comment": "auto-update re-exec is intentional — own binary path, not user input"
+    },
+    {
+      "id": "G704",
+      "exclude": true,
+      "comment": "auto-update downloads from own GitHub releases — fixed URL, not user input"
+    },
+    {
+      "id": "G101",
+      "exclude": true,
+      "comment": "False positive in i18n.go — 'error'/'Erreur' strings flagged as hardcoded credentials"
+    },
+    {
+      "id": "G115",
+      "exclude": true,
+      "comment": "int->uint32 conversion in fallback.go:90 is bounded — checking against Windows STATUS_CONTROL_C_EXIT"
+    }
+  ]
+}
