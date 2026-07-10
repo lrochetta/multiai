@@ -86,9 +86,16 @@ checksum:
 # Debian packages built natively by GoReleaser (nfpm). This replaces the
 # checksum-less local script packaging/deb/build-deb.sh (kept as a dev
 # fallback only).
+#
+# The APT repository is published to GitHub Pages (gh-pages) after each
+# release. See scripts/generate-apt-repo.sh and packaging/apt/README.md.
+#
+# Package naming convention (matches the APT pool path):
+#   multiai_<version>_<arch>.deb
 nfpms:
   - id: deb
     package_name: multiai
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
     formats: [deb]
     maintainer: Laurent Rochetta <laurent@rochetta.fr>
     homepage: https://rochetta.fr

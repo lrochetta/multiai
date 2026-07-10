@@ -1,13 +1,13 @@
 pkgbase = multiai
-	pkgdesc = Route multiple AI CLIs (Claude Code, Codex, OpenCode) with isolated env profiles
-	pkgver = 0.4.0
-	pkgrel = 1
-	url = https://rochetta.fr
-	arch = x86_64
-	arch = aarch64
-	license = MIT
-	makedepends = go
-	source = multiai-0.4.0.tar.gz::https://github.com/lrochetta/multiai/archive/refs/tags/v0.4.0.tar.gz
-	sha256sums = SKIP
+		pkgdesc = Route multiple AI CLIs (Claude Code, Codex, OpenCode) with isolated env profiles
+		pkgver = 0.4.0
+		pkgrel = 1
+		url = https://rochetta.fr
+		arch = x86_64
+		arch = aarch64
+		license = MIT
+		makedepends = go
+		source = multiai-0.4.0.tar.gz::https://github.com/lrochetta/multiai/archive/refs/tags/v0.4.0.tar.gz
+		sha256sums = SKIP
 
 pkgname = multiai

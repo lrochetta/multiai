@@ -54,6 +54,40 @@ Mise à jour :
 brew upgrade multiai
 ```
 
+## APT (Ubuntu/Debian)
+
+Si tu utilises une distribution basée sur Debian (Ubuntu, Debian, Linux Mint, Pop!_OS) :
+
+```bash
+# 1. Importer la clé GPG
+sudo mkdir -p /usr/share/keyrings
+sudo curl -fsSL https://lrochetta.github.io/multiai/apt/gpg-public.key \
+  -o /usr/share/keyrings/multiai-archive-keyring.gpg
+
+# 2. Ajouter le dépôt
+echo "deb [signed-by=/usr/share/keyrings/multiai-archive-keyring.gpg] https://lrochetta.github.io/multiai/apt stable main" \
+  | sudo tee /etc/apt/sources.list.d/multiai.list
+
+# 3. Installer
+sudo apt update
+sudo apt install multiai
+```
+
+Mise à jour :
+
+```bash
+sudo apt update
+sudo apt upgrade multiai
+```
+
+Vérification de la signature (optionnel) :
+
+```bash
+gpg --verify /usr/share/keyrings/multiai-archive-keyring.gpg
+```
+
+L'empreinte de la clé est `C386 EBA7 DD7F 742B 36C9 4BEE A6D9 99AB 129B 8351`.
+
 ## Scoop (Windows)
 
 Si tu utilises Scoop :
@@ -122,6 +156,9 @@ curl -fsSL https://rochetta.fr/multiai/install.sh | bash
 
 # Homebrew
 brew upgrade multiai
+
+# APT
+sudo apt update && sudo apt upgrade multiai
 
 # Scoop
 scoop update multiai
