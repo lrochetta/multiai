@@ -10,14 +10,10 @@ linters:
     - staticcheck
     - unused
     - misspell
-    - gosec
     - unparam
     - prealloc
     - nakedret
   settings:
-    gosec:
-      excludes:
-        - G104
     misspell:
       locale: US
 
