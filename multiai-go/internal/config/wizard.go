@@ -1,4 +1,4 @@
-// Package config implements the interactive API key configuration wizard,
+﻿// Package config implements the interactive API key configuration wizard,
 // driven by the embedded provider catalog (internal/catalog).
 package config
 
@@ -83,14 +83,14 @@ func providerStatus(prov Provider, byShortcut map[string]*profile.Profile) (conf
 }
 
 // InteractiveConfig runs the interactive API key configuration menu.
-func InteractiveConfig(profiles []profile.Profile) error {
-	return runConfigMenu(catalog.Default(), shortcutIndex(profiles), bufio.NewReader(os.Stdin))
+func InteractiveConfig(profiles []profile.Profile, store secret.Store) error {
+	return runConfigMenu(catalog.Default(), shortcutIndex(profiles), bufio.NewReader(os.Stdin), store)
 }
 
 // ConfigureProviderByID runs the key prompt for a single provider selected
-// by its catalog id (e.g. "openrouter"), skipping the menu â€” backs
+// by its catalog id (e.g. "openrouter"), skipping the menu Ã¢â‚¬â€ backs
 // `multiai config --provider <id>`. A nil reader defaults to stdin.
-func ConfigureProviderByID(profiles []profile.Profile, providerID string, reader *bufio.Reader) error {
+func ConfigureProviderByID(profiles []profile.Profile, providerID string, reader *bufio.Reader, store secret.Store) error {
 	cat := catalog.Default()
 	prov, ok := cat.ProviderByID(providerID)
 	if !ok {
@@ -100,13 +100,13 @@ func ConfigureProviderByID(profiles []profile.Profile, providerID string, reader
 	if reader == nil {
 		reader = bufio.NewReader(os.Stdin)
 	}
-	configureProvider(prov, shortcutIndex(profiles), reader)
+	configureProvider(prov, shortcutIndex(profiles), reader, store)
 	return nil
 }
 
 // runConfigMenu is the menu loop, split from InteractiveConfig so tests can
 // drive it with a scripted reader.
-func runConfigMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile, reader *bufio.Reader) error {
+func runConfigMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile, reader *bufio.Reader, store secret.Store) error {
 	for {
 		fmt.Println()
 		display.PrintInfo(i18n.T("config_title"))
@@ -152,7 +152,7 @@ func runConfigMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile,
 
 		case strings.EqualFold(choice, "a"):
 			for _, prov := range cat.Providers {
-				configureProvider(prov, byShortcut, reader)
+				configureProvider(prov, byShortcut, reader, store)
 			}
 			display.PrintSuccess(i18n.T("config_done"))
 			fmt.Println()
@@ -165,7 +165,7 @@ func runConfigMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile,
 			return nil
 
 		case strings.EqualFold(choice, "e"):
-			runEraseMenu(cat, byShortcut, reader)
+			runEraseMenu(cat, byShortcut, reader, store)
 			fmt.Println()
 			fmt.Print(i18n.T("enter_return"))
 			_, _ = reader.ReadString('\n')
@@ -176,7 +176,7 @@ func runConfigMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile,
 				display.PrintWarning(i18n.T("invalid_choice"))
 				continue
 			}
-			configureProvider(cat.Providers[idx-1], byShortcut, reader)
+			configureProvider(cat.Providers[idx-1], byShortcut, reader, store)
 		}
 	}
 }
@@ -184,7 +184,7 @@ func runConfigMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile,
 // configureProvider shares the caller's reader: a second bufio.Reader on
 // os.Stdin would lose whatever the first one already buffered (piped input
 // like `printf "1\nsk-...\n0\n" | multiai config` would silently read EOF).
-func configureProvider(prov Provider, byShortcut map[string]*profile.Profile, reader *bufio.Reader) {
+func configureProvider(prov Provider, byShortcut map[string]*profile.Profile, reader *bufio.Reader, userStore secret.Store) {
 	fmt.Println()
 	display.PrintInfo("  " + prov.Display)
 	fmt.Printf("  %s\n", i18n.T("create_key_at", prov.URL))
@@ -243,10 +243,14 @@ func configureProvider(prov Provider, byShortcut map[string]*profile.Profile, re
 
 	if newKey == "e" && isSentinel {
 		// Erase from store and restore placeholder.
-		store, err := secret.NewStore()
-		if err != nil {
-			display.PrintWarning(fmt.Sprintf("  %s", i18n.T("cred_store_unavailable", err)))
-			return
+		store := userStore
+		if store == nil {
+			var err error
+			store, err = secret.NewStore()
+			if err != nil {
+				display.PrintWarning(fmt.Sprintf("  %s", i18n.T("cred_store_unavailable", err)))
+				return
+			}
 		}
 		isSentinel = false
 		for _, sc := range shortcuts {
@@ -285,7 +289,7 @@ func configureProvider(prov Provider, byShortcut map[string]*profile.Profile, re
 
 		// Use the allow-plaintext flag when the credential store is
 		// unavailable so the user intent is explicit.
-		if err := updateEnvFile(pp.Path, v, newKey, false); err != nil {
+		if err := updateEnvFile(pp.Path, v, newKey, false, userStore); err != nil {
 			display.PrintWarning(fmt.Sprintf("  %s : %v", sc, err))
 			continue
 		}
@@ -310,9 +314,16 @@ func configureProvider(prov Provider, byShortcut map[string]*profile.Profile, re
 //  2. Write the sentinel into the .env file.
 //  3. If step 2 fails, rollback step 1 (delete from store) so that a
 //     dangling credential never accumulates without its sentinel.
-func updateEnvFile(path, varName, newValue string, allowPlaintext bool) error {
-	store, storeErr := secret.NewStore()
-	storeAvailable := storeErr == nil
+func updateEnvFile(path, varName, newValue string, allowPlaintext bool, userStore secret.Store) error {
+	store := userStore
+	var storeErr error
+	storeAvailable := false
+	if store == nil {
+		store, storeErr = secret.NewStore()
+		storeAvailable = storeErr == nil
+	} else {
+		storeAvailable = true
+	}
 
 	fileValue := newValue
 	storeSetDone := false
@@ -348,7 +359,7 @@ func updateEnvFile(path, varName, newValue string, allowPlaintext bool) error {
 
 // setEnvVarInFile replaces the value of the first non-commented `VAR=` line
 // in a .env file, atomically. It writes the value
-// verbatim â€” secret handling is the caller's business.
+// verbatim Ã¢â‚¬â€ secret handling is the caller's business.
 func setEnvVarInFile(path, varName, value string) error {
 	content, err := os.ReadFile(path)
 	if err != nil {

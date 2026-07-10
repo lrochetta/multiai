@@ -92,7 +92,7 @@ func T(key string, args ...interface{}) string {
 // hardcoded strings so that existing tests continue to pass.
 var messages = map[Lang]map[string]string{
 	FR: {
-		// â”€â”€ Core / priority (requis S4.1) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		// -- Core / priority (requis S4.1) -----------------------------------------------
 		"profile_not_found":       "profil introuvable",
 		"required_secret_missing": "secret obligatoire non configure",
 		"will_be_in_plaintext":    "sera ecrit EN CLAIR",
@@ -101,7 +101,7 @@ var messages = map[Lang]map[string]string{
 		"version":                 "Version",
 		"launching":               "Lancement de",
 
-		// â”€â”€ Main menu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		// -- Main menu --------------------------------------------------------------------
 		"menu_title":           "Laurent ROCHETTA's MultiAI (AI Code CLI Router) v%s - %d profils",
 		"menu_launch":          "1. Lancer",
 		"menu_config":          "2. Configurer les cles API",
@@ -119,7 +119,7 @@ var messages = map[Lang]map[string]string{
 		"launch_help":          "Utilisez 'multiai launch -p <shortcut>' pour lancer.",
 		"list_help":            "Lancez 'multiai list' pour voir les profils disponibles.",
 
-		// â”€â”€ Config wizard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		// -- Config wizard -----------------------------------------------------------------
 		"config_title":   "Configuration des cles API",
 		"config_all":     "a. Configurer tous les fournisseurs en sequence",
 		"erase_keys":     "e. Effacer des cles API",
@@ -128,7 +128,7 @@ var messages = map[Lang]map[string]string{
 		"invalid_choice": "Choix invalide.",
 		"choice_prompt":  "Choix : ",
 
-		// â”€â”€ API key prompts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		// -- API key prompts ---------------------------------------------------------------
 		"key_prompt":        "Nouvelle cle API (vide = inchanger) : ",
 		"key_prompt_erase":  "Nouvelle cle API (vide = inchanger, effacer = e) : ",
 		"no_change":         "Aucune modification.",
@@ -136,7 +136,7 @@ var messages = map[Lang]map[string]string{
 		"confirm_anyway":    "Confirmer quand meme ? (o/N) : ",
 		"launch_now_prompt": "Voulez-vous lancer un profil maintenant ? (o/N) : ",
 
-		// â”€â”€ Tool / profile selection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		// -- Tool / profile selection ------------------------------------------------------
 		"tools_available":    "Outils disponibles",
 		"back_tool_sel":      "0. Retour a la selection d'outil",
 		"choose_tool":        "Choisis un outil : ",
@@ -145,7 +145,7 @@ var messages = map[Lang]map[string]string{
 		"profiles_available": "Profils disponibles pour %s",
 		"title_profiles":     "Laurent ROCHETTA's MultiAI (AI Code CLI Router) v%s - %d profils",
 
-		// â”€â”€ Status / results â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		// -- Status / results --------------------------------------------------------------
 		"unknown_cmd":              "Commande inconnue : %s",
 		"update_available":         "\n[i] v%s disponible. Lancez 'multiai update'.\n\n",
 		"warning_manifest":         "Avertissement: impossible de lire le manifeste installe",
@@ -158,7 +158,7 @@ var messages = map[Lang]map[string]string{
 		"process_exit_code":        "Le processus s'est termine avec le code: %d",
 		"timeout_reached":          "Le processus a depasse le delai de %s",
 
-		// â”€â”€ Provider config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		// -- Provider config ---------------------------------------------------------------
 		"create_key_at":    "Creer une cle : %s",
 		"note":             "Note : %s",
 		"no_prof_provider": "Aucun profil installe pour ce fournisseur.",
@@ -166,21 +166,22 @@ var messages = map[Lang]map[string]string{
 		"variable_label":   "Variable  : %s",
 		"unknown_provider": "fournisseur inconnu : %q (valides : %s)",
 
-		// â”€â”€ Validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		// -- Validation --------------------------------------------------------------------
 		"placeholder_unconfigured": "placeholder non configure",
 		"key_too_short":            "cle trop courte (min 10 caracteres)",
 		"invalid_format":           "format invalide pour %s (attendu: %s)",
 		"invalid_format_simple":    "Format invalide",
 
-		// â”€â”€ Store / creds â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		// -- Store / creds -----------------------------------------------------------------
 		"cred_store_unavailable": "Credential store inaccessible : %v",
-		"store_not_implemented":  "Le backend natif '%s' n'est pas encore implemente.",
-		"using_file_store":       "Le store chiffre par fichier (AES-256-GCM) est utilise.",
-		"follow_issue":           "Suivez https://github.com/lrochetta/multiai/issues/42",
+		"store_invalid_backend":  "Backend de stockage invalide : %s. Valeurs acceptees : %s",
+		"store_init_error":       "Erreur d'initialisation du store '%s' : %v",
+		"store_selected":         "Backend de stockage : %s",
+		"store_flag_help":        "  multiai config --store <backend>    Forcer un backend de stockage (wincred, keychain, secret-service, file, auto)",
 	},
 
 	EN: {
-		// â”€â”€ Core / priority â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		// -- Core / priority ---------------------------------------------------------------
 		"profile_not_found":       "profile not found",
 		"required_secret_missing": "required secret not configured",
 		"will_be_in_plaintext":    "will be written IN PLAINTEXT",
@@ -189,7 +190,7 @@ var messages = map[Lang]map[string]string{
 		"version":                 "Version",
 		"launching":               "Launching",
 
-		// â”€â”€ Main menu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		// -- Main menu --------------------------------------------------------------------
 		"menu_title":           "Laurent ROCHETTA's MultiAI (AI Code CLI Router) v%s - %d profiles",
 		"menu_launch":          "1. Launch",
 		"menu_config":          "2. Configure API keys",
@@ -207,7 +208,7 @@ var messages = map[Lang]map[string]string{
 		"launch_help":          "Use 'multiai launch -p <shortcut>' to launch.",
 		"list_help":            "Run 'multiai list' to see available profiles.",
 
-		// â”€â”€ Config wizard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		// -- Config wizard -----------------------------------------------------------------
 		"config_title":   "API Key Configuration",
 		"config_all":     "a. Configure all providers in sequence",
 		"erase_keys":     "e. Erase API keys",
@@ -216,7 +217,7 @@ var messages = map[Lang]map[string]string{
 		"invalid_choice": "Invalid choice.",
 		"choice_prompt":  "Choice : ",
 
-		// â”€â”€ API key prompts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		// -- API key prompts ---------------------------------------------------------------
 		"key_prompt":        "New API key (empty = unchanged) : ",
 		"key_prompt_erase":  "New API key (empty = unchanged, erase = e) : ",
 		"no_change":         "No modification.",
@@ -224,7 +225,7 @@ var messages = map[Lang]map[string]string{
 		"confirm_anyway":    "Confirm anyway? (y/N) : ",
 		"launch_now_prompt": "Would you like to launch a profile now? (y/N) : ",
 
-		// â”€â”€ Tool / profile selection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		// -- Tool / profile selection ------------------------------------------------------
 		"tools_available":    "Available Tools",
 		"back_tool_sel":      "0. Back to tool selection",
 		"choose_tool":        "Choose a tool : ",
@@ -233,7 +234,7 @@ var messages = map[Lang]map[string]string{
 		"profiles_available": "Profiles available for %s",
 		"title_profiles":     "Laurent ROCHETTA's MultiAI (AI Code CLI Router) v%s - %d profiles",
 
-		// â”€â”€ Status / results â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		// -- Status / results --------------------------------------------------------------
 		"unknown_cmd":              "Unknown command: %s",
 		"update_available":         "\n[i] v%s available. Run 'multiai update'.\n\n",
 		"warning_manifest":         "Warning: unable to read installed manifest",
@@ -246,7 +247,7 @@ var messages = map[Lang]map[string]string{
 		"process_exit_code":        "The process exited with code: %d",
 		"timeout_reached":          "Process timed out after %s",
 
-		// â”€â”€ Provider config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		// -- Provider config ---------------------------------------------------------------
 		"create_key_at":    "Create key at: %s",
 		"note":             "Note: %s",
 		"no_prof_provider": "No profile installed for this provider.",
@@ -254,16 +255,17 @@ var messages = map[Lang]map[string]string{
 		"variable_label":   "Variable: %s",
 		"unknown_provider": "unknown provider: %q (valid: %s)",
 
-		// â”€â”€ Validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		// -- Validation --------------------------------------------------------------------
 		"placeholder_unconfigured": "placeholder not configured",
 		"key_too_short":            "key too short (min 10 characters)",
 		"invalid_format":           "invalid format for %s (expected: %s)",
 		"invalid_format_simple":    "Invalid format",
 
-		// â”€â”€ Store / creds â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		// -- Store / creds -----------------------------------------------------------------
 		"cred_store_unavailable": "Credential store unavailable: %v",
-		"store_not_implemented":  "Native backend '%s' is not yet implemented.",
-		"using_file_store":       "The file-encrypted store (AES-256-GCM) is used instead.",
-		"follow_issue":           "Follow https://github.com/lrochetta/multiai/issues/42",
+		"store_invalid_backend":  "Invalid storage backend: %s. Accepted values: %s",
+		"store_init_error":       "Error initializing store '%s': %v",
+		"store_selected":         "Storage backend: %s",
+		"store_flag_help":        "  multiai config --store <backend>    Force a storage backend (wincred, keychain, secret-service, file, auto)",
 	},
 }

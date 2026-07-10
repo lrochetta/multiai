@@ -213,6 +213,8 @@ func TestLibsecretStore_List(t *testing.T) {
 // ── Tests for newPlatformStore ──────────────────────────────────────────────
 
 func TestNewPlatformStore_Unavailable(t *testing.T) {
+	t.Setenv("MULTIAI_SECRETS_DIR", t.TempDir())
+
 	orig := secretToolLookPath
 	defer func() { secretToolLookPath = orig }()
 
@@ -220,12 +222,24 @@ func TestNewPlatformStore_Unavailable(t *testing.T) {
 		return "", fmt.Errorf("not found: %s", name)
 	}
 
-	_, err := newPlatformStore()
-	if err == nil {
-		t.Fatal("newPlatformStore should return error when secret-tool is unavailable")
+	store, err := newPlatformStore()
+	if err != nil {
+		t.Fatalf("newPlatformStore should fall back to file store, got error: %v", err)
 	}
-	if !strings.Contains(err.Error(), "secret-tool not found") {
-		t.Errorf("unexpected error message: %v", err)
+	if _, ok := store.(*fallbackStoreWrapper); !ok {
+		t.Fatalf("expected *fallbackStoreWrapper, got %T", store)
+	}
+
+	// The wrapper should still be functional (delegate to the file store).
+	if err := store.Set("test-svc", "K", "v"); err != nil {
+		t.Fatalf("Set via fallback: %v", err)
+	}
+	got, err := store.Get("test-svc", "K")
+	if err != nil {
+		t.Fatalf("Get via fallback: %v", err)
+	}
+	if got != "v" {
+		t.Errorf("fallback store returned %q, want %q", got, "v")
 	}
 }
 
@@ -233,9 +247,9 @@ func TestNewPlatformStore_Unavailable(t *testing.T) {
 
 func TestParseSecretToolSearch(t *testing.T) {
 	tests := []struct {
-		name  string
-		input string
-		want  map[string]string
+		name   string
+		input  string
+		want   map[string]string
 	}{
 		{
 			name: "single entry",
@@ -275,9 +289,9 @@ application = test
 			want: map[string]string{"MY_KEY": "my-val"},
 		},
 		{
-			name:  "empty output",
-			input: "",
-			want:  map[string]string{},
+			name:   "empty output",
+			input:  "",
+			want:   map[string]string{},
 		},
 		{
 			name: "no matching entries",
@@ -290,9 +304,9 @@ value = v
 			want: map[string]string{"K": "v"},
 		},
 		{
-			name:  "only whitespace",
-			input: "\n\n  \n",
-			want:  map[string]string{},
+			name:   "only whitespace",
+			input:  "\n\n  \n",
+			want:   map[string]string{},
 		},
 		{
 			name: "entries without value attribute",

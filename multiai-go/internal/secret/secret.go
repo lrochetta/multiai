@@ -128,6 +128,29 @@ func NewStore() (Store, error) {
 	return newPlatformStore()
 }
 
+// NewStoreWithBackend returns a credential store for the given backend name.
+//
+// Supported backends:
+//   - "auto" — best available for the platform (default behaviour)
+//   - "file" — AES-256-GCM encrypted file store (always available)
+//   - "wincred" — Windows Credential Manager (Windows only)
+//   - "keychain" — macOS Keychain (macOS only)
+//   - "secret-service" — libsecret D-Bus (Linux only)
+//
+// Unknown backend names and backends unsupported on the current platform
+// return an error.
+func NewStoreWithBackend(backend string) (Store, error) {
+	switch backend {
+	case "auto":
+		return newPlatformStore()
+	case "file":
+		return newEncryptedFileStore()
+	default:
+		return newNamedStore(backend)
+	}
+}
+
+
 // ── Encrypted File Store (fallback pour Linux) ──────────────────────────────
 
 type encryptedFileStore struct {

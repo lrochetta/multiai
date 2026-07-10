@@ -134,7 +134,7 @@ func TestEnsureProfiles_Upgrade(t *testing.T) {
 // TestEnsureProfiles_UserModified verifies that a user-modified profile is
 // not overwritten.  We simulate what happens after a binary upgrade where
 // the embedded manifest has a different SHA for a profile than the one
-// stored in the installed manifest — indicating the template changed (and
+// stored in the installed manifest Ã¢â‚¬â€ indicating the template changed (and
 // the user may have modified the file too).
 func TestEnsureProfiles_UserModified(t *testing.T) {
 	embed, err := assets.ReadManifest()
@@ -203,46 +203,40 @@ func TestEnsureProfiles_UserModified(t *testing.T) {
 	}
 }
 
-// --- Tests pour --store flag (S2.3) ---
+// --- Tests pour --store flag (S5.4) ---
 
 func TestHandleStoreFlag_NoFlag(t *testing.T) {
-	msg, err := handleStoreFlag([]string{"multiai", "config"})
+	store, err := handleStoreFlag([]string{"multiai", "config"})
 	if err != nil {
 		t.Errorf("expected no error, got: %v", err)
 	}
-	if msg != "" {
-		t.Errorf("expected empty message, got: %q", msg)
+	if store != nil {
+		t.Errorf("expected nil store without --store flag, got: %v", store)
 	}
 }
 
 func TestHandleStoreFlag_InvalidBackend(t *testing.T) {
-	msg, err := handleStoreFlag([]string{"multiai", "config", "--store", "not-a-real-backend"})
+	store, err := handleStoreFlag([]string{"multiai", "config", "--store", "not-a-real-backend"})
 	if err == nil {
 		t.Fatal("expected an error for invalid backend")
 	}
-	if msg != "" {
-		t.Errorf("expected empty message on error, got: %q", msg)
+	if store != nil {
+		t.Errorf("expected nil store on error, got: %v", store)
 	}
 	if !strings.Contains(err.Error(), "invalide") {
 		t.Errorf("error should mention 'invalide', got: %v", err)
 	}
 }
 
-func TestHandleStoreFlag_ValidBackend(t *testing.T) {
-	backends := []string{"keychain", "wincred", "secret-service"}
-	for _, backend := range backends {
+func TestHandleStoreFlag_UniversalBackends(t *testing.T) {
+	for _, backend := range []string{"file", "auto"} {
 		t.Run(backend, func(t *testing.T) {
-			msg, err := handleStoreFlag([]string{"multiai", "config", "--store", backend})
+			store, err := handleStoreFlag([]string{"multiai", "config", "--store", backend})
 			if err != nil {
-				t.Errorf("expected no error for %s, got: %v", backend, err)
+				t.Fatalf("unexpected error for %s: %v", backend, err)
 			}
-			if msg == "" {
-				t.Errorf("expected non-empty message for valid backend %s", backend)
-			}
-			// The message content depends on i18n locale; check for
-			// the GitHub issue URL which is locale-independent.
-			if !strings.Contains(msg, "issues/42") {
-				t.Errorf("expected 'issues/42' in message, got: %q", msg)
+			if store == nil {
+				t.Errorf("expected non-nil store for %s", backend)
 			}
 		})
 	}

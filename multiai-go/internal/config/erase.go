@@ -1,4 +1,4 @@
-package config
+﻿package config
 
 import (
 	"bufio"
@@ -18,8 +18,12 @@ import (
 // and the credential-store entry is deleted (parity with PS
 // Erase-ProviderKeys L544-559, extended to purge the Sprint 1 store).
 // It returns the number of profiles erased.
-func EraseProviderKeys(prov Provider, byShortcut map[string]*profile.Profile) int {
-	store, storeErr := secret.NewStore()
+func EraseProviderKeys(prov Provider, byShortcut map[string]*profile.Profile, userStore secret.Store) int {
+	store := userStore
+	var storeErr error
+	if store == nil {
+		store, storeErr = secret.NewStore()
+	}
 	if storeErr != nil {
 		// Do not touch store below: NewStore may return a typed-nil Store
 		// alongside the error, so guard on storeErr, not on store != nil.
@@ -66,7 +70,7 @@ func confirmErase(reader *bufio.Reader) bool {
 
 // runEraseMenu shows the erase menu: one entry per catalog provider plus
 // "a" to erase everything. Every action requires an explicit confirmation.
-func runEraseMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile, reader *bufio.Reader) {
+func runEraseMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile, reader *bufio.Reader, store secret.Store) {
 	fmt.Println()
 	display.PrintInfo("Effacer des cles API")
 	fmt.Println(strings.Repeat("-", 58))
@@ -103,7 +107,7 @@ func runEraseMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile, 
 		}
 		totalErased := 0
 		for _, prov := range cat.Providers {
-			totalErased += EraseProviderKeys(prov, byShortcut)
+			totalErased += EraseProviderKeys(prov, byShortcut, store)
 		}
 		fmt.Println()
 		display.PrintSuccess(fmt.Sprintf("%d cle(s) effacee(s) au total.", totalErased))
@@ -121,7 +125,7 @@ func runEraseMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile, 
 	if !confirmErase(reader) {
 		return
 	}
-	n := EraseProviderKeys(prov, byShortcut)
+	n := EraseProviderKeys(prov, byShortcut, store)
 	fmt.Println()
 	display.PrintSuccess(fmt.Sprintf("%d cle(s) effacee(s) pour %s.", n, prov.Display))
 }

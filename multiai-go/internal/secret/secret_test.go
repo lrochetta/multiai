@@ -400,6 +400,64 @@ func TestZeroizeLargeBuffer(t *testing.T) {
 	}
 }
 
+// ── Fallback wrapper tests ─────────────────────────────────────────────────────
+
+func TestFallbackStoreWrapper_Delegates(t *testing.T) {
+	t.Setenv("MULTIAI_SECRETS_DIR", t.TempDir())
+
+	fs, err := newEncryptedFileStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrapper := &fallbackStoreWrapper{store: fs}
+
+	// Set via wrapper.
+	if err := wrapper.Set("fb-svc", "KEY_A", "val-a"); err != nil {
+		t.Fatalf("Set via wrapper: %v", err)
+	}
+
+	// Get via wrapper.
+	got, err := wrapper.Get("fb-svc", "KEY_A")
+	if err != nil {
+		t.Fatalf("Get via wrapper: %v", err)
+	}
+	if got != "val-a" {
+		t.Errorf("wrapper returned %q, want %q", got, "val-a")
+	}
+
+	// List via wrapper.
+	creds, err := wrapper.List("fb-svc")
+	if err != nil {
+		t.Fatalf("List via wrapper: %v", err)
+	}
+	if creds["KEY_A"] != "val-a" {
+		t.Errorf("List via wrapper: KEY_A = %q, want %q", creds["KEY_A"], "val-a")
+	}
+
+	// Delete via wrapper.
+	if err := wrapper.Delete("fb-svc", "KEY_A"); err != nil {
+		t.Fatalf("Delete via wrapper: %v", err)
+	}
+	_, err = wrapper.Get("fb-svc", "KEY_A")
+	if err == nil {
+		t.Error("expected error after Delete via wrapper")
+	}
+}
+
+func TestFallbackStoreWrapper_ImplementsStore(t *testing.T) {
+	t.Setenv("MULTIAI_SECRETS_DIR", t.TempDir())
+
+	fs, err := newEncryptedFileStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrapper := &fallbackStoreWrapper{store: fs}
+
+	// Satisfies the Store interface.
+	var s Store = wrapper
+	_ = s
+}
+
 // TestZeroizeNotOptimized recompiles the package with inlining hints and
 // verifies that the compiler does NOT consider Zeroize inlinable. An inlined
 // Zeroize could have its write loop elided by dead-code elimination since the
