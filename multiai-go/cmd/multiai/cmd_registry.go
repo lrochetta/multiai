@@ -174,8 +174,8 @@ func printProfileSearchJSON(results []registry.ProfileEntry) int {
 		results = []registry.ProfileEntry{} // JSON [] instead of null
 	}
 	out := struct {
-		Count   int                       `json:"count"`
-		Results []registry.ProfileEntry   `json:"results"`
+		Count   int                     `json:"count"`
+		Results []registry.ProfileEntry `json:"results"`
 	}{len(results), results}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
