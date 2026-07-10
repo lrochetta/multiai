@@ -1,7 +1,0 @@
-./completion.go
-./display.go
-./fallback.go
-./hooks.go
-./launcher.go
-./fallback_test.go
-./resolve_test.go

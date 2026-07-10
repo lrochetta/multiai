@@ -43,6 +43,7 @@ _bmad-output/
 AGENTS.md
 GEMINI.md
 .commit-msg
+.claude/
 
 # Build artifacts & coverage
 multiai-go/dist/

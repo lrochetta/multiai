@@ -1,4 +1,0 @@
-./benchmark_test.go
-./config_test.go
-./integration_test.go
-./validation_test.go
