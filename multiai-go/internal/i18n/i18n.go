@@ -1,4 +1,4 @@
-﻿// Package i18n provides a minimal internationalization framework for Multiai.
+// Package i18n provides a minimal internationalization framework for Multiai.
 //
 // Usage:
 //
@@ -156,7 +156,7 @@ var messages = map[Lang]map[string]string{
 		"profiles_not_updated":     "Aucun profil mis a jour (variable introuvable dans les .env).",
 		"key_erased":               "Cle effacee du credential store.",
 		"process_exit_code":        "Le processus s'est termine avec le code: %d",
-		"timeout_reached":         "Le processus a depasse le delai de %s",
+		"timeout_reached":          "Le processus a depasse le delai de %s",
 
 		// â”€â”€ Provider config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		"create_key_at":    "Creer une cle : %s",
@@ -244,7 +244,7 @@ var messages = map[Lang]map[string]string{
 		"profiles_not_updated":     "No profiles updated (variable not found in .env files).",
 		"key_erased":               "Key erased from credential store.",
 		"process_exit_code":        "The process exited with code: %d",
-		"timeout_reached":         "Process timed out after %s",
+		"timeout_reached":          "Process timed out after %s",
 
 		// â”€â”€ Provider config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		"create_key_at":    "Create key at: %s",
