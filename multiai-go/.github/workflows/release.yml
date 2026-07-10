@@ -67,9 +67,6 @@ jobs:
           go-version: '1.25'
           cache-dependency-path: multiai-go/go.sum
 
-      - name: Install Cosign
-        run: go install github.com/sigstore/cosign/v2/cmd/cosign@latest
-
       - name: Preflight — version must be injectable
         run: |
           if ! grep -Eq '^var version' multiai-go/cmd/multiai/main.go; then

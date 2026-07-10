@@ -68,20 +68,20 @@ checksum:
   name_template: "checksums.txt"
   algorithm: sha256
 
-# Keyless Cosign signature of checksums.txt. Requires `id-token: write` in the
-# workflow and the cosign binary on the runner (sigstore/cosign-installer).
-signs:
-  - cmd: cosign
-    artifacts: checksum
-    signature: "${artifact}.sig"
-    certificate: "${artifact}.pem"
-    output: true
-    args:
-      - sign-blob
-      - "--output-signature=${signature}"
-      - "--output-certificate=${certificate}"
-      - "--yes"
-      - "${artifact}"
+# Keyless Cosign signature disabled until OIDC setup is verified.
+# Requires `id-token: write` in the workflow + cosign binary.
+# signs:
+#   - cmd: cosign
+#     artifacts: checksum
+#     signature: "${artifact}.sig"
+#     certificate: "${artifact}.pem"
+#     output: true
+#     args:
+#       - sign-blob
+#       - "--output-signature=${signature}"
+#       - "--output-certificate=${certificate}"
+#       - "--yes"
+#       - "${artifact}"
 
 # Debian packages built natively by GoReleaser (nfpm). This replaces the
 # checksum-less local script packaging/deb/build-deb.sh (kept as a dev
