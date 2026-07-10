@@ -14,13 +14,12 @@ linters:
     - unparam
     - prealloc
     - nakedret
-
-settings:
-  gosec:
-    excludes:
-      - G104
-  misspell:
-    locale: US
+  settings:
+    gosec:
+      excludes:
+        - G104
+    misspell:
+      locale: US
 
 run:
   timeout: 5m
