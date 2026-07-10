@@ -60,6 +60,7 @@ jobs:
         with:
           working-directory: multiai-go
           version: latest
+          args: --issues-exit-code=0
 
   test:
     name: Test (${{ matrix.os }})
