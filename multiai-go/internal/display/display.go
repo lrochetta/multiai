@@ -1,4 +1,4 @@
-﻿// Package display provides terminal output formatting utilities:
+// Package display provides terminal output formatting utilities:
 // colored messages (success, warning, error, info) and status helpers.
 package display
 
@@ -20,7 +20,8 @@ func Colorize(color, text string) string {
 }
 
 // StatusColor returns an ANSI color code for a configuration status.
-//  [OK] -> green, [~~] -> yellow, [--] -> dim/grey
+//
+//	[OK] -> green, [~~] -> yellow, [--] -> dim/grey
 func StatusColor(configured, total int) string {
 	if configured == total && total > 0 {
 		return "\033[32m" // green

@@ -21,7 +21,9 @@ func Colorize(text, ansiCode string) string {
 }
 
 // StatusColor returns an ANSI color code for a configuration status.
-//  [OK] -> green, [~~] -> yellow, [--] -> dim/grey
+//
+//	[OK] -> green, [~~] -> yellow, [--] -> dim/grey
+//
 // Deprecated: use display.StatusColor.
 func StatusColor(configured, total int) string {
 	return display.StatusColor(configured, total)

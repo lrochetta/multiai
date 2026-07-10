@@ -176,9 +176,9 @@ func TestCacheFilePathDefaultDir(t *testing.T) {
 
 func TestShouldCheck(t *testing.T) {
 	tests := []struct {
-		name    string
-		setup   func(t *testing.T) // prepares the cache, returns nothing
-		want    bool
+		name  string
+		setup func(t *testing.T) // prepares the cache, returns nothing
+		want  bool
 	}{
 		{
 			name: "no cache file",

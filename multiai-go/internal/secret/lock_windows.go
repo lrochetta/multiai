@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	winLockRetries  = 50             // max retries before giving up
+	winLockRetries  = 50 // max retries before giving up
 	winLockInterval = 100 * time.Millisecond
 )
 

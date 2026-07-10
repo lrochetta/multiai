@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/lrochetta/multiai/internal/catalog"
-	"github.com/lrochetta/multiai/internal/display"
 	"github.com/lrochetta/multiai/internal/config"
+	"github.com/lrochetta/multiai/internal/display"
 	"github.com/lrochetta/multiai/internal/logging"
 	"github.com/lrochetta/multiai/internal/profile"
 	"github.com/lrochetta/multiai/pkg/dotenv"

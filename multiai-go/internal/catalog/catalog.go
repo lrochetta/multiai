@@ -1,4 +1,4 @@
-﻿// Package catalog holds the data-driven provider catalog embedded in the
+// Package catalog holds the data-driven provider catalog embedded in the
 // binary (providers.yaml). It is the single source of truth consumed by
 // config, onboarding, erase and validation: adding a provider means editing
 // the YAML, no code change.
