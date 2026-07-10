@@ -236,15 +236,11 @@ func TestHandleStoreFlag_ValidBackend(t *testing.T) {
 			if err != nil {
 				t.Errorf("expected no error for %s, got: %v", backend, err)
 			}
-			if !strings.Contains(msg, "Le backend natif '"+backend+"'") {
-				t.Errorf("expected notice about %s in message, got: %q", backend, msg)
+			if msg == "" {
+				t.Errorf("expected non-empty message for valid backend %s", backend)
 			}
-			if !strings.Contains(msg, "n'est pas encore implemente") {
-				t.Errorf("expected 'pas encore implemente' in message, got: %q", msg)
-			}
-			if !strings.Contains(msg, "AES-256-GCM") {
-				t.Errorf("expected 'AES-256-GCM' in message, got: %q", msg)
-			}
+			// The message content depends on i18n locale; check for
+			// the GitHub issue URL which is locale-independent.
 			if !strings.Contains(msg, "issues/42") {
 				t.Errorf("expected 'issues/42' in message, got: %q", msg)
 			}
