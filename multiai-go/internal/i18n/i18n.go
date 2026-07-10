@@ -178,6 +178,14 @@ var messages = map[Lang]map[string]string{
 		"store_init_error":       "Erreur d'initialisation du store '%s' : %v",
 		"store_selected":         "Backend de stockage : %s",
 		"store_flag_help":        "  multiai config --store <backend>    Forcer un backend de stockage (wincred, keychain, secret-service, file, auto)",
+
+		// -- Migration --------------------------------------------------------------------
+		"migrate_no_legacy":     "Aucune installation PowerShell legacy detectee.\nRecherchez avec : multiai migrate --from-ps <chemin>",
+		"migrate_detect_error":  "Erreur de detection de l'installation PowerShell legacy",
+		"migrate_failed":        "Echec de la migration PowerShell -> Go",
+		"migrate_help_usage":    "Usage:\n  multiai migrate [options]              Migrer depuis une installation PowerShell legacy\n\nOptions:\n  --from-ps <chemin>     Chemin vers l'installation PowerShell legacy\n  --dry-run              Simulation sans ecriture (rapport seul)\n  --json, -j             Sortie au format JSON\n\nExemples:\n  multiai migrate\n  multiai migrate --from-ps C:\\Users\\laurent\\AppData\\Roaming\\npm\\node_modules\\multiai\n  multiai migrate --dry-run --json",
+		"migrate_help_options":  "Options:\n  --from-ps <chemin>     Chemin vers l'installation PowerShell legacy\n  --dry-run              Simulation sans ecriture (rapport seul)\n  --json, -j             Sortie au format JSON",
+		"migrate_help_examples": "Exemples:\n  multiai migrate\n  multiai migrate --from-ps <chemin>\n  multiai migrate --dry-run --json",
 	},
 
 	EN: {
@@ -267,5 +275,13 @@ var messages = map[Lang]map[string]string{
 		"store_init_error":       "Error initializing store '%s': %v",
 		"store_selected":         "Storage backend: %s",
 		"store_flag_help":        "  multiai config --store <backend>    Force a storage backend (wincred, keychain, secret-service, file, auto)",
+
+		// -- Migration --------------------------------------------------------------------
+		"migrate_no_legacy":     "No PowerShell legacy installation detected.\nSearch with: multiai migrate --from-ps <path>",
+		"migrate_detect_error":  "Error detecting PowerShell legacy installation",
+		"migrate_failed":        "PowerShell -> Go migration failed",
+		"migrate_help_usage":    "Usage:\n  multiai migrate [options]              Migrate from a PowerShell legacy installation\n\nOptions:\n  --from-ps <path>       Path to the PowerShell legacy installation\n  --dry-run              Simulation without writing (report only)\n  --json, -j             JSON output\n\nExamples:\n  multiai migrate\n  multiai migrate --from-ps /usr/local/lib/node_modules/multiai\n  multiai migrate --dry-run --json",
+		"migrate_help_options":  "Options:\n  --from-ps <path>       Path to the PowerShell legacy installation\n  --dry-run              Simulation without writing (report only)\n  --json, -j             JSON output",
+		"migrate_help_examples": "Examples:\n  multiai migrate\n  multiai migrate --from-ps <path>\n  multiai migrate --dry-run --json",
 	},
 }

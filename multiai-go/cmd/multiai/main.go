@@ -137,6 +137,8 @@ Usage:
   multiai bmad                    Gestion BMAD+ (install/update via npx)
   multiai completion <shell>      Completion shell (bash/zsh/fish/powershell)
   multiai update                  Verifier et installer les mises a jour
+  multiai profile search <terme>  Rechercher un profil communautaire
+  multiai profile install <nom>   Installer un profil communautaire
   multiai version                 Afficher la version
   multiai help                    Cette aide
 

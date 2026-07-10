@@ -1,9 +1,20 @@
 # Maintainer: Laurent Rochetta <laurent@rochetta.fr>
 #
-# Source-build AUR package. Before publishing to the AUR, pin the real
-# tarball checksum and regenerate .SRCINFO with:
-#   multiai-go/scripts/update-aur-checksums.sh <version>
-# 'SKIP' is the development value only — never push SKIP to the AUR.
+# Source-build AUR package.
+#
+# Before publishing to the AUR:
+#   1. Pin the real tarball checksum:
+#        multiai-go/scripts/update-aur-checksums.sh <version>
+#      (e.g. ./multiai-go/scripts/update-aur-checksums.sh 0.5.0)
+#   2. The script also regenerates .SRCINFO.
+#   3. Then push the AUR repo:
+#        cd packaging/aur
+#        git add PKGBUILD .SRCINFO
+#        git commit -m "upstream v<version>"
+#        git push
+#
+# 'SKIP' is the development value — never push SKIP to the AUR.
+
 pkgname=multiai
 pkgver=0.4.0
 pkgrel=1
@@ -33,8 +44,9 @@ package() {
     cd "${srcdir}/${_moddir}"
     install -Dm755 multiai "${pkgdir}/usr/bin/multiai"
     install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
-    # LICENSE file is not in the repository yet; picked up once it lands.
-    if [ -f LICENSE ]; then
-        install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    # LICENSE is in the monorepo root, one level above _moddir
+    if [ -f "${srcdir}/${pkgname}-${pkgver}/LICENSE" ]; then
+        install -Dm644 "${srcdir}/${pkgname}-${pkgver}/LICENSE" \
+            "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
     fi
 }
