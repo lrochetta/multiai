@@ -1,6 +1,7 @@
 package openrouter
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -54,7 +55,7 @@ func (c *Catalog) SourceLabel() string {
 //   - offline: cache (fresh or stale) -> embedded list
 //   - online:  fresh cache -> network (then cache write) -> stale cache
 //     -> embedded list
-func GetModels(offline bool) *Catalog {
+func GetModels(ctx context.Context, offline bool) *Catalog {
 	cached, fetchedAt, cacheErr := LoadCache()
 
 	if offline {
@@ -78,7 +79,7 @@ func GetModels(offline bool) *Catalog {
 		return &Catalog{Models: cached, Source: SourceCache, FetchedAt: fetchedAt}
 	}
 
-	fetched, fetchErr := FetchModels(os.Getenv("OPENROUTER_API_KEY"))
+	fetched, fetchErr := FetchModels(ctx, os.Getenv("OPENROUTER_API_KEY"))
 	if fetchErr == nil {
 		cat := &Catalog{Models: fetched, Source: SourceNetwork, FetchedAt: time.Now()}
 		if saveErr := SaveCache(fetched); saveErr != nil {

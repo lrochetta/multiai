@@ -15,6 +15,7 @@ package secret
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -31,10 +32,80 @@ import (
 const Sentinel = "__MULTIAI_CREDSTORE__"
 
 // ServiceForProfile returns the credential-store service name for a profile
-// .env file path. It must stay identical between the write side
-// (config wizard) and the read side (launch), whatever the CWD.
+// .env file path. It includes a SHA-256 hash of the canonical absolute path
+// to prevent name collision when two profiles in different directories share
+// the same file name (see audit finding S2.4).
+//
+// The format is "multiai:<basename>-<first8hexbytes>", e.g.
+// "multiai:ca-a1b2c3d4e5f6a7b8".
+//
+// It must stay identical between the write side (config wizard) and the
+// read side (launch), whatever the CWD.
 func ServiceForProfile(path string) string {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		abs = path
+	}
+	canonical := filepath.Clean(abs)
+	h := sha256.Sum256([]byte(canonical))
+	hashSuffix := fmt.Sprintf("%x", h[:8])
+	base := strings.TrimSuffix(filepath.Base(canonical), filepath.Ext(canonical))
+	return fmt.Sprintf("multiai:%s-%s", base, hashSuffix)
+}
+
+// oldServiceForProfile returns the previous credential-store service name
+// (basename-only, no hash). Used by migrateServiceName to look up secrets
+// stored before the namespace fix (S2.4).
+func oldServiceForProfile(path string) string {
 	return "multiai:" + strings.TrimSuffix(filepath.Base(path), ".env")
+}
+
+// MigrateServiceName migrates credentials from the old service name
+// (basename-only) to the new service name (canonical-path-hashed) when
+// they were stored before the namespace fix. It reads data from the old
+// service, writes it to the new service, and cleans up the old entry.
+//
+// Callers MUST pass the new-format service name for normal operations;
+// this function computes the old name internally from the profile path.
+func MigrateServiceName(store Store, profilePath string) (string, error) {
+	newService := ServiceForProfile(profilePath)
+	oldService := oldServiceForProfile(profilePath)
+
+	// Same name means nothing changed — no migration needed.
+	if newService == oldService {
+		return newService, nil
+	}
+
+	// Read old credentials, if any.
+	oldCreds, err := store.List(oldService)
+	if err != nil {
+		// Old service doesn't exist or can't be read — nothing to migrate.
+		return newService, nil
+	}
+	if len(oldCreds) == 0 {
+		return newService, nil
+	}
+
+	// Only migrate if the new service doesn't already have data
+	// (avoid overwriting/duplicating after a prior partial migration).
+	newCreds, err := store.List(newService)
+	if err != nil || len(newCreds) > 0 {
+		return newService, nil
+	}
+
+	// Migrate each key, then delete from old service.
+	for k, v := range oldCreds {
+		if err := store.Set(newService, k, v); err != nil {
+			return newService, fmt.Errorf("migration: set %s/%s: %w", newService, k, err)
+		}
+	}
+	for k := range oldCreds {
+		if err := store.Delete(oldService, k); err != nil {
+			return newService, fmt.Errorf("migration: delete %s/%s: %w", oldService, k, err)
+		}
+	}
+
+	return newService, nil
 }
 
 // Store abstracts secure credential storage per platform.
@@ -148,6 +219,14 @@ func (s *encryptedFileStore) filePath(service string) string {
 	return filepath.Join(s.dir, sanitizeFileName(service)+".enc")
 }
 
+// lockPath returns the path to the inter-process lock file for the given
+// service. A dedicated .lock file (never replaced) avoids the problem of
+// locking the .enc file itself, which gets atomically renamed during save —
+// a handle on the old inode would not block a handle on the new inode.
+func (s *encryptedFileStore) lockPath(service string) string {
+	return filepath.Join(s.dir, sanitizeFileName(service)+".lock")
+}
+
 // sanitizeFileName makes a service name safe as a file name on every
 // platform — a ':' (as in "multiai:ca") would otherwise create an NTFS
 // alternate data stream on Windows instead of a regular file.
@@ -217,6 +296,12 @@ func (s *encryptedFileStore) Get(service, key string) (string, error) {
 }
 
 func (s *encryptedFileStore) Set(service, key, value string) error {
+	release, err := s.lockService(service)
+	if err != nil {
+		return err
+	}
+	defer release()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	creds, err := s.load(service)
@@ -228,6 +313,12 @@ func (s *encryptedFileStore) Set(service, key, value string) error {
 }
 
 func (s *encryptedFileStore) Delete(service, key string) error {
+	release, err := s.lockService(service)
+	if err != nil {
+		return err
+	}
+	defer release()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	creds, err := s.load(service)

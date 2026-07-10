@@ -1,4 +1,4 @@
-package cli
+﻿package cli
 
 import (
 	"fmt"
@@ -67,7 +67,7 @@ func ValidateAndLaunch(prof *profile.Profile, opts LaunchOptions) (*LaunchResult
 	// 1. Validate command whitelist
 	if !IsCommandAllowed(prof.Command) {
 		if opts.AllowCustomCommand {
-			fmt.Fprintf(os.Stderr, "⚠ Commande custom autorisee : %s\n", prof.Command)
+			fmt.Fprintf(os.Stderr, "âš  Commande custom autorisee : %s\n", prof.Command)
 		} else {
 			return nil, fmt.Errorf("commande non autorisee : '%s'. Utilise -AllowCustomCommand pour autoriser.", prof.Command)
 		}
@@ -104,7 +104,7 @@ func ValidateAndLaunch(prof *profile.Profile, opts LaunchOptions) (*LaunchResult
 
 	// 6. Show env if requested. In JSON mode the env rides inside the single
 	// LaunchResult document (result.Env) instead of being printed as a second,
-	// hand-rolled JSON object — so stdout stays one valid, properly escaped doc.
+	// hand-rolled JSON object â€” so stdout stays one valid, properly escaped doc.
 	if opts.ShowEnv {
 		if opts.JSON {
 			result.Env = maskedEffectiveEnv(prof)
@@ -245,7 +245,7 @@ func buildProcessEnv(prof *profile.Profile) []string {
 
 // logLaunchSession appends one record to the usage journal after a real
 // launch (never for dry-run/no-launch, which return before this point).
-// Only names, paths, codes and durations are recorded — never environment
+// Only names, paths, codes and durations are recorded â€” never environment
 // values or arguments, which may contain secrets.
 func logLaunchSession(prof *profile.Profile, result *LaunchResult, dur time.Duration, fallback bool) {
 	logging.LogSession(logging.SessionEvent{
@@ -261,8 +261,8 @@ func logLaunchSession(prof *profile.Profile, result *LaunchResult, dur time.Dura
 	})
 }
 
-// maskedEffectiveEnv returns the child environment as it would be set — %NAME%
-// references resolved so it matches what the process actually receives — with
+// maskedEffectiveEnv returns the child environment as it would be set â€” %NAME%
+// references resolved so it matches what the process actually receives â€” with
 // secret-named keys masked. Used for the --show-env --json payload.
 func maskedEffectiveEnv(prof *profile.Profile) map[string]string {
 	effective := env.ExpandProfileEnv(prof.Env)
@@ -314,7 +314,13 @@ func resolveStoredSecrets(prof *profile.Profile) error {
 	if err != nil {
 		return fmt.Errorf("credential store indisponible pour le profil '%s' : %w", prof.Shortcut, err)
 	}
-	service := secret.ServiceForProfile(prof.Path)
+	// Migrate credentials from old basename-only namespace (pre-S2.4) to the
+	// new canonical-path-hashed namespace, if needed. Safe to call on every
+	// launch — it's a no-op when already migrated.
+	service, err := secret.MigrateServiceName(store, prof.Path)
+	if err != nil {
+		return fmt.Errorf("migration du service de creds pour '%s' : %w", prof.Shortcut, err)
+	}
 	for _, k := range pending {
 		val, err := store.Get(service, k)
 		if err != nil {

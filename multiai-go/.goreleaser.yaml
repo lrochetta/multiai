@@ -108,20 +108,25 @@ nfpms:
 # Homebrew cask and Scoop manifest are GENERATED at release time into
 # dist/homebrew/ and dist/scoop/ with the real sha256 of the archives.
 # (`brews` is deprecated since GoReleaser 2.10; casks are the supported way
-# to ship prebuilt binaries.) skip_upload stays true until the tap/bucket
-# repositories exist; the first publications are manual (copy the generated
-# files). To automate, create lrochetta/homebrew-tap and
-# lrochetta/scoop-bucket, add a TAP_GITHUB_TOKEN secret, set
-# `token: "{{ .Env.TAP_GITHUB_TOKEN }}"` under repository, and flip
-# skip_upload to false.
+# to ship prebuilt binaries.)
+#
+# Required setup for auto-upload:
+#   1. Create the GitHub repositories:
+#      - github.com/lrochetta/homebrew-tap  (Homebrew)
+#      - github.com/lrochetta/scoop-bucket   (Scoop)
+#   2. Add a GitHub Actions secret named TAP_GITHUB_TOKEN with a classic
+#      PAT (repo scope) created from an account that has push access to
+#      both repositories above.
+#   3. The token is injected via "{{ .Env.TAP_GITHUB_TOKEN }}" below.
 homebrew_casks:
   - name: multiai
-    skip_upload: true
+    skip_upload: false
     directory: Casks
     repository:
       owner: lrochetta
       name: homebrew-tap
       branch: main
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     homepage: https://rochetta.fr
     description: Route multiple AI CLIs (Claude Code, Codex, OpenCode) with isolated env profiles
     # The binary is not Apple-signed/notarized (0 EUR signing plan): drop the
@@ -135,11 +140,12 @@ homebrew_casks:
 
 scoops:
   - name: multiai
-    skip_upload: true
+    skip_upload: false
     repository:
       owner: lrochetta
       name: scoop-bucket
       branch: main
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     homepage: https://rochetta.fr
     description: Route multiple AI CLIs (Claude Code, Codex, OpenCode) with isolated env profiles
     license: MIT

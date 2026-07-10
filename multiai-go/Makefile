@@ -1,9 +1,9 @@
 APP_NAME = multiai
-VERSION = 0.4.0-dev
+VERSION = 0.5.0
 BUILD_DIR = build
 LDFLAGS = -ldflags="-s -w -X main.version=$(VERSION)"
 
-.PHONY: all build test lint clean cross-build
+.PHONY: all build test lint clean cross-build wrappers
 
 all: test build
 
@@ -27,5 +27,9 @@ cross-build:
 	GOOS=linux   GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(APP_NAME)-linux-arm64 ./cmd/multiai/
 	@echo "Cross-compilation terminee dans $(BUILD_DIR)/"
 
+wrappers:
+	cd .. && bash scripts/generate-wrappers.sh
+
 clean:
 	rm -rf $(BUILD_DIR)
+	rm -rf ../wrappers

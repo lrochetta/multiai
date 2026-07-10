@@ -1,4 +1,4 @@
-// Package catalog holds the data-driven provider catalog embedded in the
+﻿// Package catalog holds the data-driven provider catalog embedded in the
 // binary (providers.yaml). It is the single source of truth consumed by
 // config, onboarding, erase and validation: adding a provider means editing
 // the YAML, no code change.
@@ -123,7 +123,7 @@ func Load() (*Catalog, error) {
 var defaultCatalog = sync.OnceValues(Load)
 
 // Default returns the embedded catalog, parsed once. It panics if the
-// embedded YAML is invalid — a programmer error caught by the package tests
+// embedded YAML is invalid â€” a programmer error caught by the package tests
 // at build time, never by end users.
 func Default() *Catalog {
 	c, err := defaultCatalog()

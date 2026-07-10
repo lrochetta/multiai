@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/lrochetta/multiai/internal/fsutil"
 )
 
 // cacheFileName is the on-disk name of the cached /models payload.
@@ -54,8 +56,8 @@ func LoadCache() ([]ModelInfo, time.Time, error) {
 	return cc.Models, cc.FetchedAt, nil
 }
 
-// SaveCache writes the model list to the cache file atomically
-// (temp file + rename), creating the cache directory when needed.
+// SaveCache writes the model list to the cache file atomically, creating the
+// cache directory when needed.
 func SaveCache(models []ModelInfo) error {
 	dir, err := CacheDir()
 	if err != nil {
@@ -69,13 +71,5 @@ func SaveCache(models []ModelInfo) error {
 		return err
 	}
 	path := filepath.Join(dir, cacheFileName)
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return fmt.Errorf("ecriture du cache impossible: %w", err)
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		os.Remove(tmp)
-		return fmt.Errorf("remplacement du cache impossible: %w", err)
-	}
-	return nil
+	return fsutil.WriteFileAtomic(path, data, 0o644)
 }

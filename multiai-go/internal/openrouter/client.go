@@ -8,6 +8,7 @@
 package openrouter
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -66,11 +67,12 @@ type TopProvider struct {
 // FetchModels retrieves the model catalog from the OpenRouter API.
 // The /models endpoint is public: apiKey may be empty; when provided it
 // is sent as a Bearer token.
-func FetchModels(apiKey string) ([]ModelInfo, error) {
+func FetchModels(ctx context.Context, apiKey string) ([]ModelInfo, error) {
 	req, err := http.NewRequest(http.MethodGet, apiBase+"/models", nil)
 	if err != nil {
 		return nil, err
 	}
+	req = req.WithContext(ctx)
 	if apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}

@@ -1,6 +1,7 @@
 package openrouter
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -72,7 +73,7 @@ func writeCacheAged(t *testing.T, dir string, models []ModelInfo, age time.Durat
 func TestGetModelsOfflineNoCacheFallsBackToEmbedded(t *testing.T) {
 	t.Setenv("MULTIAI_CACHE_DIR", t.TempDir())
 
-	cat := GetModels(true)
+	cat := GetModels(context.Background(),true)
 	if cat.Source != SourceEmbedded {
 		t.Fatalf("source = %s, want %s", cat.Source, SourceEmbedded)
 	}
@@ -89,7 +90,7 @@ func TestGetModelsOfflineFreshCache(t *testing.T) {
 	t.Setenv("MULTIAI_CACHE_DIR", dir)
 	writeCacheAged(t, dir, loadFixture(t), 5*time.Minute)
 
-	cat := GetModels(true)
+	cat := GetModels(context.Background(),true)
 	if cat.Source != SourceCache {
 		t.Fatalf("source = %s, want %s", cat.Source, SourceCache)
 	}
@@ -103,7 +104,7 @@ func TestGetModelsOfflineStaleCache(t *testing.T) {
 	t.Setenv("MULTIAI_CACHE_DIR", dir)
 	writeCacheAged(t, dir, loadFixture(t), 3*time.Hour)
 
-	cat := GetModels(true)
+	cat := GetModels(context.Background(),true)
 	if cat.Source != SourceStale {
 		t.Fatalf("source = %s, want %s", cat.Source, SourceStale)
 	}
@@ -118,7 +119,7 @@ func TestGetModelsOnlineFreshCacheSkipsNetwork(t *testing.T) {
 	writeCacheAged(t, dir, loadFixture(t), time.Minute)
 	setAPIBase(t, deadServer(t)) // any network call would fail loudly
 
-	cat := GetModels(false)
+	cat := GetModels(context.Background(),false)
 	if cat.Source != SourceCache {
 		t.Fatalf("source = %s, want %s (no network expected)", cat.Source, SourceCache)
 	}
@@ -130,7 +131,7 @@ func TestGetModelsOnlineFetchesAndWritesCache(t *testing.T) {
 	srv := newFixtureServer(t, nil)
 	setAPIBase(t, srv.URL)
 
-	cat := GetModels(false)
+	cat := GetModels(context.Background(),false)
 	if cat.Source != SourceNetwork {
 		t.Fatalf("source = %s, want %s", cat.Source, SourceNetwork)
 	}
@@ -148,7 +149,7 @@ func TestGetModelsOnlineNetworkDownUsesStaleCache(t *testing.T) {
 	writeCacheAged(t, dir, loadFixture(t), 3*time.Hour)
 	setAPIBase(t, deadServer(t))
 
-	cat := GetModels(false)
+	cat := GetModels(context.Background(),false)
 	if cat.Source != SourceStale {
 		t.Fatalf("source = %s, want %s", cat.Source, SourceStale)
 	}
@@ -161,7 +162,7 @@ func TestGetModelsOnlineNetworkDownNoCacheUsesEmbedded(t *testing.T) {
 	t.Setenv("MULTIAI_CACHE_DIR", t.TempDir())
 	setAPIBase(t, deadServer(t))
 
-	cat := GetModels(false)
+	cat := GetModels(context.Background(),false)
 	if cat.Source != SourceEmbedded {
 		t.Fatalf("source = %s, want %s", cat.Source, SourceEmbedded)
 	}

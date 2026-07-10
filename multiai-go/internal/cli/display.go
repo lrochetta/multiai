@@ -1,3 +1,6 @@
+// Package cli provides the CLI entry-point utilities including the main menu
+// display functions. The colored-print functions are now deprecated wrappers
+// around internal/display — kept for callers in cmd/multiai/main.go.
 package cli
 
 import (
@@ -7,35 +10,21 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/lrochetta/multiai/internal/display"
 	"github.com/lrochetta/multiai/internal/profile"
 )
 
-// noColor disables ANSI escape codes when the NO_COLOR env var is set.
-var noColor = os.Getenv("NO_COLOR") != ""
-
 // Colorize wraps text in the given ANSI code, respecting NO_COLOR.
+// Deprecated: use display.Colorize (note: arg order is color, text).
 func Colorize(text, ansiCode string) string {
-	if noColor {
-		return text
-	}
-	return ansiCode + text + "\033[0m"
-}
-
-// colorize keeps the internal name for backwards compat within this package.
-func colorize(text, ansiCode string) string {
-	return Colorize(text, ansiCode)
+	return display.Colorize(ansiCode, text)
 }
 
 // StatusColor returns an ANSI color code for a configuration status.
-//  [OK] → green, [~~] → yellow, [--] → dim/grey
+//  [OK] -> green, [~~] -> yellow, [--] -> dim/grey
+// Deprecated: use display.StatusColor.
 func StatusColor(configured, total int) string {
-	if configured == total && total > 0 {
-		return "\033[32m" // green
-	}
-	if configured > 0 {
-		return "\033[33m" // yellow
-	}
-	return "\033[90m" // dim grey
+	return display.StatusColor(configured, total)
 }
 
 // ListProfiles displays all profiles.
@@ -75,21 +64,25 @@ func ListProfiles(profiles []profile.Profile, asJSON bool) error {
 }
 
 // PrintSuccess prints a green success message with [OK] prefix.
+// Deprecated: use display.PrintSuccess.
 func PrintSuccess(msg string) {
-	fmt.Printf("%s\n", colorize("[OK] "+msg, "\033[32m"))
+	display.PrintSuccess(msg)
 }
 
 // PrintWarning prints a yellow warning message with [!] prefix.
+// Deprecated: use display.PrintWarning.
 func PrintWarning(msg string) {
-	fmt.Printf("%s\n", colorize("[!] "+msg, "\033[33m"))
+	display.PrintWarning(msg)
 }
 
 // PrintError prints a red error message with [X] prefix.
+// Deprecated: use display.PrintError.
 func PrintError(msg string) {
-	fmt.Printf("%s\n", colorize("[X] "+msg, "\033[31m"))
+	display.PrintError(msg)
 }
 
 // PrintInfo prints a cyan info message with [i] prefix.
+// Deprecated: use display.PrintInfo.
 func PrintInfo(msg string) {
-	fmt.Printf("%s\n", colorize("[i] "+msg, "\033[36m"))
+	display.PrintInfo(msg)
 }

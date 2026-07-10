@@ -38,6 +38,8 @@ type Profile struct {
 	// when SKIP_SECRET_CHECK=true (parity with code-router.ps1 L455-458).
 	SkipSecretCheck bool   `json:"skip_secret_check,omitempty"`
 	Path            string `json:"path"` // filesystem path to the .env file
+	// Holds before_launch/after_launch hook definitions (YAML profiles only).
+	Hooks *HooksConfig `json:"hooks,omitempty"`
 }
 
 // MetadataKeys are .env keys that are metadata, not environment variables.

@@ -11,6 +11,10 @@ multiai-go/build/
 multiai-go/vendor/
 node_modules/
 
+# Generated wrappers
+wrappers/
+
+
 # Archives
 *.zip
 *.new

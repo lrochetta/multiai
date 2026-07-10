@@ -1,0 +1,60 @@
+name: Bug Report
+description: Signaler un bug / Report a bug
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: |
+        Quelle version de multiai utilisez-vous ?
+        (ex: `multiai version` ou `npx multiai version`)
+      placeholder: ex: 0.4.3
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Système d'exploitation / OS
+      description: Sur quel OS le bug se produit-il ?
+      options:
+        - Windows
+        - macOS Intel
+        - macOS Apple Silicon
+        - Linux amd64
+        - Linux arm64
+        - Autre / Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: observed
+    attributes:
+      label: Comportement observé / Observed behavior
+      description: Décrivez ce qui se produit actuellement.
+      placeholder: "Le lancement échoue avec l'erreur : ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportement attendu / Expected behavior
+      description: Décrivez ce qui devrait se produire.
+      placeholder: "Le CLI devrait se lancer avec le profil demandé."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Étapes de reproduction / Steps to reproduce
+      description: Comment reproduire le bug ?
+      placeholder: |
+        1. Exécuter `multiai launch -p ds`
+        2. Sélectionner "Claude Code"
+        3. Voir l'erreur
+    validations:
+      required: true

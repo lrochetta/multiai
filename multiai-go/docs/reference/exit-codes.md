@@ -1,6 +1,6 @@
 # Codes de sortie
 
-multiai utilise 5 codes de sortie (0-4) pour indiquer le resultat de l'execution.
+multiai utilise 6 codes de sortie (0-4, 130) pour indiquer le resultat de l'execution.
 
 ## Tableau des codes
 
@@ -11,6 +11,7 @@ multiai utilise 5 codes de sortie (0-4) pour indiquer le resultat de l'execution
 | `2` | ProfileNotFound | Profil specifie introuvable |
 | `3` | ToolNotFound | CLI (claude/codex/opencode) introuvable |
 | `4` | MissingAPIKey | Cle API manquante pour le profil |
+| `130` | Interrupt | Interruption par l'utilisateur (Ctrl+C / SIGINT) |
 
 ## Code 0 — Success
 
@@ -121,6 +122,24 @@ export ANTHROPIC_API_KEY=sk-ant-...
 # ou
 ANTHROPIC_API_KEY=sk-ant-... multiai launch -p co
 ```
+
+## Code 130 — Interrupt
+
+L'utilisateur a interrompu le processus avec Ctrl+C (signal SIGINT). C'est un comportement normal et attendu.
+
+**Causes possibles :**
+- Appui sur Ctrl+C dans le terminal
+- Signal d'interruption envoye par le systeme
+- Timeout du terminal
+
+**Exemple :**
+```bash
+multiai launch -p co
+# L'utilisateur appuie sur Ctrl+C
+# Code de sortie : 130
+```
+
+> Note : Le code 130 est standard sur Unix/Linux (128 + SIGINT = 130). Sur Windows, le comportement peut varier selon le terminal utilise.
 
 ## Utiliser les codes de sortie dans des scripts
 

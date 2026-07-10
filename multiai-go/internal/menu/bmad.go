@@ -20,7 +20,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/lrochetta/multiai/internal/cli"
+	"github.com/lrochetta/multiai/internal/display"
 )
 
 // bmadInfo describes a BMAD+ installation detected in a directory.
@@ -104,13 +104,13 @@ func parseBmadConfig(content string) (version string, packs []string) {
 func ShowBmadMenu() {
 	targetDir, err := os.Getwd()
 	if err != nil {
-		cli.PrintError(fmt.Sprintf("Dossier courant inaccessible : %v", err))
+		display.PrintError(fmt.Sprintf("Dossier courant inaccessible : %v", err))
 		return
 	}
 	info := detectBmad(targetDir)
 
 	fmt.Println()
-	cli.PrintInfo("BMAD+ -- Gestion du framework")
+	display.PrintInfo("BMAD+ -- Gestion du framework")
 	fmt.Println(strings.Repeat("-", 58))
 	fmt.Println()
 	fmt.Printf("  Dossier cible : %s\n", targetDir)
@@ -119,7 +119,7 @@ func ShowBmadMenu() {
 		if info.Version != "" {
 			suffix = fmt.Sprintf(" (v%s)", info.Version)
 		}
-		cli.PrintSuccess("BMAD+ detecte" + suffix)
+		display.PrintSuccess("BMAD+ detecte" + suffix)
 		if len(info.Packs) > 0 {
 			fmt.Printf("  Packs installes : %s\n", strings.Join(info.Packs, ", "))
 		}
@@ -134,7 +134,7 @@ func ShowBmadMenu() {
 	// npx.cmd on Windows via PATHEXT.
 	npxPath, err := exec.LookPath("npx")
 	if err != nil {
-		cli.PrintWarning("npx introuvable. Node.js est requis :")
+		display.PrintWarning("npx introuvable. Node.js est requis :")
 		fmt.Println("  -> https://nodejs.org")
 		fmt.Println()
 		fmt.Print("  Entree pour revenir : ")
@@ -168,7 +168,7 @@ func ShowBmadMenu() {
 				return
 			}
 			if !npmVersionRe.MatchString(ver) {
-				cli.PrintWarning("Version invalide (caracteres autorises : lettres, chiffres, points, tirets).")
+				display.PrintWarning("Version invalide (caracteres autorises : lettres, chiffres, points, tirets).")
 				return
 			}
 			npxArgs = []string{"bmad-plus@" + ver, "install", "--yes"}
@@ -177,7 +177,7 @@ func ShowBmadMenu() {
 		case "0", "":
 			return
 		default:
-			cli.PrintWarning("Choix invalide.")
+			display.PrintWarning("Choix invalide.")
 			return
 		}
 	} else {
@@ -200,7 +200,7 @@ func ShowBmadMenu() {
 		case "0", "":
 			return
 		default:
-			cli.PrintWarning("Choix invalide.")
+			display.PrintWarning("Choix invalide.")
 			return
 		}
 	}
@@ -231,11 +231,11 @@ func runNpx(reader *bufio.Reader, npxPath, dir string, args []string) {
 	var exitErr *exec.ExitError
 	switch {
 	case err == nil:
-		cli.PrintSuccess("npx termine (code 0)")
+		display.PrintSuccess("npx termine (code 0)")
 	case errors.As(err, &exitErr):
-		cli.PrintWarning(fmt.Sprintf("npx termine avec le code %d", exitErr.ExitCode()))
+		display.PrintWarning(fmt.Sprintf("npx termine avec le code %d", exitErr.ExitCode()))
 	default:
-		cli.PrintError(fmt.Sprintf("Echec du lancement de npx : %v", err))
+		display.PrintError(fmt.Sprintf("Echec du lancement de npx : %v", err))
 	}
 }
 

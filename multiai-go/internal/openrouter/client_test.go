@@ -1,6 +1,7 @@
 package openrouter
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -73,7 +74,8 @@ func TestFetchModelsOK(t *testing.T) {
 	srv := newFixtureServer(t, &lastReq)
 	setAPIBase(t, srv.URL)
 
-	models, err := FetchModels("test-key")
+	ctx := context.Background()
+	models, err := FetchModels(ctx, "test-key")
 	if err != nil {
 		t.Fatalf("FetchModels: %v", err)
 	}
@@ -111,7 +113,8 @@ func TestFetchModelsNoAuthHeaderWithoutKey(t *testing.T) {
 	srv := newFixtureServer(t, &lastReq)
 	setAPIBase(t, srv.URL)
 
-	if _, err := FetchModels(""); err != nil {
+	ctx := context.Background()
+	if _, err := FetchModels(ctx, ""); err != nil {
 		t.Fatalf("FetchModels: %v", err)
 	}
 	if got := lastReq.Header.Get("Authorization"); got != "" {
@@ -126,7 +129,8 @@ func TestFetchModelsHTTPError(t *testing.T) {
 	t.Cleanup(srv.Close)
 	setAPIBase(t, srv.URL)
 
-	if _, err := FetchModels(""); err == nil || !strings.Contains(err.Error(), "500") {
+	ctx := context.Background()
+	if _, err := FetchModels(ctx, ""); err == nil || !strings.Contains(err.Error(), "500") {
 		t.Fatalf("want HTTP 500 error, got %v", err)
 	}
 }
@@ -138,7 +142,8 @@ func TestFetchModelsBadJSON(t *testing.T) {
 	t.Cleanup(srv.Close)
 	setAPIBase(t, srv.URL)
 
-	if _, err := FetchModels(""); err == nil || !strings.Contains(err.Error(), "illisible") {
+	ctx := context.Background()
+	if _, err := FetchModels(ctx, ""); err == nil || !strings.Contains(err.Error(), "illisible") {
 		t.Fatalf("want unreadable-response error, got %v", err)
 	}
 }
@@ -154,14 +159,16 @@ func TestFetchModelsResponseTooLarge(t *testing.T) {
 	t.Cleanup(srv.Close)
 	setAPIBase(t, srv.URL)
 
-	if _, err := FetchModels(""); err == nil || !strings.Contains(err.Error(), "volumineuse") {
+	ctx := context.Background()
+	if _, err := FetchModels(ctx, ""); err == nil || !strings.Contains(err.Error(), "volumineuse") {
 		t.Fatalf("want size-cap error, got %v", err)
 	}
 }
 
 func TestFetchModelsConnectionRefused(t *testing.T) {
 	setAPIBase(t, deadServer(t))
-	if _, err := FetchModels(""); err == nil || !strings.Contains(err.Error(), "inaccessible") {
+	ctx := context.Background()
+	if _, err := FetchModels(ctx, ""); err == nil || !strings.Contains(err.Error(), "inaccessible") {
 		t.Fatalf("want unreachable-API error, got %v", err)
 	}
 }

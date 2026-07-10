@@ -123,7 +123,7 @@ multiai launch -p production
 
 ### Exemple .gitignore
 
-```gitignore
+```text
 # Ne pas versionner les fichiers de configuration personnels
 .env
 *.env
@@ -131,7 +131,7 @@ multiai launch -p production
 
 ### Exemple .env.example
 
-```env
+```text
 # .env.example — copie vers .env et remplis tes cles
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-proj-...
