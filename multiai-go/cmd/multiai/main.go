@@ -1,4 +1,4 @@
-﻿// multiai is the main entry point for the multiai CLI.
+// multiai is the main entry point for the multiai CLI.
 // It routes AI CLI commands (Claude Code, Codex, OpenCode) with
 // isolated environment profiles.
 package main
