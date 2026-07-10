@@ -1,4 +1,4 @@
-package menu
+﻿package menu
 
 import (
 	"bufio"
@@ -8,7 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lrochetta/multiai/internal/cli"
+	"github.com/lrochetta/multiai/internal/display"
+	"github.com/lrochetta/multiai/internal/i18n"
 	"github.com/lrochetta/multiai/internal/profile"
 	"github.com/lrochetta/multiai/pkg/dotenv"
 )
@@ -18,23 +19,23 @@ import (
 // so the title can never drift from `multiai version` again.
 func ShowTopMenu(version string, profileCount int) string {
 	fmt.Println()
-	cli.PrintInfo(fmt.Sprintf("Laurent ROCHETTA's MultiAI (AI Code CLI Router) v%s - %d profils", version, profileCount))
+	display.PrintInfo(i18n.T("menu_title", version, profileCount))
 	fmt.Println(strings.Repeat("-", 58))
 	fmt.Println()
-	fmt.Println("1. Lancer")
-	fmt.Println("2. Configurer les cles API")
-	fmt.Println("3. BMAD+ -- Gestion du framework")
-	fmt.Println("4. OpenRouter -- Decouvrir les modeles")
+	fmt.Println(i18n.T("menu_launch"))
+	fmt.Println(i18n.T("menu_config"))
+	fmt.Println(i18n.T("menu_bmad"))
+	fmt.Println(i18n.T("menu_models"))
 	fmt.Println()
-	fmt.Println("0. Quitter")
-	fmt.Print("Choix : ")
+	fmt.Println(i18n.T("menu_quit"))
+	fmt.Print(i18n.T("menu_choice"))
 	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')
 	if err != nil {
 		if err == io.EOF {
 			os.Exit(0)
 		}
-		fmt.Fprintf(os.Stderr, "[X] Erreur de lecture: %v\n", err)
+		fmt.Fprint(os.Stderr, i18n.T("read_error", err))
 		return ""
 	}
 	return strings.TrimSpace(input)
@@ -43,7 +44,7 @@ func ShowTopMenu(version string, profileCount int) string {
 // SelectTool lets the user choose a tool from the available ones.
 func SelectTool(profiles []profile.Profile) (string, error) {
 	// Group by tool, preserving first-appearance order (profiles are already
-	// sorted by tool/order) so the numbering is stable across runs — a map
+	// sorted by tool/order) so the numbering is stable across runs â€” a map
 	// iteration here would shuffle the menu on every launch.
 	type toolEntry struct {
 		ID    string
@@ -62,14 +63,14 @@ func SelectTool(profiles []profile.Profile) (string, error) {
 	}
 
 	fmt.Println()
-	cli.PrintInfo("Outils disponibles")
+	display.PrintInfo(i18n.T("tools_available"))
 	fmt.Println()
 	for i, t := range tools {
-		fmt.Printf("%d. %s (%d profils)\n", i+1, t.Label, t.Count)
+		fmt.Printf("%d. %s (%d %s)\n", i+1, t.Label, t.Count, i18n.T("profiles_count"))
 	}
 	fmt.Println()
-	fmt.Println("0. Retour au menu principal")
-	fmt.Print("Choisis un outil : ")
+	fmt.Println(i18n.T("back_main_menu"))
+	fmt.Print(i18n.T("choose_tool"))
 
 	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')
@@ -77,7 +78,7 @@ func SelectTool(profiles []profile.Profile) (string, error) {
 		if err == io.EOF {
 			os.Exit(0)
 		}
-		return "", fmt.Errorf("erreur de lecture: %v", err)
+		return "", fmt.Errorf("%s", i18n.T("read_error_profile", err))
 	}
 	input = strings.TrimSpace(input)
 
@@ -87,7 +88,7 @@ func SelectTool(profiles []profile.Profile) (string, error) {
 
 	idx, err := strconv.Atoi(input)
 	if err != nil || idx < 1 || idx > len(tools) {
-		return "", fmt.Errorf("choix invalide")
+		return "", fmt.Errorf("%s", i18n.T("invalid_choice_lower"))
 	}
 	return tools[idx-1].ID, nil
 }
@@ -101,27 +102,27 @@ func SelectProfile(profiles []profile.Profile, toolFilter string) (*profile.Prof
 		}
 	}
 	if len(filtered) == 0 {
-		return nil, fmt.Errorf("aucun profil pour l'outil : %s", toolFilter)
+		return nil, fmt.Errorf("%s", i18n.T("no_profile_tool", toolFilter))
 	}
 
 	fmt.Println()
-	cli.PrintInfo(fmt.Sprintf("Profils disponibles pour %s", filtered[0].ToolLabel))
+	display.PrintInfo(i18n.T("profiles_available", filtered[0].ToolLabel))
 	fmt.Println()
 	for i, p := range filtered {
 		configured, total := countSecrets(&p)
-		color := cli.StatusColor(configured, total)
+		color := display.StatusColor(configured, total)
 		line := fmt.Sprintf("%d. %s [%s]", i+1, p.DisplayName, p.Shortcut)
 		if configured > 0 {
 			line += fmt.Sprintf(" (%d/%d)", configured, total)
 		}
-		fmt.Println(cli.Colorize(line, color))
+		fmt.Println(display.Colorize(color, line))
 		if p.Description != "" {
 			fmt.Printf("   %s\n", p.Description)
 		}
 	}
 	fmt.Println()
-	fmt.Println("0. Retour a la selection d'outil")
-	fmt.Print("Choisis un profil : ")
+	fmt.Println(i18n.T("back_tool_sel"))
+	fmt.Print(i18n.T("choose_profile"))
 
 	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')
@@ -129,7 +130,7 @@ func SelectProfile(profiles []profile.Profile, toolFilter string) (*profile.Prof
 		if err == io.EOF {
 			os.Exit(0)
 		}
-		return nil, fmt.Errorf("erreur de lecture: %v", err)
+		return nil, fmt.Errorf("%s", i18n.T("read_error_profile", err))
 	}
 	input = strings.TrimSpace(input)
 
@@ -139,7 +140,7 @@ func SelectProfile(profiles []profile.Profile, toolFilter string) (*profile.Prof
 
 	idx, err := strconv.Atoi(input)
 	if err != nil || idx < 1 || idx > len(filtered) {
-		return nil, fmt.Errorf("choix invalide")
+		return nil, fmt.Errorf("%s", i18n.T("invalid_choice_lower"))
 	}
 	return &filtered[idx-1], nil
 }

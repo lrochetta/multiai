@@ -1,6 +1,7 @@
 package update
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -280,10 +281,6 @@ func TestFetchLatestRelease(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	originalRepo := os.Getenv("MULTIAI_REPO")
-	defer os.Setenv("MULTIAI_REPO", originalRepo)
-	t.Setenv("MULTIAI_REPO", "lrochetta/multiai")
-
 	release, err := fetchLatestReleaseWithURL(srv.URL + "/repos/lrochetta/multiai/releases/latest")
 	if err != nil {
 		t.Fatalf("fetchLatestRelease() unexpected error: %v", err)
@@ -318,8 +315,6 @@ func TestFetchLatestReleaseWithTargetAsset(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	t.Setenv("MULTIAI_REPO", "lrochetta/multiai")
-
 	release, err := fetchLatestReleaseWithURL(srv.URL + "/repos/lrochetta/multiai/releases/latest")
 	if err != nil {
 		t.Fatalf("fetchLatestRelease() unexpected error: %v", err)
@@ -338,8 +333,6 @@ func TestFetchLatestReleaseInvalidResponse(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	t.Setenv("MULTIAI_REPO", "lrochetta/multiai")
-
 	_, err := fetchLatestReleaseWithURL(srv.URL + "/repos/lrochetta/multiai/releases/latest")
 	if err == nil {
 		t.Fatal("fetchLatestRelease() expected error for invalid JSON response")
@@ -352,8 +345,6 @@ func TestFetchLatestReleaseHTTPError(t *testing.T) {
 		fmt.Fprint(w, `{"message": "API rate limit exceeded"}`)
 	}))
 	defer srv.Close()
-
-	t.Setenv("MULTIAI_REPO", "lrochetta/multiai")
 
 	_, err := fetchLatestReleaseWithURL(srv.URL + "/repos/lrochetta/multiai/releases/latest")
 	if err == nil {
@@ -370,7 +361,6 @@ func TestFetchLatestReleaseTimeout(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	t.Setenv("MULTIAI_REPO", "lrochetta/multiai")
 	t.Setenv("MULTIAI_UPDATE_TIMEOUT", "100ms")
 
 	_, err := fetchLatestReleaseWithURL(srv.URL + "/repos/lrochetta/multiai/releases/latest")
@@ -394,8 +384,9 @@ func TestDownloadAndVerify(t *testing.T) {
 	}))
 	defer srv.Close()
 
+	ctx := context.Background()
 	dest := filepath.Join(t.TempDir(), "downloaded.zip")
-	err := DownloadAndVerify(srv.URL, checksum, dest)
+	err := DownloadAndVerify(ctx, srv.URL, checksum, dest)
 	if err != nil {
 		t.Fatalf("DownloadAndVerify() unexpected error: %v", err)
 	}
@@ -420,8 +411,9 @@ func TestDownloadAndVerifyWrongChecksum(t *testing.T) {
 	}))
 	defer srv.Close()
 
+	ctx := context.Background()
 	dest := filepath.Join(t.TempDir(), "downloaded.zip")
-	err := DownloadAndVerify(srv.URL, wrongChecksum, dest)
+	err := DownloadAndVerify(ctx, srv.URL, wrongChecksum, dest)
 	if err == nil {
 		t.Fatal("DownloadAndVerify() expected error for checksum mismatch")
 	}
@@ -433,8 +425,9 @@ func TestDownloadAndVerifyServerError(t *testing.T) {
 	}))
 	defer srv.Close()
 
+	ctx := context.Background()
 	dest := filepath.Join(t.TempDir(), "downloaded.zip")
-	err := DownloadAndVerify(srv.URL, "abc123", dest)
+	err := DownloadAndVerify(ctx, srv.URL, "abc123", dest)
 	if err == nil {
 		t.Fatal("DownloadAndVerify() expected error for HTTP 500")
 	}
@@ -446,37 +439,47 @@ func TestDownloadAndVerifyEmptyBody(t *testing.T) {
 	}))
 	defer srv.Close()
 
+	ctx := context.Background()
 	dest := filepath.Join(t.TempDir(), "empty.zip")
-	err := DownloadAndVerify(srv.URL, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", dest)
+	err := DownloadAndVerify(ctx, srv.URL, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", dest)
 	if err != nil {
 		t.Fatalf("DownloadAndVerify() unexpected error for empty body: %v", err)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Test that FetchLatestRelease builds the correct GitHub API URL
+// Test that FetchLatestRelease validates MULTIAI_GITHUB_API_URL
 // ---------------------------------------------------------------------------
 
 func TestFetchLatestReleaseURLBuilding(t *testing.T) {
-	var capturedURL string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		capturedURL = r.URL.String()
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"tag_name":"v1.0.0","assets":[]}`)
-	}))
-	defer srv.Close()
+	ctx := context.Background()
 
-	t.Setenv("MULTIAI_REPO", "myuser/myrepo")
+	t.Run("requires MULTIAI_DEV when MULTIAI_GITHUB_API_URL is set", func(t *testing.T) {
+		t.Setenv("MULTIAI_GITHUB_API_URL", "https://api.github.com/repos/x/y/releases/latest")
+		_, err := FetchLatestRelease(ctx)
+		if err == nil {
+			t.Fatal("expected error: MULTIAI_GITHUB_API_URL requires MULTIAI_DEV=1")
+		}
+	})
 
-	_, err := fetchLatestReleaseWithURL(srv.URL + "/repos/myuser/myrepo/releases/latest")
-	if err != nil {
-		t.Fatalf("fetchLatestRelease() unexpected error: %v", err)
-	}
+	t.Run("rejects non-GitHub URL even with MULTIAI_DEV", func(t *testing.T) {
+		t.Setenv("MULTIAI_GITHUB_API_URL", "https://evil.com/repos/x/y/releases/latest")
+		t.Setenv("MULTIAI_DEV", "1")
+		_, err := FetchLatestRelease(ctx)
+		if err == nil {
+			t.Fatal("expected error: URL must start with https://api.github.com/")
+		}
+	})
 
-	if !strings.Contains(capturedURL, "/repos/myuser/myrepo/releases/latest") {
-		t.Errorf("captured URL = %q, want /repos/myuser/myrepo/releases/latest", capturedURL)
-	}
+	t.Run("default URL does not trigger validation", func(t *testing.T) {
+		// When MULTIAI_GITHUB_API_URL is unset, the function uses the
+		// hardcoded production URL and does not check MULTIAI_DEV.
+		// We expect a network error (not a validation error).
+		_, err := FetchLatestRelease(ctx)
+		if err != nil && strings.Contains(err.Error(), "MULTIAI_GITHUB_API_URL") {
+			t.Fatalf("unexpected validation error: %v", err)
+		}
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -485,12 +488,7 @@ func TestFetchLatestReleaseURLBuilding(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func fetchLatestReleaseWithURL(apiURL string) (*Release, error) {
-	// Save and restore the base URL env var.
-	saved := os.Getenv("MULTIAI_GITHUB_API_URL")
-	defer os.Setenv("MULTIAI_GITHUB_API_URL", saved)
-
-	os.Setenv("MULTIAI_GITHUB_API_URL", apiURL)
-	return FetchLatestRelease()
+	return fetchReleaseFromURL(context.Background(), apiURL)
 }
 
 // ---------------------------------------------------------------------------
@@ -537,13 +535,13 @@ func TestExportedFunctions(t *testing.T) {
 	})
 
 	t.Run("FetchLatestRelease signature", func(t *testing.T) {
-		var fn func() (*Release, error)
+		var fn func(context.Context) (*Release, error)
 		fn = FetchLatestRelease
 		_ = fn
 	})
 
 	t.Run("DownloadAndVerify signature", func(t *testing.T) {
-		var fn func(string, string, string) error
+		var fn func(context.Context, string, string, string) error
 		fn = DownloadAndVerify
 		_ = fn
 	})
@@ -624,9 +622,10 @@ func TestDownloadAndVerifyCustomDir(t *testing.T) {
 	}))
 	defer srv.Close()
 
+	ctx := context.Background()
 	destDir := t.TempDir()
 	dest := filepath.Join(destDir, "output", "nested", "binary.exe")
-	err := DownloadAndVerify(srv.URL, fmt.Sprintf("%x", hash), dest)
+	err := DownloadAndVerify(ctx, srv.URL, fmt.Sprintf("%x", hash), dest)
 	if err != nil {
 		t.Fatalf("DownloadAndVerify() with nested dir: %v", err)
 	}
@@ -677,8 +676,6 @@ func TestFetchLatestReleasePartialData(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	t.Setenv("MULTIAI_REPO", "lrochetta/multiai")
-
 	release, err := fetchLatestReleaseWithURL(srv.URL + "/repos/lrochetta/multiai/releases/latest")
 	if err != nil {
 		t.Fatalf("fetchLatestRelease() unexpected error: %v", err)
@@ -703,8 +700,6 @@ func TestFetchLatestReleaseRateLimit(t *testing.T) {
 		fmt.Fprint(w, `{"message":"API rate limit exceeded"}`)
 	}))
 	defer srv.Close()
-
-	t.Setenv("MULTIAI_REPO", "lrochetta/multiai")
 
 	_, err := fetchLatestReleaseWithURL(srv.URL + "/repos/lrochetta/multiai/releases/latest")
 	if err == nil {

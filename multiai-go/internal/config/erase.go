@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/lrochetta/multiai/internal/catalog"
-	"github.com/lrochetta/multiai/internal/cli"
+	"github.com/lrochetta/multiai/internal/display"
 	"github.com/lrochetta/multiai/internal/profile"
 	"github.com/lrochetta/multiai/internal/secret"
 	"github.com/lrochetta/multiai/pkg/dotenv"
@@ -23,7 +23,7 @@ func EraseProviderKeys(prov Provider, byShortcut map[string]*profile.Profile) in
 	if storeErr != nil {
 		// Do not touch store below: NewStore may return a typed-nil Store
 		// alongside the error, so guard on storeErr, not on store != nil.
-		cli.PrintWarning(fmt.Sprintf("  Credential store indisponible (%v) : les fichiers seront nettoyes, pas le store.", storeErr))
+		display.PrintWarning(fmt.Sprintf("  Credential store indisponible (%v) : les fichiers seront nettoyes, pas le store.", storeErr))
 	}
 
 	erased := 0
@@ -45,7 +45,7 @@ func EraseProviderKeys(prov Provider, byShortcut map[string]*profile.Profile) in
 		// empty store entries for never-configured profiles.
 		if storeErr == nil && !dotenv.IsPlaceholder(prev) {
 			if err := store.Delete(secret.ServiceForProfile(p.Path), varName); err != nil {
-				cli.PrintWarning(fmt.Sprintf("  Store non purge pour %s/%s : %v", p.Shortcut, varName, err))
+				display.PrintWarning(fmt.Sprintf("  Store non purge pour %s/%s : %v", p.Shortcut, varName, err))
 			}
 		}
 	}
@@ -68,7 +68,7 @@ func confirmErase(reader *bufio.Reader) bool {
 // "a" to erase everything. Every action requires an explicit confirmation.
 func runEraseMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile, reader *bufio.Reader) {
 	fmt.Println()
-	cli.PrintInfo("Effacer des cles API")
+	display.PrintInfo("Effacer des cles API")
 	fmt.Println(strings.Repeat("-", 58))
 	fmt.Println()
 
@@ -97,7 +97,7 @@ func runEraseMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile, 
 
 	if strings.EqualFold(choice, "a") {
 		fmt.Println()
-		cli.PrintWarning("ATTENTION : Toutes les cles API vont etre effacees !")
+		display.PrintWarning("ATTENTION : Toutes les cles API vont etre effacees !")
 		if !confirmErase(reader) {
 			return
 		}
@@ -106,22 +106,22 @@ func runEraseMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile, 
 			totalErased += EraseProviderKeys(prov, byShortcut)
 		}
 		fmt.Println()
-		cli.PrintSuccess(fmt.Sprintf("%d cle(s) effacee(s) au total.", totalErased))
+		display.PrintSuccess(fmt.Sprintf("%d cle(s) effacee(s) au total.", totalErased))
 		return
 	}
 
 	idx, err := strconv.Atoi(choice)
 	if err != nil || idx < 1 || idx > len(cat.Providers) {
-		cli.PrintWarning("Choix invalide.")
+		display.PrintWarning("Choix invalide.")
 		return
 	}
 	prov := cat.Providers[idx-1]
 	fmt.Println()
-	cli.PrintWarning(fmt.Sprintf("Effacer la cle pour : %s", prov.Display))
+	display.PrintWarning(fmt.Sprintf("Effacer la cle pour : %s", prov.Display))
 	if !confirmErase(reader) {
 		return
 	}
 	n := EraseProviderKeys(prov, byShortcut)
 	fmt.Println()
-	cli.PrintSuccess(fmt.Sprintf("%d cle(s) effacee(s) pour %s.", n, prov.Display))
+	display.PrintSuccess(fmt.Sprintf("%d cle(s) effacee(s) pour %s.", n, prov.Display))
 }

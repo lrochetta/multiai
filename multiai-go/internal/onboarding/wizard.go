@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/lrochetta/multiai/internal/catalog"
-	"github.com/lrochetta/multiai/internal/cli"
+	"github.com/lrochetta/multiai/internal/display"
 	"github.com/lrochetta/multiai/internal/config"
 	"github.com/lrochetta/multiai/internal/logging"
 	"github.com/lrochetta/multiai/internal/profile"
@@ -49,9 +49,9 @@ func RunWelcome(profiles []profile.Profile) {
 	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Println()
-	cli.PrintInfo("========================================")
-	cli.PrintInfo("  Bienvenue dans multiai !")
-	cli.PrintInfo("========================================")
+	display.PrintInfo("========================================")
+	display.PrintInfo("  Bienvenue dans multiai !")
+	display.PrintInfo("========================================")
 	fmt.Println()
 	fmt.Println("Il semble que ce soit votre premiere utilisation.")
 	fmt.Printf("  %d profils disponibles, %d fournisseurs supportes\n",
@@ -73,7 +73,7 @@ func RunWelcome(profiles []profile.Profile) {
 			logging.Error("wizard config failed: %v", err)
 		}
 		fmt.Println()
-		cli.PrintSuccess("Configuration terminee !")
+		display.PrintSuccess("Configuration terminee !")
 		fmt.Println()
 		fmt.Println("Pour lancer un profil : multiai launch -p <shortcut>")
 		fmt.Println("Pour voir les profils  : multiai list")

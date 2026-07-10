@@ -15,7 +15,7 @@ Un profil est un fichier `.env` place dans `~/.multiai/profiles/`. Le nom du fic
 
 ## Format du fichier .env
 
-```env
+```text
 # ~/.multiai/profiles/mon-profil.env
 TOOL=claude
 MODEL=claude-sonnet-4-20250514
@@ -44,7 +44,7 @@ DISPLAY_NAME=Custom Provider
 
 ## Exemple : Fournisseur compatible Anthropic
 
-```env
+```text
 # ~/.multiai/profiles/mistral.env
 TOOL=claude
 MODEL=claude-sonnet-4-20250514
@@ -57,7 +57,7 @@ PROVIDER=Mistral
 
 ## Exemple : Modele OpenAI personnalise
 
-```env
+```text
 # ~/.multiai/profiles/oa-custom.env
 TOOL=codex
 MODEL=gpt-4-turbo
@@ -69,7 +69,7 @@ PROVIDER=OpenAI
 
 ## Exemple : Serveur local (Ollama / LM Studio)
 
-```env
+```text
 # ~/.multiai/profiles/local.env
 TOOL=codex
 MODEL=llama3

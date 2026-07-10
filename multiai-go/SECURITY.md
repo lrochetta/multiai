@@ -32,6 +32,6 @@ Processus :
 ## Supply Chain
 
 - Binaires signes avec Cosign (Sigstore)
-- SBOM genere a chaque release (Syft)
+- SBOM genere a chaque release (Syft) — au format CycloneDX, disponible dans les assets de chaque release GitHub
 - Dependances scannees : gosec (SAST), govulncheck (vulnerabilites)
 - Builds reproductibles via goreleaser

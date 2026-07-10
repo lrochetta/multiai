@@ -1,0 +1,59 @@
+# Gitleaks configuration for multiai
+# Rules for common AI provider API keys, GitHub tokens, and other secrets.
+#
+# Reference: https://github.com/gitleaks/gitleaks
+
+title = "multiai secret scan rules"
+
+[extend]
+# Use the default gitleaks rules as a base
+useDefault = true
+
+[[rules]]
+id = "openai-api-key"
+description = "OpenAI API key (sk-proj- format)"
+regex = '''sk-proj-[A-Za-z0-9]{20,}'''
+tags = ["openai", "api-key"]
+
+[[rules]]
+id = "anthropic-api-key"
+description = "Anthropic API key (sk-ant- format)"
+regex = '''sk-ant-[A-Za-z0-9]{20,}'''
+tags = ["anthropic", "api-key"]
+
+[[rules]]
+id = "deepseek-api-key"
+description = "DeepSeek API key (sk- format)"
+regex = '''[Ss][Kk]-[a-zA-Z0-9_\-]{20,}'''
+tags = ["deepseek", "api-key"]
+
+[[rules]]
+id = "github-pat"
+description = "GitHub Personal Access Token (ghp_ format)"
+regex = '''ghp_[A-Za-z0-9]{36,}'''
+tags = ["github", "pat"]
+
+[[rules]]
+id = "huggingface-token"
+description = "HuggingFace access token (hf_ format)"
+regex = '''hf_[A-Za-z0-9]{34,}'''
+tags = ["huggingface", "token"]
+
+[allowlist]
+description = "Allowlisted paths and regex patterns"
+paths = [
+  '''audit/''',
+  '''_test\.go''',
+  '''tests/''',
+  '''testdata/''',
+]
+regexes = [
+  '''PASTE_.*_HERE''',
+  '''sk-test-''',
+  '''-wizard-test-''',
+  '''__MULTIAI_CREDSTORE__''',
+  '''test-secret''',
+  '''abc123def456''',
+  '''abcdef1234567890''',
+  '''1234567890''',
+]

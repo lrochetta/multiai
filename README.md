@@ -2,10 +2,14 @@
 
 > **Un seul outil pour lancer Claude Code, Codex CLI et OpenCode — avec des profils d'environnement isolés par fournisseur.**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078D4)](#installation)
-[![Go](https://img.shields.io/badge/Go-1.22-blue)](https://go.dev)
+[![Go Version](https://img.shields.io/badge/Go-1.22-blue)](https://go.dev)
+[![CI](https://github.com/lrochetta/multiai/actions/workflows/ci.yml/badge.svg)](https://github.com/lrochetta/multiai/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/multiai)](https://www.npmjs.com/package/multiai)
+[![npm downloads](https://img.shields.io/npm/dm/multiai)](https://www.npmjs.com/package/multiai)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Cosign](https://img.shields.io/badge/signed-Cosign%20keyless-2ea44f)](https://github.com/lrochetta/multiai)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078D4)](#installation)
+[![Go Report Card](https://goreportcard.com/badge/github.com/lrochetta/multiai)](https://goreportcard.com/report/github.com/lrochetta/multiai)
 
 ```bash
 npx multiai install
@@ -70,8 +74,8 @@ Lancement : claude (OpenRouter Fusion — panel multi-modele)
 |---------|----------|---------------|
 | **npm** | `npx multiai install` | ✅ v0.4.2 (binaire Go natif, SHA256 vérifié) |
 | **Go** | `go install github.com/lrochetta/multiai/multiai-go/cmd/multiai@latest` | ✅ maintenant |
-| **Homebrew** | `brew install --cask lrochetta/tap/multiai` | à partir de v0.4.2 (tap requis) |
-| **Scoop** | `scoop install multiai` | à partir de v0.4.2 (bucket requis) |
+| **Homebrew** | `brew install --cask lrochetta/tap/multiai` | ✅ v0.4.3 (auto-upload GoReleaser) |
+| **Scoop** | `scoop bucket add lrochetta https://github.com/lrochetta/scoop-bucket && scoop install lrochetta/multiai` | ✅ v0.4.3 (auto-upload GoReleaser) |
 | **Script** | `curl -fsSL https://rochetta.fr/multiai/install.sh \| bash` | v0.4.2 |
 
 ---
@@ -143,6 +147,38 @@ multiai completion bash        # Autocompletion bash
 
 ---
 
+## Raccourcis directs (wrappers)
+
+Génère un exécutable par profil pour lancer `multiai launch -p <shortcut>` sans taper la commande complète.
+
+```bash
+# Générer tous les wrappers (37 profils → 74 fichiers)
+cd multiai-go && make wrappers
+
+# Ou depuis la racine du projet
+bash scripts/generate-wrappers.sh
+
+# Usage
+./wrappers/multiai-ds          # DeepSeek V4 Pro
+./wrappers/multiai-ds.cmd      # Version Windows (.cmd)
+./wrappers/multiai-codex55     # Codex GPT-5.5
+
+# Ajouter au PATH
+export PATH="$PATH:/chemin/vers/wrappers"
+```
+
+Chaque profil `.env` avec `SHORTCUT=` produit deux fichiers :
+- `wrappers/multiai-<shortcut>` — bash (Linux, macOS, Git-Bash)
+- `wrappers/multiai-<shortcut>.cmd` — cmd (Windows natif)
+
+| Variable | Défaut | Description |
+|----------|--------|-------------|
+| `MULTIAI_PROFILES_DIR` | `multiai-go/internal/assets/profiles/` | Répertoire des profils `.env` |
+| `WRAPPER_OUTPUT_DIR` | `wrappers/` | Répertoire de sortie |
+| `MULTIAI_CMD` | `multiai` | Commande à exécuter |
+
+---
+
 ## Fonctionnalités
 
 ### 🚀 Lancement unifié
@@ -208,6 +244,8 @@ Windows amd64 • macOS Intel • macOS Apple Silicon • Linux amd64/arm64
 │   ├── tests/                   → Tests d'intégration
 │   └── scripts/                 → setup, install, sync
 │
+├── scripts/                     → generate-wrappers.sh (fabrication de wrappers par shortcut)
+├── wrappers/                    → Wrappers générés (gitignored)
 ├── multiai-powershell/          → PowerShell v0.3.0 (gelée)
 └── audit/                       → Rapports d'audit BMAD+ (v0.3.0, v0.4.0)
 ```

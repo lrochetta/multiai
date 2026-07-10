@@ -35,7 +35,7 @@ Tu peux configurer un seul fournisseur ou tous les fournisseurs à la suite.
 
 Chaque fichier `.env` contient les variables d'environnement pour un profil :
 
-```env
+```text
 # ~/.multiai/profiles/ds.env
 ANTHROPIC_API_KEY=sk-ant-...
 MODEL=claude-sonnet-4-20250514

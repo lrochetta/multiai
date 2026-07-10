@@ -1,0 +1,37 @@
+name: Feature Request
+description: Proposer une fonctionnalité / Suggest an idea
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problème résolu / Problem statement
+      description: |
+        Quel problème cette fonctionnalité résout-elle ?
+        Quelle est votre use case ?
+      placeholder: "Quand j'utilise X, je ne peux pas faire Y..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution proposée / Proposed solution
+      description: |
+        Décrivez la fonctionnalité que vous souhaitez.
+        Soyez aussi précis que possible sur le comportement attendu.
+      placeholder: "Ajouter une option --output json qui ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considérées / Alternatives considered
+      description: |
+        Avez-vous envisagé d'autres approches ?
+        Existe-t-il un contournement actuel ?
+      placeholder: "J'ai essayé de faire X avec un script, mais..."
+    validations:
+      required: false

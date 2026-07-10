@@ -1,4 +1,4 @@
-// Package config implements the interactive API key configuration wizard,
+﻿// Package config implements the interactive API key configuration wizard,
 // driven by the embedded provider catalog (internal/catalog).
 package config
 
@@ -6,14 +6,15 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/lrochetta/multiai/internal/catalog"
-	"github.com/lrochetta/multiai/internal/cli"
+	"github.com/lrochetta/multiai/internal/display"
 	"github.com/lrochetta/multiai/internal/env"
+	"github.com/lrochetta/multiai/internal/fsutil"
+	"github.com/lrochetta/multiai/internal/i18n"
 	"github.com/lrochetta/multiai/internal/profile"
 	"github.com/lrochetta/multiai/internal/secret"
 	"github.com/lrochetta/multiai/pkg/dotenv"
@@ -35,10 +36,10 @@ func DefaultProviders() []Provider {
 // user override (parity with PS, which has no format validation at all).
 func validateAPIKey(prov Provider, key string) (bool, string) {
 	if dotenv.IsPlaceholder(key) {
-		return false, "placeholder non configure"
+		return false, i18n.T("placeholder_unconfigured")
 	}
 	if len(key) < 10 {
-		return false, "cle trop courte (min 10 caracteres)"
+		return false, i18n.T("key_too_short")
 	}
 	if prov.KeyPattern == "" {
 		return true, "" // no pattern in the catalog: accept
@@ -49,7 +50,7 @@ func validateAPIKey(prov Provider, key string) (bool, string) {
 		return true, ""
 	}
 	if !re.MatchString(key) {
-		return false, fmt.Sprintf("format invalide pour %s (attendu: %s)", prov.ID, prov.KeyPattern)
+		return false, fmt.Sprintf("%s", i18n.T("invalid_format", prov.ID, prov.KeyPattern))
 	}
 	return true, ""
 }
@@ -87,14 +88,14 @@ func InteractiveConfig(profiles []profile.Profile) error {
 }
 
 // ConfigureProviderByID runs the key prompt for a single provider selected
-// by its catalog id (e.g. "openrouter"), skipping the menu — backs
+// by its catalog id (e.g. "openrouter"), skipping the menu â€” backs
 // `multiai config --provider <id>`. A nil reader defaults to stdin.
 func ConfigureProviderByID(profiles []profile.Profile, providerID string, reader *bufio.Reader) error {
 	cat := catalog.Default()
 	prov, ok := cat.ProviderByID(providerID)
 	if !ok {
-		return fmt.Errorf("fournisseur inconnu : %q (valides : %s)",
-			providerID, strings.Join(cat.ProviderIDs(), ", "))
+		return fmt.Errorf("%s", i18n.T("unknown_provider",
+			providerID, strings.Join(cat.ProviderIDs(), ", ")))
 	}
 	if reader == nil {
 		reader = bufio.NewReader(os.Stdin)
@@ -108,7 +109,7 @@ func ConfigureProviderByID(profiles []profile.Profile, providerID string, reader
 func runConfigMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile, reader *bufio.Reader) error {
 	for {
 		fmt.Println()
-		cli.PrintInfo("Configuration des cles API")
+		display.PrintInfo(i18n.T("config_title"))
 		fmt.Println(strings.Repeat("-", 58))
 
 		currentRegion := ""
@@ -126,21 +127,21 @@ func runConfigMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile,
 			} else if configured > 0 {
 				status = "[~~]"
 			}
-			color := cli.StatusColor(configured, total)
+			color := display.StatusColor(configured, total)
 			line := fmt.Sprintf("  %d. %-36s %s", i+1, prov.Display, status)
 			if configured > 0 {
 				line += fmt.Sprintf(" (%d/%d)", configured, total)
 			}
-			fmt.Println(cli.Colorize(line, color))
+			fmt.Println(display.Colorize(color, line))
 			fmt.Printf("     -> %s\n", prov.URL)
 		}
 
 		fmt.Println()
-		fmt.Println("a. Configurer tous les fournisseurs en sequence")
-		fmt.Println("e. Effacer des cles API")
-		fmt.Println("0. Retour")
+		fmt.Println(i18n.T("config_all"))
+		fmt.Println(i18n.T("erase_keys"))
+		fmt.Println(i18n.T("back_option"))
 		fmt.Println()
-		fmt.Print("Choix : ")
+		fmt.Print(i18n.T("choice_prompt"))
 
 		choice, _ := reader.ReadString('\n')
 		choice = strings.TrimSpace(choice)
@@ -153,26 +154,26 @@ func runConfigMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile,
 			for _, prov := range cat.Providers {
 				configureProvider(prov, byShortcut, reader)
 			}
-			cli.PrintSuccess("Configuration terminee.")
+			display.PrintSuccess(i18n.T("config_done"))
 			fmt.Println()
-			fmt.Print("Voulez-vous lancer un profil maintenant ? (o/N) : ")
+			fmt.Print(i18n.T("launch_now_prompt"))
 			choice2, _ := reader.ReadString('\n')
 			if strings.TrimSpace(strings.ToLower(choice2)) == "o" {
-				fmt.Println("Utilisez 'multiai launch -p <shortcut>' pour lancer.")
-				fmt.Println("Lancez 'multiai list' pour voir les profils disponibles.")
+				fmt.Println(i18n.T("launch_help"))
+				fmt.Println(i18n.T("list_help"))
 			}
 			return nil
 
 		case strings.EqualFold(choice, "e"):
 			runEraseMenu(cat, byShortcut, reader)
 			fmt.Println()
-			fmt.Print("Entree pour revenir : ")
+			fmt.Print(i18n.T("enter_return"))
 			_, _ = reader.ReadString('\n')
 
 		default:
 			idx, err := strconv.Atoi(choice)
 			if err != nil || idx < 1 || idx > len(cat.Providers) {
-				cli.PrintWarning("Choix invalide.")
+				display.PrintWarning(i18n.T("invalid_choice"))
 				continue
 			}
 			configureProvider(cat.Providers[idx-1], byShortcut, reader)
@@ -185,10 +186,10 @@ func runConfigMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile,
 // like `printf "1\nsk-...\n0\n" | multiai config` would silently read EOF).
 func configureProvider(prov Provider, byShortcut map[string]*profile.Profile, reader *bufio.Reader) {
 	fmt.Println()
-	cli.PrintInfo(fmt.Sprintf("  %s", prov.Display))
-	fmt.Printf("  Creer une cle : %s\n", prov.URL)
+	display.PrintInfo("  " + prov.Display)
+	fmt.Printf("  %s\n", i18n.T("create_key_at", prov.URL))
 	if prov.Note != "" {
-		fmt.Printf("  Note : %s\n", prov.Note)
+		fmt.Printf("  %s\n", i18n.T("note", prov.Note))
 	}
 
 	// Collect installed profiles of the group, keeping catalog order.
@@ -199,10 +200,10 @@ func configureProvider(prov Provider, byShortcut map[string]*profile.Profile, re
 		}
 	}
 	if len(shortcuts) == 0 {
-		cli.PrintWarning("  Aucun profil installe pour ce fournisseur.")
+		display.PrintWarning("  "+i18n.T("no_prof_provider"))
 		return
 	}
-	fmt.Printf("  Profils : %s\n", strings.Join(shortcuts, ", "))
+	fmt.Printf("  %s\n", i18n.T("profiles_label", strings.Join(shortcuts, ", ")))
 
 	// Determine the key variable for the first installed shortcut.
 	varName := prov.VarMap[shortcuts[0]]
@@ -213,20 +214,22 @@ func configureProvider(prov Provider, byShortcut map[string]*profile.Profile, re
 
 	// Show current value (masked).
 	masked := env.MaskSecret(currentValue)
-	fmt.Printf("  Variable  : %s\n", varName)
+	fmt.Printf("  %s\n", i18n.T("variable_label", varName))
 	if isSentinel {
-		fmt.Printf("  Valeur    : %s (stockee dans le credential store)\n", cli.Colorize(masked, "\033[32m"))
+		fmt.Printf("  Valeur    : %s (stockee dans le credential store)\n", display.Colorize("\033[32m", masked))
 	} else if !dotenv.IsPlaceholder(currentValue) {
-		fmt.Printf("  Valeur    : %s (en clair dans le .env)\n", cli.Colorize(masked, "\033[33m"))
+		fmt.Printf("  Valeur    : %s (en clair dans le .env)\n", display.Colorize("\033[33m", masked))
 	} else {
-		fmt.Printf("  Valeur    : %s\n", cli.Colorize(masked, "\033[90m"))
+		fmt.Printf("  Valeur    : %s\n", display.Colorize("\033[90m", masked))
 	}
 	fmt.Println()
 
 	// Build the key prompt.
-	prompt := fmt.Sprintf("Nouvelle cle API (vide = inchanger) : ")
+	var prompt string
 	if isSentinel {
-		prompt = fmt.Sprintf("Nouvelle cle API (vide = inchanger, effacer = e) : ")
+		prompt = i18n.T("key_prompt_erase")
+	} else {
+		prompt = i18n.T("key_prompt")
 	}
 
 	fmt.Print(prompt)
@@ -234,7 +237,7 @@ func configureProvider(prov Provider, byShortcut map[string]*profile.Profile, re
 	newKey = strings.TrimSpace(newKey)
 
 	if newKey == "" {
-		fmt.Println("  Aucune modification.")
+		fmt.Println("  " + i18n.T("no_change"))
 		return
 	}
 
@@ -242,34 +245,34 @@ func configureProvider(prov Provider, byShortcut map[string]*profile.Profile, re
 		// Erase from store and restore placeholder.
 		store, err := secret.NewStore()
 		if err != nil {
-			cli.PrintWarning(fmt.Sprintf("  Credential store inaccessible : %v", err))
+			display.PrintWarning(fmt.Sprintf("  %s", i18n.T("cred_store_unavailable", err)))
 			return
 		}
 		isSentinel = false
 		for _, sc := range shortcuts {
 			v := prov.VarMap[sc]
 			if err := store.Delete(secret.ServiceForProfile(byShortcut[sc].Path), v); err != nil {
-				cli.PrintWarning(fmt.Sprintf("  Erreur effacement %s : %v", sc, err))
+				display.PrintWarning(fmt.Sprintf("  Erreur effacement %s : %v", sc, err))
 				continue
 			}
-			if err := setEnvVarInFile(byShortcut[sc].Path, v, "PASTE_" + v + "_HERE"); err != nil {
-				cli.PrintWarning(fmt.Sprintf("  Erreur mise a jour %s : %v", sc, err))
+			if err := setEnvVarInFile(byShortcut[sc].Path, v, "PASTE_"+v+"_HERE"); err != nil {
+				display.PrintWarning(fmt.Sprintf("  Erreur mise a jour %s : %v", sc, err))
 				continue
 			}
 			// Reload in-memory so the menu status refreshes.
 			byShortcut[sc].Env[v] = "PASTE_" + v + "_HERE"
 		}
-		cli.PrintSuccess("Cle effacee du credential store.")
+		display.PrintSuccess(i18n.T("key_erased"))
 		return
 	}
 
 	// Validate format.
 	if valid, msg := validateAPIKey(prov, newKey); !valid {
-		cli.PrintWarning(fmt.Sprintf("  Format invalide : %s", msg))
-		fmt.Print("  Confirmer quand meme ? (o/N) : ")
+		display.PrintWarning(fmt.Sprintf("  %s: %s", i18n.T("invalid_format_simple"), msg))
+		fmt.Print("  " + i18n.T("confirm_anyway"))
 		confirm, _ := reader.ReadString('\n')
 		if strings.ToLower(strings.TrimSpace(confirm)) != "o" {
-			fmt.Println("  Annule.")
+			fmt.Println("  " + i18n.T("cancelled"))
 			return
 		}
 	}
@@ -283,7 +286,7 @@ func configureProvider(prov Provider, byShortcut map[string]*profile.Profile, re
 		// Use the allow-plaintext flag when the credential store is
 		// unavailable so the user intent is explicit.
 		if err := updateEnvFile(pp.Path, v, newKey, false); err != nil {
-			cli.PrintWarning(fmt.Sprintf("  %s : %v", sc, err))
+			display.PrintWarning(fmt.Sprintf("  %s : %v", sc, err))
 			continue
 		}
 		// Reload in-memory.
@@ -291,9 +294,9 @@ func configureProvider(prov Provider, byShortcut map[string]*profile.Profile, re
 		updated++
 	}
 	if updated > 0 {
-		cli.PrintSuccess(fmt.Sprintf("  %d profil(s) mis a jour.", updated))
+		display.PrintSuccess(i18n.T("profiles_updated", updated))
 	} else {
-		cli.PrintWarning("  Aucun profil mis a jour (variable introuvable dans les .env).")
+		display.PrintWarning("  "+i18n.T("profiles_not_updated"))
 	}
 }
 
@@ -301,34 +304,51 @@ func configureProvider(prov Provider, byShortcut map[string]*profile.Profile, re
 // credential store, sentinel in the .env file.
 // When allowPlaintext is false and the credential store is inaccessible, it
 // returns an error to prevent silent plaintext downgrade.
+//
+// ORDER (crash-safe):
+//  1. Write the secret into the credential store.
+//  2. Write the sentinel into the .env file.
+//  3. If step 2 fails, rollback step 1 (delete from store) so that a
+//     dangling credential never accumulates without its sentinel.
 func updateEnvFile(path, varName, newValue string, allowPlaintext bool) error {
-	// Credential store FIRST: the file only receives the sentinel when the
-	// store write succeeded (invariant: sentinel in file => value in store,
-	// otherwise launch would export a dangling sentinel as the API key).
+	store, storeErr := secret.NewStore()
+	storeAvailable := storeErr == nil
+
 	fileValue := newValue
+	storeSetDone := false
 	storeErrMsg := ""
-	if store, err := secret.NewStore(); err == nil {
+	if storeAvailable {
 		if err := store.Set(secret.ServiceForProfile(path), varName, newValue); err == nil {
 			fileValue = secret.Sentinel
+			storeSetDone = true
 		} else {
-			storeErrMsg = fmt.Sprintf("  Credential store inaccessible : %v", err)
+			storeErrMsg = fmt.Sprintf("  %s", i18n.T("cred_store_unavailable", err))
 		}
 	} else {
-		storeErrMsg = fmt.Sprintf("  Credential store inaccessible : %v", err)
+		storeErrMsg = fmt.Sprintf("  %s", i18n.T("cred_store_unavailable", storeErr))
 	}
 	if fileValue != secret.Sentinel {
 		if !allowPlaintext {
 			return fmt.Errorf("%s. Utilisez --allow-plaintext pour forcer l'ecriture en clair de %s dans %s",
 				storeErrMsg, varName, path)
 		}
-		cli.PrintWarning(fmt.Sprintf("  Credential store indisponible : %s sera ecrit EN CLAIR dans %s", varName, path))
+		display.PrintWarning(fmt.Sprintf("  Credential store indisponible : %s %s dans %s", varName, i18n.T("will_be_in_plaintext"), path))
 	}
-	return setEnvVarInFile(path, varName, fileValue)
+
+	if err := setEnvVarInFile(path, varName, fileValue); err != nil {
+		// Rollback: the sentinel write failed, so remove the credential
+		// we just stored to prevent a dangling unreferenced entry.
+		if storeSetDone {
+			_ = store.Delete(secret.ServiceForProfile(path), varName)
+		}
+		return err
+	}
+	return nil
 }
 
 // setEnvVarInFile replaces the value of the first non-commented `VAR=` line
-// in a .env file, atomically (temp file + rename). It writes the value
-// verbatim — secret handling is the caller's business.
+// in a .env file, atomically. It writes the value
+// verbatim â€” secret handling is the caller's business.
 func setEnvVarInFile(path, varName, value string) error {
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -362,25 +382,5 @@ func setEnvVarInFile(path, varName, value string) error {
 	}
 
 	newContent := strings.Join(lines, "\n")
-
-	// Atomic write via temp file + rename (fsync on temp file before rename).
-	tmpFile, err := os.CreateTemp(filepath.Dir(path), ".tmp-*.env")
-	if err != nil {
-		return err
-	}
-	tmpPath := tmpFile.Name()
-	defer os.Remove(tmpPath)
-
-	if _, err := tmpFile.WriteString(newContent); err != nil {
-		tmpFile.Close()
-		return err
-	}
-	if err := tmpFile.Sync(); err != nil {
-		tmpFile.Close()
-		return err
-	}
-	if err := tmpFile.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmpPath, path)
+	return fsutil.WriteFileAtomic(path, []byte(newContent), 0644)
 }

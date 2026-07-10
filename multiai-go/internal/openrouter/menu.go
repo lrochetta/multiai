@@ -2,6 +2,7 @@ package openrouter
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -86,7 +87,7 @@ func menuTop(in *bufio.Reader, out io.Writer) {
 	if sortKey == "" {
 		sortKey = SortRecent
 	}
-	cat := GetModels(false)
+	cat := GetModels(context.Background(),false)
 	top, err := Top(cat.Models, sortKey, 15)
 	if err != nil {
 		fmt.Fprintf(out, "[X] %v\n", err)
@@ -104,7 +105,7 @@ func menuSearch(in *bufio.Reader, out io.Writer) {
 	if !ok || query == "" {
 		return
 	}
-	cat := GetModels(false)
+	cat := GetModels(context.Background(),false)
 	results := Search(cat.Models, query)
 	if len(results) == 0 {
 		fmt.Fprintf(out, "[!] Aucun modele ne correspond a : %s\n", query)
@@ -133,7 +134,7 @@ func menuCompare(in *bufio.Reader, out io.Writer) {
 	if !ok || second == "" {
 		return
 	}
-	cat := GetModels(false)
+	cat := GetModels(context.Background(),false)
 	a, err := FindModel(cat.Models, first)
 	if err != nil {
 		fmt.Fprintf(out, "[X] %v\n", err)

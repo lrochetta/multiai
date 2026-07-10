@@ -1,4 +1,4 @@
-package profile
+﻿package profile
 
 import (
 	"bytes"
@@ -67,6 +67,9 @@ func MergeProjectConfig(base *Profile, project *ProfileYAML) *Profile {
 	}
 	if len(project.Args) > 0 {
 		merged.Args = project.Args
+	}
+	if project.Hooks != nil {
+		merged.Hooks = project.Hooks
 	}
 
 	return &merged

@@ -1,4 +1,4 @@
-package profile
+﻿package profile
 
 import (
 	"bytes"
@@ -174,6 +174,10 @@ func yamlToProfile(py *ProfileYAML, path string) *Profile {
 	}
 	if p.Env == nil {
 		p.Env = make(map[string]string)
+	}
+
+	if py.Hooks != nil {
+		p.Hooks = py.Hooks
 	}
 
 	return p

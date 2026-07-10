@@ -7,6 +7,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -97,8 +98,8 @@ func orParseArgs(args []string) (*orOptions, error) {
 
 // orCatalog loads the model catalog and reports degraded sources on stderr,
 // keeping stdout clean for --json consumers.
-func orCatalog(o *orOptions) *openrouter.Catalog {
-	cat := openrouter.GetModels(o.offline)
+func orCatalog(ctx context.Context, o *orOptions) *openrouter.Catalog {
+	cat := openrouter.GetModels(ctx, o.offline)
 	if cat.Warning != "" {
 		fmt.Fprintf(os.Stderr, "[!] %s\n", cat.Warning)
 	}
@@ -188,7 +189,9 @@ func cmdModels(args []string) int {
 		orPrintModelsHelp()
 		return 0
 	}
-	cat := orCatalog(o)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cat := orCatalog(ctx, o)
 	models := cat.Models
 	if o.vendor != "" {
 		models = openrouter.FilterVendor(models, o.vendor)
@@ -237,7 +240,9 @@ func cmdSearch(args []string) int {
 		return 1
 	}
 	query := strings.Join(o.positional, " ")
-	cat := orCatalog(o)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cat := orCatalog(ctx, o)
 	results := openrouter.Search(cat.Models, query)
 	total := len(results)
 	results, err = openrouter.Top(results, o.sortKey, o.top)
@@ -276,7 +281,9 @@ func cmdCompare(args []string) int {
 		orPrintCompareHelp()
 		return 1
 	}
-	cat := orCatalog(o)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cat := orCatalog(ctx, o)
 	a, err := openrouter.FindModel(cat.Models, o.positional[0])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)

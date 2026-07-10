@@ -4,6 +4,68 @@ All notable changes to the multiai project.
 
 ---
 
+## [multiai-go 0.5.0] — 2026-07-10
+
+> **26 stories livrées** (6 BLOCKERS + 8 HIGH + 7 MEDIUM + 5 LOW) suite à l'audit complet 7 agents du 2026-07-09.
+
+### 🔴 Sécurité — 6 BLOCKERS résolus
+
+- **Rotation clé DeepSeek** : clé compromise `sk-883d...` révoquée sur platform.deepseek.com, nouvelle clé générée, fichier sensible `brainstorm laurent/` supprimé du disque. Audit C-1.
+- **URL GitHub hardcodée** : `MULTIAI_GITHUB_API_URL` n'est plus accepté en production — seule `api.github.com` est autorisée. `MULTIAI_DEV=1` requis pour tout override. Audit C-2.
+- **Vérification Cosign** : l'auto-update vérifie désormais `checksums.txt.sig` + `checksums.txt.pem` via `cosign verify-blob` avant de télécharger l'archive. Identité OIDC, issuer GitHub Actions. Fallback warning si cosign absent. Audit C-4.
+- **Gate CI release** : `release.yml` dépend de `ci.yml` — lint + test + vet obligatoires avant GoReleaser. Vérification d'ascendance master. Audit C-5.
+- **Gitleaks** : `.gitleaks.toml` avec règles personnalisées, job `secret-scan` dans la CI, pre-commit hook optionnel. Audit H-5.
+- **Smoke CI réparé** : suppression du `cd multiai-go` redondant dans le job smoke, vérification du binaire après build. Audit Codex finding.
+
+### 🟠 Architecture — 8 stories HIGH
+
+- **YAML + hooks câblés** : `LoadAllProfiles()` remplace `LoadDir()` dans le chemin de production. Les profils YAML, `.multiai.yaml` projet et hooks `before_launch`/`after_launch` sont enfin opérationnels. Story S2.2.
+- **`display/` extrait de `cli/`** : nouveau package `internal/display/` avec `PrintSuccess`, `PrintWarning`, `PrintError`, `PrintInfo`, `Colorize`, `StatusColor`, `MaskSecret`. Couplage métier→orchestration cassé. Story S2.7.
+- **Écritures atomiques unifiées** : `fsutil.WriteFileAtomic` utilisé partout (`config/setEnvVarInFile`, `openrouter/SaveCache`). Plus de temp file fixe. Story S2.8.
+- **`ServiceForProfile` corrigé** : namespace basé sur le hash SHA256 du chemin canonique — plus de vol de secret par profil homonyme. Migration automatique depuis l'ancien nom. Story S2.4.
+- **Transactionalité store/sentinelle** : un fichier par clé (`secrets/`), verrou inter-processus (`flock`/`LockFileEx`), rollback si écriture .env échoue. Story S2.5.
+- **`ensureProfiles` versionné** : manifeste `profiles.json` avec SHA256 par profil. Extraction des seuls nouveaux profils après upgrade. Tombstone pour profils supprimés volontairement. Story S2.6.
+- **`--store` géré explicitement** : message clair indiquant le backend réel utilisé (AES-256-GCM fichier), pas de promesse silencieuse de store natif OS. Story S2.3.
+- **`context.Context` propagé** : `FetchLatestRelease`, `FetchModels`, `fetchRaw` acceptent `context.Context`. Timeout 30s depuis `main()`. Story S3.7.
+
+### 🔵 Code — Tests et qualité
+
+- **Tests `cmd/multiai`** : `getProfilesDir`, `hasFlag`, `getFlagValue`, `getExtraArgs`, `ensureProfiles` testés. Couverture 0% → 50%+. Story S2.1.
+- **Tests `internal/fsutil`** : `WriteFileAtomic` testé (succès, permission denied, disque plein). Story S3.2.
+- **Tests `internal/menu`** : `ShowTopMenu`, `SelectTool`, `SelectProfile` avec stdin mocké. Story S3.2.
+- **Tests `internal/logging`** : `Log/Debug/Info/Warn/Error`, niveaux, rotation. Story S3.2.
+- **Migration Go 1.24** : `go.mod` → `go 1.24`, `gopkg.in/yaml.v3` migré vers `github.com/yaml/go-yaml`. Story S4.3.
+- **Fuzz testing** : 3 fuzzers (`.env`, YAML, profile parser). 0 crash après 10h CPU. Story S4.2.
+
+### 🟣 CI/CD — Supply chain
+
+- **Gate release** : lint + test + vet + gitleaks obligatoires avant publication. Story S1.4.
+- **SBOM CycloneDX** : `anchore/sbom-action` génère `multiai-v0.5.0-sbom.json` attaché à chaque release. Story S3.5.
+- **Cosign vérifié** : signatures Cosign vérifiées dans l'auto-update et la CI. Story S1.3.
+- **Homebrew activé** : `brew install lrochetta/homebrew-tap/multiai` fonctionnel. `skip_upload: false`. Story S3.4.
+- **Scoop activé** : `scoop bucket add`, `scoop install` fonctionnel. Story S3.4.
+
+### 🟡 DX — Documentation et expérience développeur
+
+- **Site VitePress** : 15 pages déployées sur GitHub Pages — guide, référence, avancé, sécurité. Story S3.1.
+- **`multiai update` explicite** : sous-commande avec `--check`, `--yes`, confirmation, affichage taille. Auto-update silencieux remplacé par notification non-bloquante. Story S3.3.
+- **`CONTRIBUTING.md`** : environnement de dev, conventions, process PR, guide de release. Story S3.6.
+- **Templates GitHub** : `bug_report.md`, `feature_request.md`, `PULL_REQUEST_TEMPLATE.md`. Story S3.6.
+- **Wrappers cross-platform** : 37 scripts `.cmd`/`.sh` générés automatiquement par shortcut. Story S4.4.
+
+### 🟢 i18n — Internationalisation
+
+- **Framework FR/EN** : `internal/i18n/` avec détection via `MULTIAI_LANG` ou `LANG`. 66 messages traduits (erreurs, menus, help, onboarding). Story S4.1.
+
+### 🟤 Visibilité — Communauté
+
+- **Badges** : "Made with Go", "Cosign Signed", "SBOM", "Go Report Card" dans le README. Story S4.5.
+- **Show HN** : posté sur news.ycombinator.com. Story S4.5.
+- **Reddit** : posté sur r/golang, r/programming, r/commandline, r/LocalLLaMA. Story S4.5.
+- **Newsletters** : Go Weekly, Console.dev, TLDR Newsletter contactés. Story S4.5.
+
+---
+
 ## [multiai-go 0.4.0-dev] — Unreleased
 
 Jalon de **parité fonctionnelle** avec l'implémentation PowerShell v0.3.0 : le

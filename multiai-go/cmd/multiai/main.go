@@ -5,16 +5,19 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/lrochetta/multiai/internal/assets"
 	"github.com/lrochetta/multiai/internal/catalog"
 	"github.com/lrochetta/multiai/internal/cli"
 	"github.com/lrochetta/multiai/internal/config"
+	"github.com/lrochetta/multiai/internal/i18n"
 	"github.com/lrochetta/multiai/internal/menu"
 	"github.com/lrochetta/multiai/internal/onboarding"
 	"github.com/lrochetta/multiai/internal/openrouter"
@@ -25,7 +28,7 @@ import (
 // version is the single source of truth for the CLI version (also shown in
 // the interactive menu title). Release builds override it with
 // `-ldflags "-X main.version=X.Y.Z"` (goreleaser).
-var version = "0.4.3"
+var version = "0.5.0"
 
 // commands is the subcommand registry. Feature files (cmd_*.go) contribute
 // commands from an init() via register(), so main.go stays free of merge
@@ -73,19 +76,27 @@ func getProfilesDir() string {
 	return dir
 }
 
-// ensureProfiles seeds dir with the embedded profile templates when it does
-// not exist yet or contains no .env file. User files are never overwritten.
+// ensureProfiles seeds dir with the embedded profile templates, using the
+// profiles manifest to only extract new or unknown profiles.  User-modified
+// files are never overwritten (a warning is emitted instead).
+// On fresh installs all profiles are extracted; on upgrades only the newly
+// added ones are materialised.
 func ensureProfiles(dir string) {
-	if hasEnvFiles(dir) {
-		return
-	}
-	n, err := assets.ExtractProfiles(dir)
+	installed, err := assets.ReadInstalledManifest(dir)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Avertissement: impossible d'installer les profils dans %s : %v\n", dir, err)
+		fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("warning_manifest"), err)
+		// Fall back to legacy behaviour.
+		if hasEnvFiles(dir) {
+			return
+		}
+	}
+	n, err := assets.ExtractMissingProfiles(dir, installed)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("warning_install_profiles", dir), err)
 		return
 	}
 	if n > 0 {
-		fmt.Fprintf(os.Stderr, "Profils installes dans %s (%d fichiers)\n", dir, n)
+		fmt.Fprintf(os.Stderr, "%s\n", i18n.T("profiles_installed", dir, n))
 	}
 }
 
@@ -125,6 +136,7 @@ Usage:
   multiai compare <slug> ...      Comparer des modeles OpenRouter
   multiai bmad                    Gestion BMAD+ (install/update via npx)
   multiai completion <shell>      Completion shell (bash/zsh/fish/powershell)
+  multiai update                  Verifier et installer les mises a jour
   multiai version                 Afficher la version
   multiai help                    Cette aide
 
@@ -187,9 +199,18 @@ Necessite Node.js (npx) : https://nodejs.org`)
 }
 
 func main() {
-	// Auto-update: check GitHub for a newer release before dispatching.
-	// Silent on failure — never blocks the launch.
-	update.Check(version)
+	// Auto-update: non-blocking notification if a newer version is available.
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		release, err := update.FetchLatestRelease(ctx)
+		if err != nil {
+			return
+		}
+		if update.IsNewer(version, release.TagName) {
+			fmt.Fprintf(os.Stderr, "%s", i18n.T("update_available", release.TagName))
+		}
+	}()
 
 	if len(os.Args) < 2 {
 		runInteractiveLoop()
@@ -228,27 +249,27 @@ func main() {
 		printHelp()
 
 	case "list":
-		profiles, err := profile.LoadDir(getProfilesDir())
+		profiles, err := profile.LoadAllProfiles(getProfilesDir())
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
+			fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("error"), err)
 			os.Exit(2)
 		}
 		asJSON := hasFlag(os.Args, "--json", "-j")
 		if err := cli.ListProfiles(profiles, asJSON); err != nil {
-			fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
+			fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("error"), err)
 			os.Exit(1)
 		}
 
 	case "launch":
 		profilesDir := getProfilesDir()
-		profiles, err := profile.LoadDir(profilesDir)
+		profiles, err := profile.LoadAllProfiles(profilesDir)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
+			fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("error"), err)
 			os.Exit(2)
 		}
 		result, err := runLaunch(profiles)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
+			fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("error"), err)
 			os.Exit(1)
 		}
 		if result != nil && result.ExitCode != 0 {
@@ -256,25 +277,34 @@ func main() {
 		}
 
 	case "config":
-		profiles, err := profile.LoadDir(getProfilesDir())
+		profiles, err := profile.LoadAllProfiles(getProfilesDir())
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
+			fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("error"), err)
 			os.Exit(2)
+		}
+		// --store flag: warn that native credential-store backends are not yet
+		// implemented (S2.3 -- refuse explicitly, then continue).
+		if msg, err := handleStoreFlag(os.Args); err != nil {
+			fmt.Fprint(os.Stderr, err)
+			os.Exit(2)
+		} else if msg != "" {
+			fmt.Fprint(os.Stderr, msg)
+			// Continuer avec le wizard normal
 		}
 		if hasFlag(os.Args, "--provider") {
 			providerID := getFlagValue(os.Args, "--provider")
 			if providerID == "" {
-				fmt.Fprintln(os.Stderr, "Erreur: --provider attend un identifiant de fournisseur")
+				fmt.Fprintln(os.Stderr, i18n.T("provider_flag_expected"))
 				fmt.Println()
 				printConfigHelp()
 				os.Exit(1)
 			}
 			if err := config.ConfigureProviderByID(profiles, providerID, bufio.NewReader(os.Stdin)); err != nil {
-				fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
+				fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("error"), err)
 				os.Exit(1)
 			}
 		} else if err := config.InteractiveConfig(profiles); err != nil {
-			fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
+			fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("error"), err)
 			os.Exit(1)
 		}
 
@@ -289,7 +319,7 @@ func main() {
 			shell = os.Args[2]
 		}
 		if err := cli.GenerateCompletion(shell); err != nil {
-			fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
+			fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("error"), err)
 			os.Exit(1)
 		}
 
@@ -297,7 +327,7 @@ func main() {
 		if fn, ok := commands[os.Args[1]]; ok {
 			os.Exit(fn(os.Args[2:]))
 		}
-		fmt.Fprintf(os.Stderr, "Commande inconnue : %s\n", os.Args[1])
+		fmt.Fprintf(os.Stderr, "%s", i18n.T("unknown_cmd", os.Args[1]))
 		printHelp()
 		os.Exit(1)
 	}
@@ -307,14 +337,14 @@ func runInteractiveLoop() {
 	// First-run onboarding: interactive mode only, shown at most once.
 	// An existing marker file is respected even if all keys were erased
 	// later (the wizard never nags twice).
-	if profiles, err := profile.LoadDir(getProfilesDir()); err == nil {
+	if profiles, err := profile.LoadAllProfiles(getProfilesDir()); err == nil {
 		if onboarding.IsFirstRun(profiles) && !onboarding.FirstRunMarkerExists() {
 			onboarding.RunWelcome(profiles)
 		}
 	}
 
 	for {
-		profiles, err := profile.LoadDir(getProfilesDir())
+		profiles, err := profile.LoadAllProfiles(getProfilesDir())
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "[X] %v\n", err)
 			os.Exit(2)
@@ -326,7 +356,7 @@ func runInteractiveLoop() {
 			if err != nil {
 				cli.PrintError(fmt.Sprintf("%v", err))
 			} else if result != nil && result.ExitCode != 0 {
-				cli.PrintWarning(fmt.Sprintf("Le processus s'est termine avec le code: %d", result.ExitCode))
+				cli.PrintWarning(fmt.Sprintf(i18n.T("process_exit_code"), result.ExitCode))
 			}
 			fmt.Println()
 		case "2":
@@ -345,7 +375,7 @@ func runInteractiveLoop() {
 		case "0", "q", "quit", "exit":
 			return
 		default:
-			fmt.Println("Choix invalide. Options : 1-4, 0 pour quitter")
+			fmt.Println(i18n.T("menu_invalid"))
 		}
 	}
 }
@@ -408,6 +438,17 @@ func runLaunch(profiles []profile.Profile) (*cli.LaunchResult, error) {
 		ExtraArgs:          extraArgs,
 	}
 
+	// Project config: merge with project-level overrides (.multiai.yaml)
+	if projectConfig, _, err := profile.FindProjectConfig(); err == nil && projectConfig != nil {
+		merged := profile.MergeProjectConfig(selected, projectConfig)
+		selected = merged
+	}
+
+	// Transmit hooks for before/after launch execution
+	if os.Getenv("MULTIAI_NO_HOOKS") != "1" {
+		opts.Hooks = selected.Hooks
+	}
+
 	result, err := cli.LaunchWithFallback(profiles, selected, opts)
 	if err != nil {
 		return nil, err
@@ -424,6 +465,22 @@ func runLaunch(profiles []profile.Profile) (*cli.LaunchResult, error) {
 
 // --- Helper functions ---
 
+// handleStoreFlag checks the --store flag in args and returns:
+//   - ("", nil) if --store is absent (no-op)
+//   - (message, nil) if --store names a known but unimplemented backend
+//   - ("", err) if --store names an invalid backend (caller should exit 2)
+func handleStoreFlag(args []string) (msg string, err error) {
+	storeFlag := getFlagValue(args, "--store")
+	if storeFlag == "" {
+		return "", nil
+	}
+	validStores := map[string]bool{"keychain": true, "wincred": true, "secret-service": true}
+	if !validStores[storeFlag] {
+		return "", fmt.Errorf("[X] Store invalide : %s (valides : keychain, wincred, secret-service)\n", storeFlag)
+	}
+	return fmt.Sprintf("[i] %s\n    %s\n    %s\n", i18n.T("store_not_implemented", storeFlag), i18n.T("using_file_store"), i18n.T("follow_issue")), nil
+}
+
 func hasFlag(args []string, flags ...string) bool {
 	for _, arg := range args {
 		for _, flag := range flags {
@@ -436,14 +493,15 @@ func hasFlag(args []string, flags ...string) bool {
 }
 
 func getFlagValue(args []string, flags ...string) string {
+	var val string
 	for i, arg := range args {
 		for _, flag := range flags {
 			if arg == flag && i+1 < len(args) {
-				return args[i+1]
+				val = args[i+1]
 			}
 		}
 	}
-	return ""
+	return val
 }
 
 func getExtraArgs(args []string) []string {

@@ -10,17 +10,21 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/lrochetta/multiai/internal/fsutil"
 )
 
 const (
@@ -50,7 +54,7 @@ type ReleaseAsset struct {
 
 // Check is the main entry point for auto-update. It is safe to call on every
 // startup: all errors are silently logged to stderr and never block the launch.
-func Check(currentVersion string) {
+func Check(ctx context.Context, currentVersion string) {
 	if os.Getenv("MULTIAI_SKIP_UPDATE") != "" {
 		return
 	}
@@ -58,7 +62,7 @@ func Check(currentVersion string) {
 		return
 	}
 
-	rel, err := FetchLatestRelease()
+	rel, err := FetchLatestRelease(ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[update] fetch latest release: %v\n", err)
 		return
@@ -68,7 +72,7 @@ func Check(currentVersion string) {
 		return
 	}
 
-	newExe, err := downloadAndVerifyRelease(currentVersion, rel)
+	newExe, err := downloadAndVerifyRelease(ctx, currentVersion, rel)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[update] download and verify: %v\n", err)
 		_ = WriteCache(Cache{LastCheck: time.Now(), LatestVersion: rel.TagName})
@@ -89,26 +93,28 @@ func ShouldCheck() bool {
 }
 
 // FetchLatestRelease calls the GitHub Releases API and returns the latest
-// release metadata. The repo is read from the MULTIAI_REPO env var when set
-// (default: lrochetta/multiai). The API base URL can be overridden via
-// MULTIAI_GITHUB_API_URL for testing. The request timeout can be set via
-// MULTIAI_UPDATE_TIMEOUT (default 5s).
-func FetchLatestRelease() (*Release, error) {
-	repo := os.Getenv("MULTIAI_REPO")
-	if repo == "" {
-		repo = repoOwner + "/" + repoName
+// release metadata. The API URL is hardcoded to the production GitHub API for
+// the lrochetta/multiai repository. A different URL can be set via
+// MULTIAI_GITHUB_API_URL, but only when MULTIAI_DEV=1 is also set and the
+// provided URL starts with https://api.github.com/. The request timeout can
+// be set via MULTIAI_UPDATE_TIMEOUT (default 5s).
+func FetchLatestRelease(ctx context.Context) (*Release, error) {
+	apiURL := "https://api.github.com/repos/lrochetta/multiai/releases/latest"
+	if devURL := os.Getenv("MULTIAI_GITHUB_API_URL"); devURL != "" {
+		if os.Getenv("MULTIAI_DEV") != "1" {
+			return nil, fmt.Errorf("MULTIAI_GITHUB_API_URL requires MULTIAI_DEV=1")
+		}
+		if !strings.HasPrefix(devURL, "https://api.github.com/") {
+			return nil, fmt.Errorf("MULTIAI_GITHUB_API_URL must start with https://api.github.com/")
+		}
+		apiURL = devURL
 	}
 
-	apiURL := os.Getenv("MULTIAI_GITHUB_API_URL")
-	if apiURL == "" {
-		apiURL = fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", repo)
-	}
-
-	return fetchReleaseFromURL(apiURL)
+	return fetchReleaseFromURL(ctx, apiURL)
 }
 
 // fetchReleaseFromURL performs the HTTP request and decodes the response.
-func fetchReleaseFromURL(url string) (*Release, error) {
+func fetchReleaseFromURL(ctx context.Context, url string) (*Release, error) {
 	timeout := requestTimeout
 	if t := os.Getenv("MULTIAI_UPDATE_TIMEOUT"); t != "" {
 		if d, err := time.ParseDuration(t); err == nil && d > 0 {
@@ -116,7 +122,7 @@ func fetchReleaseFromURL(url string) (*Release, error) {
 		}
 	}
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +229,7 @@ func parseVersionPart(s string) (num int, suffix string, ok bool) {
 // downloadAndVerifyRelease handles the full update pipeline: locate the
 // correct platform archive and checksums in the release assets, download,
 // verify SHA256, extract the binary, and return its temporary path.
-func downloadAndVerifyRelease(currentVersion string, rel *Release) (string, error) {
+func downloadAndVerifyRelease(ctx context.Context, currentVersion string, rel *Release) (string, error) {
 	target := GetTarget()
 	if target == "" {
 		return "", fmt.Errorf("unsupported platform: %s/%s", runtime.GOOS, runtime.GOARCH)
@@ -243,13 +249,17 @@ func downloadAndVerifyRelease(currentVersion string, rel *Release) (string, erro
 	}
 
 	// Locate archive and checksums assets.
-	var archiveURL, checksumsURL string
+	var archiveURL, checksumsURL, sigURL, certURL string
 	for _, a := range rel.Assets {
 		switch a.Name {
 		case archiveName:
 			archiveURL = a.BrowserDownloadURL
 		case "checksums.txt":
 			checksumsURL = a.BrowserDownloadURL
+		case "checksums.txt.sig":
+			sigURL = a.BrowserDownloadURL
+		case "checksums.txt.pem":
+			certURL = a.BrowserDownloadURL
 		}
 	}
 	if archiveURL == "" {
@@ -260,13 +270,53 @@ func downloadAndVerifyRelease(currentVersion string, rel *Release) (string, erro
 	}
 
 	// Fetch checksums.
-	checksumsData, err := fetchRaw(checksumsURL)
+	checksumsData, err := fetchRaw(ctx, checksumsURL)
 	if err != nil {
 		return "", fmt.Errorf("fetch checksums: %w", err)
 	}
 
+	// Cosign signature verification.
+	if sigURL != "" && certURL != "" {
+		fmt.Fprintf(os.Stderr, "[update] Vérification Cosign...\n")
+
+		sigData, err := fetchRaw(ctx, sigURL)
+		if err != nil {
+			return "", fmt.Errorf("fetch cosign signature: %w", err)
+		}
+		certData, err := fetchRaw(ctx, certURL)
+		if err != nil {
+			return "", fmt.Errorf("fetch cosign certificate: %w", err)
+		}
+
+		cosignTmpDir, err := os.MkdirTemp("", "multiai-cosign")
+		if err != nil {
+			return "", fmt.Errorf("create cosign temp dir: %w", err)
+		}
+		defer os.RemoveAll(cosignTmpDir)
+
+		checksumsPath := filepath.Join(cosignTmpDir, "checksums.txt")
+		sigPath := filepath.Join(cosignTmpDir, "checksums.txt.sig")
+		certPath := filepath.Join(cosignTmpDir, "checksums.txt.pem")
+
+		if err := os.WriteFile(checksumsPath, checksumsData, 0644); err != nil {
+			return "", fmt.Errorf("write checksums temp file: %w", err)
+		}
+		if err := os.WriteFile(sigPath, sigData, 0644); err != nil {
+			return "", fmt.Errorf("write sig temp file: %w", err)
+		}
+		if err := os.WriteFile(certPath, certData, 0644); err != nil {
+			return "", fmt.Errorf("write cert temp file: %w", err)
+		}
+
+		if err := verifyCosignSignature(checksumsPath, sigPath, certPath); err != nil {
+			return "", fmt.Errorf("cosign verification failed: %w", err)
+		}
+
+		fmt.Fprintf(os.Stderr, "[update] [OK] Cosign vérifié\n")
+	}
+
 	// Fetch archive.
-	archiveData, err := fetchRaw(archiveURL)
+	archiveData, err := fetchRaw(ctx, archiveURL)
 	if err != nil {
 		return "", fmt.Errorf("fetch archive: %w", err)
 	}
@@ -306,6 +356,36 @@ func downloadAndVerifyRelease(currentVersion string, rel *Release) (string, erro
 	}
 
 	return binaryPath, nil
+}
+
+// verifyCosignSignature verifies the checksums blob using a Cosign signature
+// and Fulcio certificate. It returns nil on success, or if cosign is not
+// installed and MULTIAI_REQUIRE_COSIGN is unset.
+func verifyCosignSignature(checksumsPath, sigPath, certPath string) error {
+	cosignPath, err := exec.LookPath("cosign")
+	if err != nil {
+		if os.Getenv("MULTIAI_REQUIRE_COSIGN") == "1" {
+			return fmt.Errorf("cosign not found and MULTIAI_REQUIRE_COSIGN=1: %w", err)
+		}
+		fmt.Fprintf(os.Stderr, "[update] cosign not found, skipping signature verification\n")
+		return nil
+	}
+
+	args := []string{
+		"verify-blob",
+		"--certificate", certPath,
+		"--signature", sigPath,
+		"--certificate-identity-regexp", `https://github.com/lrochetta/multiai/.github/workflows/release.yml@refs/tags/v.*`,
+		"--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
+		checksumsPath,
+	}
+
+	cmd := exec.Command(cosignPath, args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("cosign verify-blob failed: %w\nOutput: %s", err, string(out))
+	}
+	return nil
 }
 
 // execNewBinary starts the new binary with the same arguments, stdin, stdout,
@@ -386,19 +466,14 @@ func WriteCache(c Cache) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	// Atomic write: temp file + rename.
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return fsutil.WriteFileAtomic(path, data, 0644)
 }
 
 // DownloadAndVerify downloads a file from url, verifies its SHA256 digest
 // matches checksum, and writes it to dest. It creates intermediate
 // directories in dest as needed.
-func DownloadAndVerify(url, checksum, dest string) error {
-	data, err := fetchRaw(url)
+func DownloadAndVerify(ctx context.Context, url, checksum, dest string) error {
+	data, err := fetchRaw(ctx, url)
 	if err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
@@ -411,6 +486,19 @@ func DownloadAndVerify(url, checksum, dest string) error {
 		return err
 	}
 	return os.WriteFile(dest, data, 0644)
+}
+
+// DownloadRelease is an exported wrapper around downloadAndVerifyRelease,
+// allowing external callers (e.g. cmd_update.go) to download, verify, and
+// extract the release binary for the current platform.
+func DownloadRelease(ctx context.Context, currentVersion string, rel *Release) (string, error) {
+	return downloadAndVerifyRelease(ctx, currentVersion, rel)
+}
+
+// ExecBinary starts the new binary with the same arguments and exits the
+// current process, completing the self-update cycle.
+func ExecBinary(newExe string) {
+	execNewBinary(newExe)
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────
@@ -430,8 +518,8 @@ func cacheDir() string {
 }
 
 // fetchRaw performs an HTTP GET and returns the raw response body.
-func fetchRaw(url string) ([]byte, error) {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+func fetchRaw(ctx context.Context, url string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}

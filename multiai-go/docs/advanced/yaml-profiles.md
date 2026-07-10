@@ -107,7 +107,7 @@ Si tu as des fichiers `.env` existants, tu peux les migrer vers le format YAML.
 
 ### .env existant
 
-```env
+```text
 # ~/.multiai/profiles/mon-profil.env
 TOOL=claude
 MODEL=claude-sonnet-4-20250514
