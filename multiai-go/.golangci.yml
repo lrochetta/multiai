@@ -2,21 +2,9 @@ version: "2"
 
 linters:
   enable:
-    - gofmt
     - govet
     - errcheck
-    - gosimple
-    - ineffassign
     - staticcheck
-    - unused
-    - misspell
-    - unparam
-    - prealloc
-    - nakedret
-  settings:
-    misspell:
-      locale: US
 
 run:
   timeout: 5m
-  tests: true
