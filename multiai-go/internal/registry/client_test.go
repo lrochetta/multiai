@@ -182,10 +182,10 @@ func TestSearchProfiles(t *testing.T) {
 	}
 
 	tests := []struct {
-		name   string
-		query  string
-		want   int
-		first  string
+		name  string
+		query string
+		want  int
+		first string
 	}{
 		{"match name", "ds", 1, "ds"},
 		{"match title", "deepseek", 1, "ds"},
