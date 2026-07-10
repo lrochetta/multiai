@@ -10,7 +10,24 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"runtime"
 )
+
+// Zeroize securely zeros a byte buffer, preventing compiler optimisation.
+// Uses runtime.KeepAlive to ensure the write is not elided by the optimiser
+// as "dead store" (the buffer is never read after being written).
+//
+//go:noinline — must NOT be inlined: an inlined Zeroize could have its write
+// loop eliminated by dead-code elimination after inlining.
+//
+// Callers MUST defer Zeroize(buf) immediately after allocating or receiving
+// a buffer containing secret material.
+func Zeroize(buf []byte) {
+	for i := range buf {
+		buf[i] = 0
+	}
+	runtime.KeepAlive(buf)
+}
 
 // DeriveKey derives a 32-byte AES key from a passphrase and salt using
 // PBKDF2-HMAC-SHA256 with 10,000 iterations.

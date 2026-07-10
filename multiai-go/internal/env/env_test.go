@@ -2,6 +2,7 @@ package env
 
 import (
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -147,6 +148,100 @@ func TestMaskSecret(t *testing.T) {
 		result := MaskSecret(tt.value)
 		if result != tt.expected {
 			t.Errorf("MaskSecret(%q) = %q, want %q", tt.value, result, tt.expected)
+		}
+	}
+}
+
+func TestWhitelistCaseInsensitiveWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows-only test: case-insensitive env var matching")
+	}
+
+	cases := []struct {
+		key  string
+		want bool
+	}{
+		{"PATH", true},
+		{"Path", true},
+		{"path", true},
+		{"PATH", true},
+		{"pAtH", true},
+		{"TEMP", true},
+		{"Temp", true},
+		{"USERPROFILE", true},
+		{"UserProfile", true},
+		{"userprofile", true},
+		{"SYSTEMROOT", true},
+		{"SystemRoot", true},
+		{"systemroot", true},
+		{"COMSPEC", true},
+		{"ComSpec", true},
+		{"comspec", true},
+		// Non-allowlisted
+		{"MY_CUSTOM_VAR", false},
+		{"", false},
+	}
+
+	for _, tc := range cases {
+		got := isAllowed(tc.key)
+		if got != tc.want {
+			t.Errorf("isAllowed(%q) on Windows = %v, want %v", tc.key, got, tc.want)
+		}
+	}
+}
+
+func TestWhitelistCaseSensitiveLinux(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("not applicable on Windows")
+	}
+
+	// Uppercase must still pass
+	if !isAllowed("PATH") {
+		t.Error("isAllowed(\"PATH\") should be true on non-Windows")
+	}
+	if !isAllowed("TEMP") {
+		t.Error("isAllowed(\"TEMP\") should be true on non-Windows")
+	}
+	if !isAllowed("USERPROFILE") {
+		t.Error("isAllowed(\"USERPROFILE\") should be true on non-Windows")
+	}
+
+	// Mixed/lower case must NOT pass on case-sensitive platforms
+	if isAllowed("Path") {
+		t.Error("isAllowed(\"Path\") should be false on non-Windows")
+	}
+	if isAllowed("path") {
+		t.Error("isAllowed(\"path\") should be false on non-Windows")
+	}
+	if isAllowed("temp") {
+		t.Error("isAllowed(\"temp\") should be false on non-Windows")
+	}
+	if isAllowed("userprofile") {
+		t.Error("isAllowed(\"userprofile\") should be false on non-Windows")
+	}
+}
+
+func TestAllWindowsSystemVars(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows-only test")
+	}
+
+	// All common Windows system vars must pass regardless of casing
+	vars := []string{
+		"PATH", "Path", "path", "PATHEXT", "pathext",
+		"TEMP", "Temp", "temp", "TMP", "Tmp",
+		"USERPROFILE", "UserProfile", "userprofile",
+		"USERNAME", "UserName", "username",
+		"SYSTEMROOT", "SystemRoot", "systemroot",
+		"WINDIR", "Windir", "windir",
+		"COMSPEC", "ComSpec", "comspec",
+		"OS", "os",
+		"PROCESSOR_ARCHITECTURE", "processor_architecture",
+	}
+
+	for _, key := range vars {
+		if !isAllowed(key) {
+			t.Errorf("isAllowed(%q) = false, want true (Windows system var)", key)
 		}
 	}
 }

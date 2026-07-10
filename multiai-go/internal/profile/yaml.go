@@ -62,7 +62,7 @@ func LoadYAML(path string) (*Profile, error) {
 
 	const maxYAMLSize = 1 << 20 // 1 Mo max
 	if len(data) > maxYAMLSize {
-		return nil, fmt.Errorf("YAML file too large: %s (%d bytes, max %d)", path, len(data), maxYAMLSize)
+		return nil, fmt.Errorf("yaml file too large: %s (%d bytes, max %d)", path, len(data), maxYAMLSize)
 	}
 
 	var py ProfileYAML

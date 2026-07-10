@@ -131,9 +131,9 @@ func NewStore() (Store, error) {
 // ── Encrypted File Store (fallback pour Linux) ──────────────────────────────
 
 type encryptedFileStore struct {
-	mu        sync.Mutex
-	dir       string
-	masterKey []byte
+	mu      sync.Mutex
+	dir     string
+	keyPath string // never holds the key material — only the filesystem path
 }
 
 // secretsDir resolves the directory holding encrypted credential files.
@@ -165,11 +165,16 @@ func newEncryptedFileStore() (*encryptedFileStore, error) {
 		return nil, fmt.Errorf("cannot create secrets dir: %w", err)
 	}
 
-	masterKey, err := loadOrCreateMasterKey(filepath.Join(dir, ".masterkey"))
+	keyPath := filepath.Join(dir, ".masterkey")
+	// Ensure the master key file exists (create once, race-safe). The key is
+	// loaded and zeroised per-operation (loadMasterKey) so it does NOT live in
+	// this struct between calls — see S5.5 zeroisation.
+	masterKey, err := loadOrCreateMasterKey(keyPath)
 	if err != nil {
 		return nil, err
 	}
-	return &encryptedFileStore{dir: dir, masterKey: masterKey}, nil
+	Zeroize(masterKey)
+	return &encryptedFileStore{dir: dir, keyPath: keyPath}, nil
 }
 
 // loadOrCreateMasterKey reads the 32-byte AES master key, or creates it once.
@@ -195,6 +200,7 @@ func loadOrCreateMasterKey(keyPath string) ([]byte, error) {
 	}
 	f, err := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
+		Zeroize(key)
 		if os.IsExist(err) {
 			// Lost the creation race: adopt the key the winner just wrote.
 			data, rerr := os.ReadFile(keyPath)
@@ -210,6 +216,7 @@ func loadOrCreateMasterKey(keyPath string) ([]byte, error) {
 	}
 	defer f.Close()
 	if _, err := f.Write(key); err != nil {
+		Zeroize(key)
 		return nil, fmt.Errorf("cannot write master key: %w", err)
 	}
 	return key, nil
@@ -242,7 +249,20 @@ func sanitizeFileName(name string) string {
 	}, name)
 }
 
-func (s *encryptedFileStore) load(service string) (map[string]string, error) {
+// loadMasterKey reads the 32-byte AES master key from disk.
+// The caller MUST zeroise the returned slice via defer Zeroize(key).
+func (s *encryptedFileStore) loadMasterKey() ([]byte, error) {
+	data, err := os.ReadFile(s.keyPath)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read master key: %w", err)
+	}
+	if len(data) < 32 {
+		return nil, fmt.Errorf("master key %s is invalid (%d bytes < 32)", s.keyPath, len(data))
+	}
+	return data[:32], nil
+}
+
+func (s *encryptedFileStore) load(service string, key []byte) (map[string]string, error) {
 	data, err := os.ReadFile(s.filePath(service))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -250,16 +270,13 @@ func (s *encryptedFileStore) load(service string) (map[string]string, error) {
 		}
 		return nil, err
 	}
-	plaintext, err := decrypt(s.masterKey, data)
+	plaintext, err := decrypt(key, data)
 	if err != nil {
 		return nil, err
 	}
-	// Zeroize plaintext after use
-	defer func() {
-		for i := range plaintext {
-			plaintext[i] = 0
-		}
-	}()
+	// Zeroize plaintext after use — the caller gets a map of strings (immutable),
+	// the decrypted bytes must not linger in the heap.
+	defer Zeroize(plaintext)
 	var creds map[string]string
 	if err := json.Unmarshal(plaintext, &creds); err != nil {
 		return nil, fmt.Errorf("credential file %s is corrupted: %w", service, err)
@@ -267,12 +284,13 @@ func (s *encryptedFileStore) load(service string) (map[string]string, error) {
 	return creds, nil
 }
 
-func (s *encryptedFileStore) save(service string, creds map[string]string) error {
+func (s *encryptedFileStore) save(service string, creds map[string]string, key []byte) error {
 	plaintext, err := json.Marshal(creds)
 	if err != nil {
 		return err
 	}
-	encrypted, err := encrypt(s.masterKey, plaintext)
+	defer Zeroize(plaintext)
+	encrypted, err := encrypt(key, plaintext)
 	if err != nil {
 		return err
 	}
@@ -285,7 +303,14 @@ func (s *encryptedFileStore) save(service string, creds map[string]string) error
 func (s *encryptedFileStore) Get(service, key string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	creds, err := s.load(service)
+
+	masterKey, err := s.loadMasterKey()
+	if err != nil {
+		return "", err
+	}
+	defer Zeroize(masterKey)
+
+	creds, err := s.load(service, masterKey)
 	if err != nil {
 		return "", err
 	}
@@ -304,12 +329,19 @@ func (s *encryptedFileStore) Set(service, key, value string) error {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	creds, err := s.load(service)
+
+	masterKey, err := s.loadMasterKey()
+	if err != nil {
+		return err
+	}
+	defer Zeroize(masterKey)
+
+	creds, err := s.load(service, masterKey)
 	if err != nil {
 		return err
 	}
 	creds[key] = value
-	return s.save(service, creds)
+	return s.save(service, creds, masterKey)
 }
 
 func (s *encryptedFileStore) Delete(service, key string) error {
@@ -321,16 +353,30 @@ func (s *encryptedFileStore) Delete(service, key string) error {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	creds, err := s.load(service)
+
+	masterKey, err := s.loadMasterKey()
+	if err != nil {
+		return err
+	}
+	defer Zeroize(masterKey)
+
+	creds, err := s.load(service, masterKey)
 	if err != nil {
 		return err
 	}
 	delete(creds, key)
-	return s.save(service, creds)
+	return s.save(service, creds, masterKey)
 }
 
 func (s *encryptedFileStore) List(service string) (map[string]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.load(service)
+
+	masterKey, err := s.loadMasterKey()
+	if err != nil {
+		return nil, err
+	}
+	defer Zeroize(masterKey)
+
+	return s.load(service, masterKey)
 }

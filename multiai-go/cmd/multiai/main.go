@@ -467,7 +467,7 @@ func handleStoreFlag(args []string) (msg string, err error) {
 	}
 	validStores := map[string]bool{"keychain": true, "wincred": true, "secret-service": true}
 	if !validStores[storeFlag] {
-		return "", fmt.Errorf("[X] Store invalide : %s (valides : keychain, wincred, secret-service)\n", storeFlag)
+		return "", fmt.Errorf("store invalide : %s (valides : keychain, wincred, secret-service)", storeFlag)
 	}
 	return fmt.Sprintf("[i] %s\n    %s\n    %s\n", i18n.T("store_not_implemented", storeFlag), i18n.T("using_file_store"), i18n.T("follow_issue")), nil
 }

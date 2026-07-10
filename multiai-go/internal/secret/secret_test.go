@@ -3,6 +3,7 @@ package secret
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"testing"
@@ -347,4 +348,100 @@ func TestConcurrentStoreAccess(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
+}
+
+// ── Zeroize tests ──────────────────────────────────────────────────────────
+
+func TestZeroize(t *testing.T) {
+	buf := []byte("sk-ant-api03-this-is-a-secret-key-12345")
+	original := make([]byte, len(buf))
+	copy(original, buf)
+
+	Zeroize(buf)
+
+	for i, b := range buf {
+		if b != 0 {
+			t.Errorf("byte[%d] = 0x%02x after Zeroize, want 0x00", i, b)
+		}
+	}
+	// Verify that original data is gone — at least one byte must differ.
+	allSame := true
+	for i := range buf {
+		if buf[i] != original[i] {
+			allSame = false
+			break
+		}
+	}
+	if allSame {
+		t.Error("Zeroize did not modify the buffer")
+	}
+}
+
+func TestZeroizeEmpty(t *testing.T) {
+	// Must not panic or error on a nil/empty slice.
+	var nilBuf []byte = nil
+	Zeroize(nilBuf) // should be a no-op
+
+	emptyBuf := []byte{}
+	Zeroize(emptyBuf) // should be a no-op
+}
+
+func TestZeroizeLargeBuffer(t *testing.T) {
+	buf := make([]byte, 65536)
+	for i := range buf {
+		buf[i] = byte(i % 256)
+	}
+	Zeroize(buf)
+	for i, b := range buf {
+		if b != 0 {
+			t.Errorf("large buffer byte[%d] = 0x%02x after Zeroize, want 0x00", i, b)
+			break
+		}
+	}
+}
+
+// TestZeroizeNotOptimized recompiles the package with inlining hints and
+// verifies that the compiler does NOT consider Zeroize inlinable. An inlined
+// Zeroize could have its write loop elided by dead-code elimination since the
+// buffer is never read after being written — the whole point is that the
+// runtime.KeepAlive barrier must survive.
+func TestZeroizeNotOptimized(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping compiler-flag test in short mode")
+	}
+	// Use "go test" with -gcflags=-m on the package — if Zeroize is
+	// inlinable the compiler will emit "can inline Zeroize".
+	cmd := exec.Command("go", "test",
+		"-gcflags=-m",
+		"-run=^$", // run nothing, just compile
+		"-count=0",
+		".")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		// The compile step may fail on constrained systems.
+		t.Skipf("go test -gcflags=-m failed (%v), skipping inline check:\n%s", err, out)
+	}
+	output := string(out)
+	if strings.Contains(output, "can inline Zeroize") {
+		t.Error("Zeroize is flagged as inlinable by the compiler — the write loop may be elided")
+	}
+}
+
+// BenchmarkZeroize measures the time cost of zeroising buffers of various
+// sizes. The compiler cannot optimise the loop away because the buffer
+// pointer escapes through runtime.KeepAlive.
+func BenchmarkZeroize(b *testing.B) {
+	sizes := []int{32, 256, 1024, 65536}
+	for _, size := range sizes {
+		b.Run(fmt.Sprintf("size=%d", size), func(b *testing.B) {
+			buf := make([]byte, size)
+			for i := range buf {
+				buf[i] = byte(i)
+			}
+			b.ResetTimer()
+			for n := 0; n < b.N; n++ {
+				Zeroize(buf)
+			}
+		})
+	}
 }

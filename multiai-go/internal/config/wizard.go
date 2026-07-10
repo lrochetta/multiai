@@ -50,7 +50,7 @@ func validateAPIKey(prov Provider, key string) (bool, string) {
 		return true, ""
 	}
 	if !re.MatchString(key) {
-		return false, fmt.Sprintf("%s", i18n.T("invalid_format", prov.ID, prov.KeyPattern))
+		return false, i18n.T("invalid_format", prov.ID, prov.KeyPattern)
 	}
 	return true, ""
 }

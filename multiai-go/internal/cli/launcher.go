@@ -69,13 +69,13 @@ func ValidateAndLaunch(prof *profile.Profile, opts LaunchOptions) (*LaunchResult
 		if opts.AllowCustomCommand {
 			fmt.Fprintf(os.Stderr, "âš  Commande custom autorisee : %s\n", prof.Command)
 		} else {
-			return nil, fmt.Errorf("commande non autorisee : '%s'. Utilise -AllowCustomCommand pour autoriser.", prof.Command)
+			return nil, fmt.Errorf("commande non autorisee : '%s'. Utilise -AllowCustomCommand pour autoriser", prof.Command)
 		}
 	}
 
 	// 2. Check command exists in PATH
 	if _, err := exec.LookPath(prof.Command); err != nil {
-		return nil, fmt.Errorf("commande introuvable : '%s'. Installe le CLI correspondant.", prof.Command)
+		return nil, fmt.Errorf("commande introuvable : '%s'. Installe le CLI correspondant", prof.Command)
 	}
 
 	// 3. Resolve credential-store sentinels written by 'multiai config'

@@ -1,0 +1,4 @@
+./cmd_openrouter.go
+./cmd_update.go
+./main.go
+./main_test.go

@@ -1,0 +1,3 @@
+./dotenv.go
+./dotenv_test.go
+./fuzz_test.go

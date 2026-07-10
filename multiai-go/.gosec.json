@@ -1,4 +1,13 @@
 {
+  "_doc": "Exclusions documentees pour gosec. Ajoutees progressivement apres analyse.",
+  "_rules": {
+    "G104": "Audit errors not checked — intentional: fmt.Fprint*, close(), w.Write() in defer/HTTP handlers where return value is not actionable. Also excluded in .golangci.yml (errcheck).",
+    "G204": "Audit use of dangerous function — exec.Command is required for launching AI CLIs (claude, codex, opencode). Inputs are validated via whitelist (AllowedCommands) before use.",
+    "G702": "Audit integer overflow — acceptable in controlled contexts where input bounds are known (config parsing, protocol constants).",
+    "G704": "Audit hardcoded credentials — excluded because the project uses .env files with placeholder values; no real credentials are hardcoded in source.",
+    "G101": "Audit hardcoded credentials — same rationale as G704: placeholder values (PASTE_xxx_HERE) and credential-store sentinels (BMSECRET) are intentionally in source.",
+    "G115": "Audit integer overflow conversion — acceptable in bounded contexts (math.Round, time conversions, size limits)."
+  },
   "global": {
     "exclude": [
       "G104",

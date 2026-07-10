@@ -82,12 +82,12 @@ func FetchModels(ctx context.Context, apiKey string) ([]ModelInfo, error) {
 	client := &http.Client{Timeout: httpTimeout}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("API OpenRouter inaccessible: %w", err)
+		return nil, fmt.Errorf("api OpenRouter inaccessible: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API OpenRouter: statut HTTP %d", resp.StatusCode)
+		return nil, fmt.Errorf("api OpenRouter: statut HTTP %d", resp.StatusCode)
 	}
 
 	lr := &io.LimitedReader{R: resp.Body, N: maxResponseBytes + 1}
