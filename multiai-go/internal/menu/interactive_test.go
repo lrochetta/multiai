@@ -9,8 +9,8 @@ import (
 func TestCountSecrets_AllSet(t *testing.T) {
 	p := &profile.Profile{
 		Env: map[string]string{
-			"OPENAI_API_KEY":     "sk-real-key-12345",
-			"ANTHROPIC_API_KEY":  "sk-ant-real-key",
+			"OPENAI_API_KEY":    "sk-real-key-12345",
+			"ANTHROPIC_API_KEY": "sk-ant-real-key",
 		},
 	}
 	got, total := countSecrets(p)
@@ -28,9 +28,9 @@ func TestCountSecrets_AllSet(t *testing.T) {
 func TestCountSecrets_NoneSet(t *testing.T) {
 	p := &profile.Profile{
 		Env: map[string]string{
-			"OPENAI_API_KEY":     "paste_your_key_here",
-			"ANTHROPIC_API_KEY":  "",
-			"OTHER_SECRET":       "your_value_here",
+			"OPENAI_API_KEY":    "paste_your_key_here",
+			"ANTHROPIC_API_KEY": "",
+			"OTHER_SECRET":      "your_value_here",
 		},
 	}
 	got, total := countSecrets(p)
@@ -45,10 +45,10 @@ func TestCountSecrets_NoneSet(t *testing.T) {
 func TestCountSecrets_Partial(t *testing.T) {
 	p := &profile.Profile{
 		Env: map[string]string{
-			"OPENAI_API_KEY":     "sk-real-key-12345",
-			"ANTHROPIC_API_KEY":  "ta_cle_ici",
-			"OTHER_SECRET":       "",
-			"AZURE_API_KEY":      "valid-key",
+			"OPENAI_API_KEY":    "sk-real-key-12345",
+			"ANTHROPIC_API_KEY": "ta_cle_ici",
+			"OTHER_SECRET":      "",
+			"AZURE_API_KEY":     "valid-key",
 		},
 	}
 	got, total := countSecrets(p)
@@ -63,14 +63,14 @@ func TestCountSecrets_Partial(t *testing.T) {
 func TestCountSecrets_MetadataKeysIgnored(t *testing.T) {
 	p := &profile.Profile{
 		Env: map[string]string{
-			"API_KEY":           "valid",
-			"PROFILE_ID":        "ignored",
-			"SHORTCUT":          "ig",
-			"TOOL":              "ignored",
-			"TOOL_LABEL":        "ignored",
-			"DISPLAY_NAME":      "ignored",
-			"ORDER":             "1",
-			"COMMAND":           "ignored",
+			"API_KEY":      "valid",
+			"PROFILE_ID":   "ignored",
+			"SHORTCUT":     "ig",
+			"TOOL":         "ignored",
+			"TOOL_LABEL":   "ignored",
+			"DISPLAY_NAME": "ignored",
+			"ORDER":        "1",
+			"COMMAND":      "ignored",
 		},
 	}
 	got, total := countSecrets(p)

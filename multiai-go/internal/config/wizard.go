@@ -1,4 +1,4 @@
-﻿// Package config implements the interactive API key configuration wizard,
+// Package config implements the interactive API key configuration wizard,
 // driven by the embedded provider catalog (internal/catalog).
 package config
 
@@ -200,7 +200,7 @@ func configureProvider(prov Provider, byShortcut map[string]*profile.Profile, re
 		}
 	}
 	if len(shortcuts) == 0 {
-		display.PrintWarning("  "+i18n.T("no_prof_provider"))
+		display.PrintWarning("  " + i18n.T("no_prof_provider"))
 		return
 	}
 	fmt.Printf("  %s\n", i18n.T("profiles_label", strings.Join(shortcuts, ", ")))
@@ -296,7 +296,7 @@ func configureProvider(prov Provider, byShortcut map[string]*profile.Profile, re
 	if updated > 0 {
 		display.PrintSuccess(i18n.T("profiles_updated", updated))
 	} else {
-		display.PrintWarning("  "+i18n.T("profiles_not_updated"))
+		display.PrintWarning("  " + i18n.T("profiles_not_updated"))
 	}
 }
 
