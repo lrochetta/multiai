@@ -56,7 +56,7 @@ jobs:
         # G104 (unhandled errors on prints/exits) excluded, as in .golangci.yml.
         run: go run github.com/securego/gosec/v2/cmd/gosec@latest -exclude=G104 ./...
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@55c14478432e0f56f8b6fd1c1e7c1a18c79987d7 # v7
+        uses: golangci/golangci-lint-action@v7
         with:
           working-directory: multiai-go
           version: latest
