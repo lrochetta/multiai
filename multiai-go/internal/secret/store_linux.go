@@ -29,6 +29,16 @@ func newPlatformStore() (Store, error) {
 	return &libsecretStore{}, nil
 }
 
+// newNamedStore returns the requested named backend on Linux.
+func newNamedStore(backend string) (Store, error) {
+	switch backend {
+	case "secret-service":
+		return newPlatformStore()
+	default:
+		return nil, fmt.Errorf("unsupported backend on this platform: %s (supported: secret-service, file, auto)", backend)
+	}
+}
+
 // Get retrieves a credential via "secret-tool lookup".
 // Returns an error (not found) if secret-tool exits non-zero or the value is empty.
 func (s *libsecretStore) Get(service, key string) (string, error) {

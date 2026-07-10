@@ -2,6 +2,8 @@
 
 package secret
 
+import "fmt"
+
 // keychainStore stores credentials in the macOS Keychain.
 //
 // When CGo is available (the normal case on macOS) it uses the Security
@@ -17,6 +19,16 @@ func newPlatformStore() (Store, error) {
 		return &keychainStore{}, nil
 	}
 	return newEncryptedFileStore()
+}
+
+// newNamedStore returns the requested named backend on macOS.
+func newNamedStore(backend string) (Store, error) {
+	switch backend {
+	case "keychain":
+		return newPlatformStore()
+	default:
+		return nil, fmt.Errorf("unsupported backend on this platform: %s (supported: keychain, file, auto)", backend)
+	}
 }
 
 func (s *keychainStore) Get(service, key string) (string, error) {

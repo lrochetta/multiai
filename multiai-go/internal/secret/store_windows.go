@@ -69,6 +69,16 @@ func newPlatformStore() (Store, error) {
 	return &winCredStore{}, nil
 }
 
+// newNamedStore returns the requested named backend on Windows.
+func newNamedStore(backend string) (Store, error) {
+	switch backend {
+	case "wincred":
+		return newPlatformStore()
+	default:
+		return nil, fmt.Errorf("unsupported backend on this platform: %s (supported: wincred, file, auto)", backend)
+	}
+}
+
 // ── Target-naming helpers ──────────────────────────────────────────────
 
 // targetName returns the Windows Credential Manager target name for a

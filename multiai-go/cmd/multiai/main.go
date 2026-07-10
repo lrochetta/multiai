@@ -1,4 +1,4 @@
-// multiai is the main entry point for the multiai CLI.
+﻿// multiai is the main entry point for the multiai CLI.
 // It routes AI CLI commands (Claude Code, Codex, OpenCode) with
 // isolated environment profiles.
 package main
@@ -21,6 +21,7 @@ import (
 	"github.com/lrochetta/multiai/internal/onboarding"
 	"github.com/lrochetta/multiai/internal/openrouter"
 	"github.com/lrochetta/multiai/internal/profile"
+	"github.com/lrochetta/multiai/internal/secret"
 	"github.com/lrochetta/multiai/internal/update"
 )
 
@@ -200,7 +201,7 @@ Necessite Node.js (npx) : https://nodejs.org`)
 func main() {
 	// Auto-update: non-blocking check at startup (cached 1h).
 	// If a newer version is found, downloads, verifies SHA256, and re-execs.
-	// All errors are silent — update never blocks the CLI.
+	// All errors are silent â€” update never blocks the CLI.
 	go update.Check(context.Background(), version)
 
 	if len(os.Args) < 2 {
@@ -273,14 +274,10 @@ func main() {
 			fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("error"), err)
 			os.Exit(2)
 		}
-		// --store flag: warn that native credential-store backends are not yet
-		// implemented (S2.3 -- refuse explicitly, then continue).
-		if msg, err := handleStoreFlag(os.Args); err != nil {
+		store, err := handleStoreFlag(os.Args)
+		if err != nil {
 			fmt.Fprint(os.Stderr, err)
 			os.Exit(2)
-		} else if msg != "" {
-			fmt.Fprint(os.Stderr, msg)
-			// Continuer avec le wizard normal
 		}
 		if hasFlag(os.Args, "--provider") {
 			providerID := getFlagValue(os.Args, "--provider")
@@ -290,11 +287,11 @@ func main() {
 				printConfigHelp()
 				os.Exit(1)
 			}
-			if err := config.ConfigureProviderByID(profiles, providerID, bufio.NewReader(os.Stdin)); err != nil {
+			if err := config.ConfigureProviderByID(profiles, providerID, bufio.NewReader(os.Stdin), store); err != nil {
 				fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("error"), err)
 				os.Exit(1)
 			}
-		} else if err := config.InteractiveConfig(profiles); err != nil {
+		} else if err := config.InteractiveConfig(profiles, store); err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("error"), err)
 			os.Exit(1)
 		}
@@ -351,7 +348,7 @@ func runInteractiveLoop() {
 			}
 			fmt.Println()
 		case "2":
-			if err := config.InteractiveConfig(profiles); err != nil {
+			if err := config.InteractiveConfig(profiles, nil); err != nil {
 				cli.PrintError(fmt.Sprintf("%v", err))
 			}
 			fmt.Println()
@@ -457,19 +454,30 @@ func runLaunch(profiles []profile.Profile) (*cli.LaunchResult, error) {
 // --- Helper functions ---
 
 // handleStoreFlag checks the --store flag in args and returns:
-//   - ("", nil) if --store is absent (no-op)
-//   - (message, nil) if --store names a known but unimplemented backend
-//   - ("", err) if --store names an invalid backend (caller should exit 2)
-func handleStoreFlag(args []string) (msg string, err error) {
+//   - (nil, nil) if --store is absent (no-op)
+//   - (store, nil) if the backend was created successfully
+//   - (nil, err) if the backend name is invalid or creation failed
+func handleStoreFlag(args []string) (secret.Store, error) {
 	storeFlag := getFlagValue(args, "--store")
 	if storeFlag == "" {
-		return "", nil
+		return nil, nil
 	}
-	validStores := map[string]bool{"keychain": true, "wincred": true, "secret-service": true}
-	if !validStores[storeFlag] {
-		return "", fmt.Errorf("store invalide : %s (valides : keychain, wincred, secret-service)", storeFlag)
+	validBackends := []string{"wincred", "keychain", "secret-service", "file", "auto"}
+	isValid := false
+	for _, b := range validBackends {
+		if storeFlag == b {
+			isValid = true
+			break
+		}
 	}
-	return fmt.Sprintf("[i] %s\n    %s\n    %s\n", i18n.T("store_not_implemented", storeFlag), i18n.T("using_file_store"), i18n.T("follow_issue")), nil
+	if !isValid {
+		return nil, fmt.Errorf("%s", i18n.T("store_invalid_backend", storeFlag, strings.Join(validBackends, ", ")))
+	}
+	store, err := secret.NewStoreWithBackend(storeFlag)
+	if err != nil {
+		return nil, fmt.Errorf("%s", i18n.T("store_init_error", storeFlag, err))
+	}
+	return store, nil
 }
 
 func hasFlag(args []string, flags ...string) bool {

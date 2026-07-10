@@ -69,7 +69,7 @@ func RunWelcome(profiles []profile.Profile) {
 
 	if choice == "" || choice == "o" || choice == "y" {
 		fmt.Println()
-		if err := config.InteractiveConfig(profiles); err != nil {
+		if err := config.InteractiveConfig(profiles, nil); err != nil {
 			logging.Error("wizard config failed: %v", err)
 		}
 		fmt.Println()
