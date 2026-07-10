@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/lrochetta/multiai/internal/assets"
 	"github.com/lrochetta/multiai/internal/catalog"
@@ -199,18 +198,10 @@ Necessite Node.js (npx) : https://nodejs.org`)
 }
 
 func main() {
-	// Auto-update: non-blocking notification if a newer version is available.
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		release, err := update.FetchLatestRelease(ctx)
-		if err != nil {
-			return
-		}
-		if update.IsNewer(version, release.TagName) {
-			fmt.Fprintf(os.Stderr, "%s", i18n.T("update_available", release.TagName))
-		}
-	}()
+	// Auto-update: non-blocking check at startup (cached 1h).
+	// If a newer version is found, downloads, verifies SHA256, and re-execs.
+	// All errors are silent — update never blocks the CLI.
+	go update.Check(context.Background(), version)
 
 	if len(os.Args) < 2 {
 		runInteractiveLoop()
