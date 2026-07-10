@@ -102,10 +102,10 @@ func FetchLatestRelease(ctx context.Context) (*Release, error) {
 	apiURL := "https://api.github.com/repos/lrochetta/multiai/releases/latest"
 	if devURL := os.Getenv("MULTIAI_GITHUB_API_URL"); devURL != "" {
 		if os.Getenv("MULTIAI_DEV") != "1" {
-			return nil, fmt.Errorf("MULTIAI_GITHUB_API_URL requires MULTIAI_DEV=1")
+			return nil, fmt.Errorf("MULTIAI_GITHUB_API_URL requires MULTIAI_DEV=1") //nolint:staticcheck  // env var names are proper nouns
 		}
 		if !strings.HasPrefix(devURL, "https://api.github.com/") {
-			return nil, fmt.Errorf("MULTIAI_GITHUB_API_URL must start with https://api.github.com/")
+			return nil, fmt.Errorf("MULTIAI_GITHUB_API_URL must start with https://api.github.com/") //nolint:staticcheck  // env var names are proper nouns
 		}
 		apiURL = devURL
 	}
@@ -328,7 +328,7 @@ func downloadAndVerifyRelease(ctx context.Context, currentVersion string, rel *R
 	}
 	actual := sha256Hex(archiveData)
 	if actual != expected {
-		return "", fmt.Errorf("SHA256 mismatch for %s", archiveName)
+		return "", fmt.Errorf("sha256 mismatch for %s", archiveName)
 	}
 
 	// Extract to a temporary directory.
@@ -479,7 +479,7 @@ func DownloadAndVerify(ctx context.Context, url, checksum, dest string) error {
 	}
 	actual := sha256Hex(data)
 	if actual != strings.ToLower(checksum) {
-		return fmt.Errorf("SHA256 mismatch: got %s, expected %s", actual, checksum)
+		return fmt.Errorf("sha256 mismatch: got %s, expected %s", actual, checksum)
 	}
 	dir := filepath.Dir(dest)
 	if err := os.MkdirAll(dir, 0755); err != nil {

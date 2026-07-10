@@ -3,6 +3,7 @@ package env
 import (
 	"os"
 	"regexp"
+	"runtime"
 	"strings"
 )
 
@@ -19,6 +20,21 @@ var AllowedEnvVars = map[string]bool{
 	"OS": true, "PROCESSOR_ARCHITECTURE": true,
 	"LOGNAME": true, "PWD": true, "OLDPWD": true,
 	"XDG_SESSION_TYPE": true, "DBUS_SESSION_BUS_ADDRESS": true,
+}
+
+// isAllowed reports whether key is in the allowlist. On Windows the comparison
+// is case-insensitive (environment variable names are case-insensitive there);
+// on other platforms it is case-sensitive.
+func isAllowed(key string) bool {
+	if runtime.GOOS == "windows" {
+		for k := range AllowedEnvVars {
+			if strings.EqualFold(k, key) {
+				return true
+			}
+		}
+		return false
+	}
+	return AllowedEnvVars[key]
 }
 
 // maxExpandDepth caps %VAR% resolution recursion, breaking any reference cycle.
@@ -44,7 +60,7 @@ func expandWindowsVars(value string, profileEnv map[string]string, depth int) st
 		if v, ok := profileEnv[name]; ok {
 			return expandWindowsVars(v, profileEnv, depth-1)
 		}
-		if AllowedEnvVars[name] {
+		if isAllowed(name) {
 			if sys, ok := os.LookupEnv(name); ok {
 				return sys
 			}
@@ -76,7 +92,7 @@ func BuildCleanEnv(profileEnv map[string]string) []string {
 		}
 		key := kv[:idx]
 		value := kv[idx+1:]
-		if AllowedEnvVars[key] {
+		if isAllowed(key) {
 			env[key] = value
 		}
 	}

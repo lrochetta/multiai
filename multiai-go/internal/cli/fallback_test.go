@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/lrochetta/multiai/internal/logging"
 	"github.com/lrochetta/multiai/internal/profile"
@@ -18,6 +19,12 @@ import (
 func TestHelperProcess(t *testing.T) {
 	if os.Getenv("MULTIAI_TEST_HELPER") != "1" {
 		return
+	}
+	if s := os.Getenv("MULTIAI_TEST_SLEEP_MS"); s != "" {
+		d, _ := time.ParseDuration(s + "ms")
+		if d > 0 {
+			time.Sleep(d)
+		}
 	}
 	if file := os.Getenv("MULTIAI_TEST_ARGS_FILE"); file != "" {
 		_ = os.WriteFile(file, []byte(strings.Join(os.Args, "\n")), 0644)

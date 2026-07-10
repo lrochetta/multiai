@@ -60,7 +60,6 @@ jobs:
         with:
           working-directory: multiai-go
           version: latest
-          args: --issues-exit-code=0
 
   test:
     name: Test (${{ matrix.os }})
@@ -97,7 +96,7 @@ jobs:
           go-version: '1.25'
           cache-dependency-path: multiai-go/go.sum
       - name: govulncheck
-        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./... || true
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
   benchmark:
     name: Benchmark

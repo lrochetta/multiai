@@ -1,0 +1,4 @@
+./bmad.go
+./interactive.go
+./bmad_test.go
+./interactive_test.go
