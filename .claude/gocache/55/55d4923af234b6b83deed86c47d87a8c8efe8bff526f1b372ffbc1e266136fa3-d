@@ -1,5 +1,0 @@
-./profile.go
-./project.go
-./yaml.go
-./profile_test.go
-./yaml_fuzz_test.go

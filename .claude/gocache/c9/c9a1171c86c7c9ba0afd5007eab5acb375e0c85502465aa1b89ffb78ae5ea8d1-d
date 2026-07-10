@@ -1,5 +1,0 @@
-./crypto.go
-./lock_windows.go
-./secret.go
-./store_windows.go
-./secret_test.go

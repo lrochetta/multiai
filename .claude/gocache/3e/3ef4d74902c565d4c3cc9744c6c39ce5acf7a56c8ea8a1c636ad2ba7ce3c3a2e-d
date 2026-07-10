@@ -1,3 +1,0 @@
-./env.go
-./env_fuzz_test.go
-./env_test.go
