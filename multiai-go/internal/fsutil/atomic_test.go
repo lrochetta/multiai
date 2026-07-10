@@ -37,10 +37,12 @@ func TestWriteFileAtomic_PermissionDenied(t *testing.T) {
 }
 
 func TestWriteFileAtomic_NoPartialWrite(t *testing.T) {
-	// Root (UID 0) bypasses filesystem permissions on Linux.
-	// CI runners often run as root, making this test ineffective.
-	if runtime.GOOS == "linux" && os.Getuid() == 0 {
-		t.Skip("skipping on Linux as root: chmod cannot revoke write access")
+	// os.Rename on Unix bypasses the target file's permissions because
+	// it operates on the directory entry, not the file inode. Only
+	// Windows FILE_ATTRIBUTE_READONLY prevents MoveFileEx replacement.
+	// Skip on non-Windows — test is meaningful only on Windows.
+	if runtime.GOOS != "windows" {
+		t.Skip("os.Rename ignores target file permissions on Unix")
 	}
 
 	dir := t.TempDir()
