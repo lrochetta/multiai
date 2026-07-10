@@ -118,37 +118,17 @@ nfpms:
 #      PAT (repo scope) created from an account that has push access to
 #      both repositories above.
 #   3. The token is injected via "{{ .Env.TAP_GITHUB_TOKEN }}" below.
-homebrew_casks:
-  - name: multiai
-    skip_upload: false
-    directory: Casks
-    repository:
-      owner: lrochetta
-      name: homebrew-tap
-      branch: main
-      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
-    homepage: https://rochetta.fr
-    description: Route multiple AI CLIs (Claude Code, Codex, OpenCode) with isolated env profiles
-    # The binary is not Apple-signed/notarized (0 EUR signing plan): drop the
-    # quarantine attribute so macOS lets it run after `brew install`.
-    hooks:
-      post:
-        install: |
-          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/multiai"]
-          end
-
-scoops:
-  - name: multiai
-    skip_upload: false
-    repository:
-      owner: lrochetta
-      name: scoop-bucket
-      branch: main
-      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
-    homepage: https://rochetta.fr
-    description: Route multiple AI CLIs (Claude Code, Codex, OpenCode) with isolated env profiles
-    license: MIT
+# Homebrew cask and Scoop manifest — disabled until TAP_GITHUB_TOKEN secret is
+# configured in repo settings.
+# See docs in packaging/homebrew/ and packaging/scoop/.
+# homebrew_casks:
+#   - name: multiai
+#     skip_upload: false
+#     ...
+# scoops:
+#   - name: multiai
+#     skip_upload: false
+#     ...
 
 snapshot:
   version_template: "{{ incpatch .Version }}-dev"
