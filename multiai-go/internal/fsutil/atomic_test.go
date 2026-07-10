@@ -3,6 +3,7 @@ package fsutil
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -36,6 +37,12 @@ func TestWriteFileAtomic_PermissionDenied(t *testing.T) {
 }
 
 func TestWriteFileAtomic_NoPartialWrite(t *testing.T) {
+	// Root (UID 0) bypasses filesystem permissions on Linux.
+	// CI runners often run as root, making this test ineffective.
+	if runtime.GOOS == "linux" && os.Getuid() == 0 {
+		t.Skip("skipping on Linux as root: chmod cannot revoke write access")
+	}
+
 	dir := t.TempDir()
 	path := filepath.Join(dir, "target.txt")
 	original := []byte("original content before crash")
