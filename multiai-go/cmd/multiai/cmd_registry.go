@@ -1,5 +1,6 @@
 // cmd_registry.go wires the community profile registry subcommands
-// (profile search, profile install) into the subcommand registry.
+// (profile search, profile list --remote, profile install) into the
+// subcommand registry.
 //
 //	0 success · 1 user error (bad flag, no match) · 3 output failure
 package main
@@ -8,8 +9,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,7 +23,7 @@ func init() {
 }
 
 // cmdProfile is the top-level handler for "multiai profile". It dispatches to
-// sub-subcommands: search, install, or help.
+// sub-subcommands: search, list, install, or help.
 func cmdProfile(args []string) int {
 	if len(args) == 0 || hasFlag(args, "--help", "-h") {
 		printProfileHelp()
@@ -36,6 +35,8 @@ func cmdProfile(args []string) int {
 	switch sub {
 	case "search":
 		return cmdProfileSearch(args[1:])
+	case "list":
+		return cmdProfileList(args[1:])
 	case "install":
 		return cmdProfileInstall(args[1:])
 	default:
@@ -51,20 +52,27 @@ func cmdProfile(args []string) int {
 func printProfileHelp() {
 	fmt.Println(`Usage:
   multiai profile search <query> [options]    Rechercher un profil dans le registre communautaire
+  multiai profile list [options]              Lister les profils (locaux ou --remote)
   multiai profile install <name> [options]    Installer un profil depuis le registre
 
 Commandes:
   search    Rechercher des profils par nom, description, auteur ou tags
+  list      Afficher les profils installes (--remote pour le registre)
   install   Installer un profil communautaire (telecharger et copier)
 
 Options:
   --json, -j           Sortie JSON
+  --remote             Lister les profils du registre (profile list)
+  --force              Ecraser un profil existant (profile install)
+  --no-verify          Sauter la verification SHA-256 (profile install)
   --help, -h           Cette aide
 
 Exemples:
   multiai profile search deepseek
   multiai profile search claude --json
-  multiai profile install ds`)
+  multiai profile list --remote
+  multiai profile install ds
+  multiai profile install ds --force`)
 }
 
 func printProfileSearchHelp() {
@@ -82,15 +90,38 @@ Exemple:
   multiai profile search claude --json`)
 }
 
-func printProfileInstallHelp() {
+func printProfileListHelp() {
 	fmt.Println(`Usage:
-  multiai profile install <name>              Installer un profil communautaire
+  multiai profile list [options]             Lister les profils
 
-Telecharge le fichier .env du profil depuis le registre communautaire
-et le copie dans le dossier des profils locaux.
+Par defaut, liste les profils installes localement.
+Avec --remote, liste les profils disponibles dans le registre communautaire.
+
+Options:
+  --json, -j           Sortie JSON
+  --remote, -r         Lister les profils du registre communautaire
 
 Exemple:
-  multiai profile install ds`)
+  multiai profile list
+  multiai profile list --remote
+  multiai profile list --remote --json`)
+}
+
+func printProfileInstallHelp() {
+	fmt.Println(`Usage:
+  multiai profile install <name> [options]   Installer un profil communautaire
+
+Telecharge le fichier .env du profil depuis le registre communautaire,
+verifie l'empreinte SHA-256 (si disponible), et le copie dans le dossier
+des profils locaux.
+
+Options:
+  --force              Ecraser si le profil existe deja
+  --no-verify          Sauter la verification SHA-256
+
+Exemple:
+  multiai profile install ds
+  multiai profile install ds --force`)
 }
 
 // ── Search ────────────────────────────────────────────────────────────────────
@@ -168,6 +199,144 @@ func parseProfileSearchFlags(args []string) (*profileSearchOptions, error) {
 	return o, nil
 }
 
+// ── List ──────────────────────────────────────────────────────────────────────
+
+// profileListOptions collects flags for the profile list subcommand.
+type profileListOptions struct {
+	json   bool
+	remote bool
+	help   bool
+}
+
+// cmdProfileList implements "multiai profile list" and "multiai profile list --remote".
+func cmdProfileList(args []string) int {
+	o, err := parseProfileListFlags(args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("error"), err)
+		return 1
+	}
+	if o.help {
+		printProfileListHelp()
+		return 0
+	}
+
+	if o.remote {
+		return listRemoteProfiles(o.json)
+	}
+	return listLocalProfiles(o.json)
+}
+
+// parseProfileListFlags hand-parses list-specific flags.
+func parseProfileListFlags(args []string) (*profileListOptions, error) {
+	o := &profileListOptions{}
+	for _, a := range args {
+		switch a {
+		case "--json", "-j":
+			o.json = true
+		case "--remote", "-r":
+			o.remote = true
+		case "--help", "-h":
+			o.help = true
+		default:
+			if strings.HasPrefix(a, "-") {
+				return nil, fmt.Errorf("option inconnue : %s", a)
+			}
+			return nil, fmt.Errorf("argument inattendu : %s", a)
+		}
+	}
+	return o, nil
+}
+
+// listLocalProfiles lists the .env profiles found in the local profiles directory.
+func listLocalProfiles(jsonOut bool) int {
+	profilesDir := getProfilesDir()
+	entries, err := os.ReadDir(profilesDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("error"), err)
+		return 1
+	}
+
+	var files []string
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".env") {
+			files = append(files, strings.TrimSuffix(e.Name(), ".env"))
+		}
+	}
+
+	if jsonOut {
+		out := struct {
+			Count   int      `json:"count"`
+			Dir     string   `json:"directory"`
+			Profiles []string `json:"profiles"`
+		}{len(files), profilesDir, files}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(out); err != nil {
+			fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("error"), err)
+			return 3
+		}
+		return 0
+	}
+
+	if len(files) == 0 {
+		fmt.Println(i18n.T("registry_list_remote_empty"))
+		return 0
+	}
+	fmt.Printf("%s (%s)\n", i18n.T("registry_list_remote"), profilesDir)
+	for _, f := range files {
+		fmt.Printf("  %s\n", f)
+	}
+	fmt.Printf("\n%d profil(s) installe(s) localement\n", len(files))
+	return 0
+}
+
+// listRemoteProfiles fetches the remote index and prints all available profiles.
+func listRemoteProfiles(jsonOut bool) int {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	idx, err := registry.FetchIndexNoCache(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("registry_fetch_error"), err)
+		return 2
+	}
+
+	if jsonOut {
+		return printProfileListJSON(idx.Profiles)
+	}
+
+	if len(idx.Profiles) == 0 {
+		fmt.Println(i18n.T("registry_list_remote_empty"))
+		return 0
+	}
+
+	fmt.Println(i18n.T("registry_list_remote"))
+	renderProfileResults(idx.Profiles)
+	fmt.Println()
+	fmt.Print(i18n.T("registry_results_count", len(idx.Profiles)))
+	return 0
+}
+
+// printProfileListJSON emits the profile list as indented JSON on stdout.
+func printProfileListJSON(profiles []registry.ProfileEntry) int {
+	if profiles == nil {
+		profiles = []registry.ProfileEntry{}
+	}
+	out := struct {
+		Count   int                       `json:"count"`
+		Results []registry.ProfileEntry   `json:"results"`
+	}{len(profiles), profiles}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(out); err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("error"), err)
+		return 3
+	}
+	return 0
+}
+
+// ── Search / list output helpers ──────────────────────────────────────────────
+
 // printProfileSearchJSON emits the search results as indented JSON on stdout.
 func printProfileSearchJSON(results []registry.ProfileEntry) int {
 	if results == nil {
@@ -217,15 +386,33 @@ func renderStars(n int) string {
 
 // ── Install ───────────────────────────────────────────────────────────────────
 
+// profileInstallOptions collects flags for the profile install subcommand.
+type profileInstallOptions struct {
+	force    bool
+	noVerify bool
+	help     bool
+	name     string
+}
+
 // cmdProfileInstall implements "multiai profile install <name>".
 // It fetches the index, looks up the profile by name, downloads the .env file
-// from the registry repo, and copies it into the user's profiles directory.
+// from the registry repo, verifies SHA-256 (when available), checks for
+// existing files, and writes it atomically into the profiles directory.
 func cmdProfileInstall(args []string) int {
-	if len(args) == 0 || hasFlag(args, "--help", "-h") {
+	o, err := parseProfileInstallFlags(args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("error"), err)
+		return 1
+	}
+	if o.help {
 		printProfileInstallHelp()
 		return 0
 	}
-	name := args[0]
+	if o.name == "" {
+		fmt.Fprintf(os.Stderr, "%s: %s\n", i18n.T("error"), i18n.T("registry_search_missing"))
+		printProfileInstallHelp()
+		return 1
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -236,56 +423,66 @@ func cmdProfileInstall(args []string) int {
 		return 2
 	}
 
-	profile := registry.FindProfileByName(idx, name)
+	profile := registry.FindProfileByName(idx, o.name)
 	if profile == nil {
-		fmt.Fprintf(os.Stderr, "[!] %s\n", i18n.T("registry_profile_not_found", name))
+		fmt.Fprintf(os.Stderr, "[!] %s\n", i18n.T("registry_profile_not_found", o.name))
 		return 1
 	}
 
-	// Build the download URL for the profile's .env file.
-	downloadURL := fmt.Sprintf(
-		"https://raw.githubusercontent.com/lrochetta/profiles-multiai/main/profiles/%s.env",
-		profile.Name,
-	)
+	// Check for existing profile file.
+	profilesDir := getProfilesDir()
+	destPath := filepath.Join(profilesDir, profile.Name+".env")
+	if _, err := os.Stat(destPath); err == nil && !o.force {
+		fmt.Fprintf(os.Stderr, "[!] %s\n", i18n.T("registry_install_exists", profile.Name, destPath))
+		return 1
+	}
+
+	// Clear SHA256 when --no-verify is set so the installer skips verification.
+	if o.noVerify {
+		profile.SHA256 = ""
+	}
 
 	fmt.Fprintf(os.Stderr, "[i] %s %s...\n", i18n.T("registry_downloading"), profile.Name)
 
-	// Download the profile .env file.
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
+	if profile.SHA256 != "" {
+		fmt.Fprintf(os.Stderr, "[i] %s\n", i18n.T("registry_checksum_verify"))
+	}
+
+	installedPath, err := registry.InstallProfile(ctx, profile, profilesDir)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("error"), err)
-		return 2
-	}
-	req.Header.Set("User-Agent", "multiai-registry")
-
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "[X] %s: %v\n", i18n.T("registry_download_error"), err)
-		return 2
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		fmt.Fprintf(os.Stderr, "[X] %s (HTTP %d)\n", i18n.T("registry_download_error"), resp.StatusCode)
+		if registry.IsChecksumError(err) {
+			fmt.Fprintf(os.Stderr, "[X] %s\n", i18n.T("registry_checksum_error"))
+			return 2
+		}
+		fmt.Fprintf(os.Stderr, "[X] %s\n", i18n.T("registry_download_error"))
 		return 2
 	}
 
-	// Read the profile content.
-	profileData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "[X] %s: %v\n", i18n.T("registry_download_error"), err)
-		return 2
-	}
-
-	// Resolve profiles directory and write the file.
-	profilesDir := getProfilesDir()
-	destPath := filepath.Join(profilesDir, profile.Name+".env")
-	if err := os.WriteFile(destPath, profileData, 0644); err != nil {
-		fmt.Fprintf(os.Stderr, "%s: %v\n", i18n.T("error"), err)
-		return 2
-	}
-
-	fmt.Fprintf(os.Stderr, "[OK] %s\n", i18n.T("registry_installed", destPath))
+	fmt.Fprintf(os.Stderr, "[OK] %s\n", i18n.T("registry_installed", installedPath))
 	return 0
+}
+
+// parseProfileInstallFlags hand-parses install-specific flags.
+func parseProfileInstallFlags(args []string) (*profileInstallOptions, error) {
+	o := &profileInstallOptions{}
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--force", "-f":
+			o.force = true
+		case "--no-verify":
+			o.noVerify = true
+		case "--help", "-h":
+			o.help = true
+		default:
+			if strings.HasPrefix(args[i], "-") {
+				return nil, fmt.Errorf("option inconnue : %s", args[i])
+			}
+			if o.name == "" {
+				o.name = args[i]
+			} else {
+				return nil, fmt.Errorf("argument inattendu : %s", args[i])
+			}
+		}
+	}
+	return o, nil
 }

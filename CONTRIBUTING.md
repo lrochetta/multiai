@@ -11,6 +11,7 @@ Thanks for considering contributing to multiai! 🚀
 - [Development Workflow](#development-workflow)
 - [Process](#process)
 - [Release Guide](#release-guide)
+- [Contributing Profiles](#contributing-profiles)
 - [Questions?](#questions)
 
 ---
@@ -185,8 +186,39 @@ Releases are automated via **GoReleaser** with Cosign keyless signing and GitHub
 
 ---
 
+## Contributing Profiles
+
+multiai maintains a **community profile registry** at [github.com/lrochetta/profiles-multiai](https://github.com/lrochetta/profiles-multiai) where anyone can share launch profiles for different providers and models.
+
+### Quick Start
+
+1. Fork [profiles-multiai](https://github.com/lrochetta/profiles-multiai/fork)
+2. Create a YAML profile in `profiles/communaute/<provider>/<shortcut>.yaml`
+3. Run the validation script: `bash tests/validate.sh <your-profile>.yaml`
+4. Open a Pull Request
+
+### Profile Requirements
+
+| Field | Rule |
+|-------|------|
+| **id** | Kebab-case, lowercase, max 24 chars, matches filename |
+| **tool** | One of `claude`, `codex`, `opencode` |
+| **display_name** | Required, non-empty |
+| **env** | At least one API key variable (no hardcoded secrets — use `${VAR}`) |
+| **Secrets** | Never commit API keys in plain text |
+
+### Full Documentation
+
+See [Contribuer un profil](multiai-go/docs/advanced/contributing-profiles.md) (French) for the complete guide covering:
+
+- YAML template with all available fields
+- Naming conventions for shortcuts and directories
+- Variable interpolation (`${VAR}` syntax)
+- Local validation steps
+- PR submission process and checklist
+- CI tests the profile must pass
+- Best practices and FAQ
+
+---
+
 ## Questions?
-
-Open a [Discussion](https://github.com/lrochetta/multiai/discussions) or an [Issue](https://github.com/lrochetta/multiai/issues).
-
-For security vulnerabilities, see [SECURITY.md](SECURITY.md) (if present) or email the maintainer directly.

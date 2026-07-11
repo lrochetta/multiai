@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -126,6 +127,48 @@ func matches(p ProfileEntry, q string) bool {
 		}
 	}
 	return false
+}
+
+// profileDownloadURL returns the URL to download a profile .env file from the
+// registry. Uses the entry's DownloadURL when set; otherwise constructs the
+// default URL from the registry base.
+func profileDownloadURL(entry *ProfileEntry) string {
+	if entry.DownloadURL != "" {
+		return entry.DownloadURL
+	}
+	return fmt.Sprintf(
+		"https://raw.githubusercontent.com/lrochetta/profiles-multiai/main/profiles/%s.env",
+		entry.Name,
+	)
+}
+
+// DownloadProfileContent downloads a profile's .env file from the registry and
+// returns its raw content. It is a variable so tests can inject a stub.
+var DownloadProfileContent = func(ctx context.Context, entry *ProfileEntry) ([]byte, error) {
+	url := profileDownloadURL(entry)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Accept", "text/plain")
+
+	client := &http.Client{Timeout: httpTimeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("profile download returned HTTP %d", resp.StatusCode)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 // FindProfileByName looks up a profile in the index by its exact name (case-insensitive).

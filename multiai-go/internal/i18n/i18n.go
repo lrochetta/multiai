@@ -186,6 +186,24 @@ var messages = map[Lang]map[string]string{
 		"migrate_help_usage":    "Usage:\n  multiai migrate [options]              Migrer depuis une installation PowerShell legacy\n\nOptions:\n  --from-ps <chemin>     Chemin vers l'installation PowerShell legacy\n  --dry-run              Simulation sans ecriture (rapport seul)\n  --json, -j             Sortie au format JSON\n\nExemples:\n  multiai migrate\n  multiai migrate --from-ps C:\\Users\\laurent\\AppData\\Roaming\\npm\\node_modules\\multiai\n  multiai migrate --dry-run --json",
 		"migrate_help_options":  "Options:\n  --from-ps <chemin>     Chemin vers l'installation PowerShell legacy\n  --dry-run              Simulation sans ecriture (rapport seul)\n  --json, -j             Sortie au format JSON",
 		"migrate_help_examples": "Exemples:\n  multiai migrate\n  multiai migrate --from-ps <chemin>\n  multiai migrate --dry-run --json",
+
+		// -- Registry community profiles ----------------------------------------------------
+		"registry_unknown_subcmd": "Sous-commande inconnue : %s",
+		"registry_fetch_error": "Erreur lors de la recuperation du registre : %v",
+		"registry_search_missing": "Terme de recherche requis. Usage : multiai profile search <query>",
+		"registry_no_results": "Aucun profil trouve pour '%s'.",
+		"registry_results_count": "%d profil(s) trouve(s) pour '%s' :",
+		"registry_author": "Auteur",
+		"registry_profile_not_found": "Profil '%s' non trouve dans le registre.",
+		"registry_downloading": "Telechargement de %s/%s...",
+		"registry_download_error": "Erreur de telechargement du profil %s : %v",
+		"registry_installed": "Profil '%s' installe avec succes dans %s.",
+		"registry_installing": "Installation du profil '%s'...",
+		"registry_checksum_verify": "Verification SHA256 du profil '%s'...",
+		"registry_checksum_error": "Erreur SHA256 pour le profil %s : le checksum ne correspond pas. Utilisez --no-verify pour ignorer.",
+		"registry_install_exists": "Le profil '%s' existe deja. Utilisez --force pour ecraser.",
+		"registry_list_remote": "Profils disponibles dans le registre communautaire :",
+		"registry_list_remote_empty": "Aucun profil dans le registre communautaire.",
 	},
 
 	EN: {
@@ -283,5 +301,23 @@ var messages = map[Lang]map[string]string{
 		"migrate_help_usage":    "Usage:\n  multiai migrate [options]              Migrate from a PowerShell legacy installation\n\nOptions:\n  --from-ps <path>       Path to the PowerShell legacy installation\n  --dry-run              Simulation without writing (report only)\n  --json, -j             JSON output\n\nExamples:\n  multiai migrate\n  multiai migrate --from-ps /usr/local/lib/node_modules/multiai\n  multiai migrate --dry-run --json",
 		"migrate_help_options":  "Options:\n  --from-ps <path>       Path to the PowerShell legacy installation\n  --dry-run              Simulation without writing (report only)\n  --json, -j             JSON output",
 		"migrate_help_examples": "Examples:\n  multiai migrate\n  multiai migrate --from-ps <path>\n  multiai migrate --dry-run --json",
+
+		// -- Registry community profiles ----------------------------------------------------
+		"registry_unknown_subcmd": "Unknown subcommand: %s",
+		"registry_fetch_error": "Error fetching registry: %v",
+		"registry_search_missing": "Search term required. Usage: multiai profile search <query>",
+		"registry_no_results": "No profiles found for '%s'.",
+		"registry_results_count": "%d profile(s) found for '%s':",
+		"registry_author": "Author",
+		"registry_profile_not_found": "Profile '%s' not found in registry.",
+		"registry_downloading": "Downloading %s/%s...",
+		"registry_download_error": "Error downloading profile %s: %v",
+		"registry_installed": "Profile '%s' installed successfully in %s.",
+		"registry_installing": "Installing profile '%s'...",
+		"registry_checksum_verify": "Verifying SHA256 for profile '%s'...",
+		"registry_checksum_error": "SHA256 error for profile %s: checksum mismatch. Use --no-verify to skip.",
+		"registry_install_exists": "Profile '%s' already exists. Use --force to overwrite.",
+		"registry_list_remote": "Profiles available in the community registry:",
+		"registry_list_remote_empty": "No profiles in the community registry.",
 	},
 }

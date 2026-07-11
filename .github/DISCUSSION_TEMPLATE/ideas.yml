@@ -1,0 +1,64 @@
+title: "Idée / Feature Idea"
+labels: ["enhancement", "discussion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Proposez une idée pour améliorer multiai ! / Suggest an idea to improve multiai!
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problème résolu / Problem statement"
+      description: |
+        Quel problème cette fonctionnalité résout-elle ?
+        À quel besoin répond-elle ?
+      placeholder: "Quand j'utilise multiai avec X, je ne peux pas faire Y..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: "Solution proposée / Proposed solution"
+      description: |
+        Décrivez la fonctionnalité que vous souhaitez.
+        Soyez aussi précis que possible.
+      placeholder: "Ajouter une option --json à la commande list..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives considérées / Alternatives considered"
+      description: |
+        Avez-vous envisagé d'autres approches ?
+        Existe-t-il un contournement actuel ?
+      placeholder: "Je pourrais écrire un script, mais..."
+    validations:
+      required: false
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: "Impact estimé / Estimated impact"
+      options:
+        - "Faible — amélioration mineure / Minor improvement"
+        - "Moyen — nouvelle fonctionnalité utile / Useful new feature"
+        - "Fort — changement majeur / Major change"
+        - "Critique — résout un blocage / Fixes a blocker"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: "Vérifications / Checklist"
+      options:
+        - label: "J'ai vérifié que cette idée n'existe pas déjà / I checked this idea doesn't already exist"
+          required: true
+        - label: "Je suis prêt à contribuer à l'implémentation / I'm willing to help implement this"
+          required: false
+        - label: "Cette idée concerne une version spécifique / This idea targets a specific version"
+          required: false

@@ -22,4 +22,10 @@ type ProfileEntry struct {
 	Author      string   `json:"author"`
 	Stars       int      `json:"stars"`
 	Tags        []string `json:"tags,omitempty"`
+	// DownloadURL overrides the default download URL for the profile .env file.
+	// When empty the client constructs the URL from the registry base and name.
+	DownloadURL string `json:"download_url,omitempty"`
+	// SHA256 is the expected hex-encoded SHA-256 checksum of the profile .env
+	// file. When set, the installer verifies the download against this value.
+	SHA256 string `json:"sha256,omitempty"`
 }

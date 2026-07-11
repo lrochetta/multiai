@@ -1,0 +1,75 @@
+title: "Partage de profil / Profile Showcase"
+labels: ["community", "show-and-tell"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci de partager votre profil multiai ! / Thanks for sharing your multiai profile!
+
+  - type: input
+    id: profile_name
+    attributes:
+      label: "Nom du profil / Profile name"
+      description: "Comment s'appelle votre profil ?"
+      placeholder: "ex: claude-sonnet-4-custom"
+    validations:
+      required: true
+
+  - type: input
+    id: tool
+    attributes:
+      label: "Outil cible / Target tool"
+      description: "Pour quel CLI ce profil est-il conçu ?"
+      placeholder: "claude / codex / opencode"
+    validations:
+      required: true
+
+  - type: input
+    id: provider
+    attributes:
+      label: "Fournisseur / Provider"
+      description: "Quel fournisseur d'API utilisez-vous ?"
+      placeholder: "ex: anthropic, deepseek, openrouter"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Description"
+      description: "Décrivez votre profil — cas d'usage, particularités / Describe your use case and what makes this profile special."
+      placeholder: "Ce profil permet de..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: env_vars
+    attributes:
+      label: "Variables d'environnement / Environment variables"
+      description: "Listez les variables clés de votre profil (sans valeurs réelles !) / List key env vars (no real secrets!)"
+      placeholder: |
+        ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY}"
+        MODEL: claude-sonnet-4-20250514
+    validations:
+      required: false
+
+  - type: textarea
+    id: features
+    attributes:
+      label: "Points forts / Highlights"
+      description: "Qu'est-ce qui rend ce profil intéressant ?"
+      placeholder: "Support du contexte 200K, fallback automatique, prix réduit..."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: "Vérifications / Checklist"
+      options:
+        - label: "J'ai testé ce profil localement / I tested this profile locally"
+          required: true
+        - label: "Aucune clé API réelle dans ce formulaire / No real API keys in this form"
+          required: true
+        - label: "Je souhaite que mon profil soit ajouté au registre communautaire / I want my profile added to the community registry"
+          required: false
