@@ -281,6 +281,26 @@ func main() {
 			fmt.Fprint(os.Stderr, err)
 			os.Exit(2)
 		}
+			// Auto-migrate from file store to native store when --store is set to
+			// a native backend (wincred, keychain, secret-service).
+			storeBackend := getFlagValue(os.Args, "--store")
+			if store != nil && storeBackend != "" && storeBackend != "file" && storeBackend != "auto" {
+				migrateForce := hasFlag(os.Args, "--migrate-force")
+				report, mErr := secret.MigrateFromFileStore(store, migrateForce)
+				if mErr != nil {
+					fmt.Fprintf(os.Stderr, "[!] %s: %v\n", i18n.T("warning"), mErr)
+				} else if report.AlreadyMigrated {
+					fmt.Fprintf(os.Stderr, "%s\n", i18n.T("store_already_migrated"))
+				} else if len(report.Failed) > 0 {
+					fmt.Fprintf(os.Stderr, "[!] %s\n", i18n.T("store_migrate_failed", len(report.Failed)))
+				} else if len(report.Migrated) > 0 {
+					fmt.Fprintf(os.Stderr, "%s\n", i18n.T("store_migrated", len(report.Migrated)))
+				} else if len(report.ServicesFound) > 0 && len(report.Migrated) == 0 {
+					fmt.Fprintf(os.Stderr, "%s\n", i18n.T("store_migrate_skip", len(report.Skipped)))
+				} else {
+					// No services found at all -- nothing to migrate, silent.
+				}
+			}
 		if hasFlag(os.Args, "--provider") {
 			providerID := getFlagValue(os.Args, "--provider")
 			if providerID == "" {

@@ -1,0 +1,62 @@
+title: "Question / Help"
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Posez votre question ici — en français ou en anglais. / Ask your question here — in French or English.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: "Catégorie / Category"
+      description: "De quel type d'aide avez-vous besoin ?"
+      options:
+        - Installation / Configuration
+        - Lancement d'un profil / Launching a profile
+        - Gestion des clés API / API key management
+        - OpenRouter / Modèles
+        - Profils YAML / YAML profiles
+        - Bug / Problème technique
+        - Autre / Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: "Votre question / Your question"
+      description: |
+        Décrivez votre problème. Incluez les commandes que vous avez exécutées
+        et les messages d'erreur (sans clés API !).
+      placeholder: |
+        J'essaie de lancer multiai avec le profil DeepSeek mais j'obtiens...
+
+        Commande exécutée : multiai launch -p ds
+        Message d'erreur : ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: "Contexte / Context"
+      description: "Version, OS, étapes déjà tentées / Version, OS, steps already tried"
+      placeholder: |
+        multiai version: 0.5.0
+        OS: Windows 11
+        J'ai déjà essayé de réinstaller...
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: "Vérifications / Checklist"
+      options:
+        - label: "J'ai vérifié la documentation / I checked the documentation"
+          required: true
+        - label: "Aucune clé API dans ma question / No API keys in my question"
+          required: true
+        - label: "J'ai cherché une discussion similaire / I searched for a similar discussion"
+          required: true

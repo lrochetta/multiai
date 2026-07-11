@@ -42,7 +42,8 @@ export default defineConfig({
             { text: 'Profils personnalisés (.env)', link: '/advanced/custom-profiles' },
             { text: 'Profils YAML', link: '/advanced/yaml-profiles' },
             { text: 'Configuration projet (.multiai.yaml)', link: '/advanced/project-config' },
-            { text: 'Hooks before/after launch', link: '/advanced/hooks' }
+            { text: 'Hooks before/after launch', link: '/advanced/hooks' },
+            { text: 'Contribuer un profil', link: '/advanced/contributing-profiles' }
           ]
         }
       ],

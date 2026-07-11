@@ -2,14 +2,24 @@
 
 > **Un seul outil pour lancer Claude Code, Codex CLI et OpenCode — avec des profils d'environnement isolés par fournisseur.**
 
-[![Go Version](https://img.shields.io/badge/Go-1.22-blue)](https://go.dev)
+<!-- Qualite et securite -->
+[![Go Report Card](https://goreportcard.com/badge/github.com/lrochetta/multiai)](https://goreportcard.com/report/github.com/lrochetta/multiai)
+[![Codecov](https://codecov.io/gh/lrochetta/multiai/branch/master/graph/badge.svg)](https://codecov.io/gh/lrochetta/multiai)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/lrochetta/multiai/badge)](https://securityscorecards.dev/viewer/?uri=github.com/lrochetta/multiai)
 [![CI](https://github.com/lrochetta/multiai/actions/workflows/ci.yml/badge.svg)](https://github.com/lrochetta/multiai/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/multiai)](https://www.npmjs.com/package/multiai)
-[![npm downloads](https://img.shields.io/npm/dm/multiai)](https://www.npmjs.com/package/multiai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Cosign](https://img.shields.io/badge/signed-Cosign%20keyless-2ea44f)](https://github.com/lrochetta/multiai)
+
+<!-- Distribution -->
+[![Go Version](https://img.shields.io/badge/Go-1.22-blue)](https://go.dev)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078D4)](#installation)
-[![Go Report Card](https://goreportcard.com/badge/github.com/lrochetta/multiai)](https://goreportcard.com/report/github.com/lrochetta/multiai)
+[![npm](https://img.shields.io/npm/v/multiai)](https://www.npmjs.com/package/multiai)
+[![npm downloads](https://img.shields.io/npm/dm/multiai)](https://www.npmjs.com/package/multiai)
+
+<!-- Communaute et metriques -->
+[![GitHub Stars](https://img.shields.io/github/stars/lrochetta/multiai?style=social)](https://github.com/lrochetta/multiai)
+[![GitHub Downloads](https://img.shields.io/github/downloads/lrochetta/multiai/total)](https://github.com/lrochetta/multiai/releases)
+[![GitHub Discussions](https://img.shields.io/badge/GitHub-Discussions-181717?logo=github)](https://github.com/lrochetta/multiai/discussions)
 
 ```bash
 npx multiai install
@@ -266,6 +276,29 @@ Windows amd64 • macOS Intel • macOS Apple Silicon • Linux amd64/arm64
 | Release signing | SHA256 + Cosign keyless + GitHub provenance |
 
 Rapports d'audit complets dans [`audit/`](audit/).
+
+---
+
+## Communaute
+
+### GitHub Discussions
+Posez vos questions, partagez vos profils, proposez des idees dans [GitHub Discussions](https://github.com/lrochetta/multiai/discussions).
+
+| Categorie | Description |
+|-----------|-------------|
+| [Show and Tell](https://github.com/lrochetta/multiai/discussions/categories/show-and-tell) | Partagez vos profils, vos usages, vos decouvertes |
+| [Q&A](https://github.com/lrochetta/multiai/discussions/categories/q-a) | Posez vos questions et obtenez de l'aide |
+| [Ideas](https://github.com/lrochetta/multiai/discussions/categories/ideas) | Proposez des fonctionnalites et des ameliorations |
+
+### Contribuer
+- **Profils communautaires** : soumettez vos profils YAML via le [registre communautaire](https://github.com/lrochetta/profiles-multiai) ou partagez-les dans [Show and Tell](https://github.com/lrochetta/multiai/discussions/categories/show-and-tell)
+- **Code** : consultez [CONTRIBUTING.md](CONTRIBUTING.md) pour les regles de contribution
+- **Bug reports** : ouvrez une [issue](https://github.com/lrochetta/multiai/issues/new/choose) avec le template dedie
+
+### Soutenir
+[![GitHub Sponsors](https://img.shields.io/badge/sponsor-30363D?logo=github-sponsors)](https://github.com/sponsors/lrochetta)
+
+💡 Vous utilisez multiai au quotidien ? Une etoile sur GitHub, un partage ou un sponsor sont les bienvenus !
 
 ---
 
