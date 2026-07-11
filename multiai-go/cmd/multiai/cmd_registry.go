@@ -265,8 +265,8 @@ func listLocalProfiles(jsonOut bool) int {
 
 	if jsonOut {
 		out := struct {
-			Count   int      `json:"count"`
-			Dir     string   `json:"directory"`
+			Count    int      `json:"count"`
+			Dir      string   `json:"directory"`
 			Profiles []string `json:"profiles"`
 		}{len(files), profilesDir, files}
 		enc := json.NewEncoder(os.Stdout)
@@ -323,8 +323,8 @@ func printProfileListJSON(profiles []registry.ProfileEntry) int {
 		profiles = []registry.ProfileEntry{}
 	}
 	out := struct {
-		Count   int                       `json:"count"`
-		Results []registry.ProfileEntry   `json:"results"`
+		Count   int                     `json:"count"`
+		Results []registry.ProfileEntry `json:"results"`
 	}{len(profiles), profiles}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")

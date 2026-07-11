@@ -17,11 +17,12 @@ import (
 // Uses runtime.KeepAlive to ensure the write is not elided by the optimiser
 // as "dead store" (the buffer is never read after being written).
 //
-//go:noinline — must NOT be inlined: an inlined Zeroize could have its write
 // loop eliminated by dead-code elimination after inlining.
 //
 // Callers MUST defer Zeroize(buf) immediately after allocating or receiving
 // a buffer containing secret material.
+//
+//go:noinline — must NOT be inlined: an inlined Zeroize could have its write
 func Zeroize(buf []byte) {
 	for i := range buf {
 		buf[i] = 0
