@@ -1,4 +1,4 @@
-﻿// Package config implements the interactive API key configuration wizard,
+// Package config implements the interactive API key configuration wizard,
 // driven by the embedded provider catalog (internal/catalog).
 package config
 
