@@ -22,7 +22,8 @@
 [![GitHub Discussions](https://img.shields.io/badge/GitHub-Discussions-181717?logo=github)](https://github.com/lrochetta/multiai/discussions)
 
 ```bash
-npx multiai install
+npx --yes --allow-scripts=multiai multiai@latest install
+multiai
 ```
 
 ---
@@ -82,13 +83,15 @@ Lancement : claude (OpenRouter Fusion — panel multi-modele)
 
 | Méthode | Commande | Disponibilité |
 |---------|----------|---------------|
-| **npm** | `npx multiai install` | ✅ v0.6.0 (binaire Go natif, SHA256 vérifié) |
+| **npm** | `npx --yes --allow-scripts=multiai multiai@latest install` | ✅ installation globale, binaire Go natif vérifié SHA256 |
 | **Go** | `go install github.com/lrochetta/multiai/multiai-go/cmd/multiai@latest` | ✅ maintenant |
 | **Homebrew** | `brew install --cask lrochetta/tap/multiai` | ✅ v0.6.0 (auto-upload GoReleaser) |
 | **Scoop** | `scoop bucket add lrochetta https://github.com/lrochetta/scoop-bucket && scoop install lrochetta/multiai` | ✅ v0.6.0 (auto-upload GoReleaser) |
 | **APT** | `apt install multiai` | ✅ v0.6.0 (dépôt GitHub Pages) |
 | **AUR** | `yay -S multiai` | ✅ v0.6.0 (PKGBUILD SHA256) |
 | **Script** | `curl -fsSL https://rochetta.fr/multiai/install.sh \| bash` | ✅ v0.6.0 |
+
+La méthode npm nécessite Node.js 24.14 ou plus récent afin d'utiliser de façon sûre le magasin de certificats système et les proxies d'environnement.
 
 ---
 

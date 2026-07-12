@@ -4,6 +4,19 @@ All notable changes to the multiai project.
 
 ---
 
+## [multiai-go 0.6.7] — 2026-07-12
+
+### Fixed
+
+- npm/npx now trusts certificates approved by the operating system while keeping TLS verification enabled; proxy environment variables are used on supported Node versions.
+- `npx multiai install` again performs a real global installation instead of forwarding an unknown `install` command to the Go binary.
+- Fresh non-interactive launches exit cleanly on EOF instead of entering the onboarding/configuration loop forever.
+- Windows archive extraction is bounded by a timeout and no longer interpolates temporary paths into PowerShell source.
+- npm packaging tests and release version/tag preflights prevent another mismatched publication.
+- The npm bootstrap now requires Node.js 24.14+; older runtimes remain supported through the standalone Go release, not the npm downloader.
+
+---
+
 ## [multiai-go 0.5.0] — 2026-07-10
 
 > **26 stories livrées** (6 BLOCKERS + 8 HIGH + 7 MEDIUM + 5 LOW) suite à l'audit complet 7 agents du 2026-07-09.

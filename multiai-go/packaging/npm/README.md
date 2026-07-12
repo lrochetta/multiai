@@ -4,16 +4,26 @@ Route multiple AI CLIs (Claude Code, Codex CLI, OpenCode) through isolated
 environment profiles. One command, 37+ provider profiles, API keys kept in
 your OS credential store.
 
-> **Status: pre-release (`0.4.0-dev`) — not published yet.**
->
-> The `multiai` package currently on npm ships the PowerShell implementation
-> (v0.3.x). *This* package is its next generation: it installs the native Go
-> binary. It takes over the `multiai` name on npm only once the Go
-> implementation reaches feature parity with v0.3.0, published manually by
-> the maintainer. Until then, install the current version with
-> `npm install -g multiai@0.3`.
+The published npm package installs the native Go binary for Windows, macOS,
+and Linux.
 
-## What `npm install -g multiai` does (this package)
+Requires Node.js 24.14 or newer. Older environments can use the standalone Go
+binary from GitHub Releases instead.
+
+## Quick install
+
+```sh
+npx --yes --allow-scripts=multiai multiai@latest install
+multiai
+```
+
+For a one-off run without a global install:
+
+```sh
+npx --yes --allow-scripts=multiai multiai@latest
+```
+
+## What npm installation does
 
 1. Downloads the archive for your platform from the matching GitHub release
    (`windows/amd64`, `darwin/amd64+arm64`, `linux/amd64+arm64`).

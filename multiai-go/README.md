@@ -83,7 +83,7 @@ Lancement : claude
 | **macOS Apple Silicon** | arm64 | `brew install --cask lrochetta/tap/multiai` |
 | **Linux** | amd64, arm64 | `go install` / `.deb` / AUR |
 
-> Homebrew/Scoop/`.deb`/AUR nécessitent la release v0.4.0 (tap/bucket à créer). `npx multiai install` et `go install` marchent dès maintenant.
+> Pour une installation npm globale : `npx --yes --allow-scripts=multiai multiai@latest install`. Pour une exécution ponctuelle : `npx --yes --allow-scripts=multiai multiai@latest`.
 
 ### ⚡ 37 profils inclus
 
@@ -126,7 +126,8 @@ Lancement : claude
 
 ### Quick (npm)
 ```bash
-npx multiai install
+npx --yes --allow-scripts=multiai multiai@latest install
+multiai
 ```
 
 ### Go (recommandé)

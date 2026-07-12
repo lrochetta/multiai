@@ -7,6 +7,28 @@ project: "multiai"
 
 # Lessons
 
+## Session v0.6.7 — 2026-07-12
+
+### `https.get` Node brut n'hérite pas de la confiance npm/OS
+- **Impact**: npm atteignait son registre, mais le `postinstall` échouait vers GitHub avec `unable to verify the first certificate`; npm masquant la sortie des lifecycle scripts, l'utilisateur percevait un gel.
+- **Lesson**: Pour un bootstrap natif, tester avec un cache npx vierge et le vrai magasin de certificats de l'OS. Fusionner CA par défaut + CA système via API feature-détectée; ne jamais utiliser `rejectUnauthorized=false`.
+
+### Une commande documentée est un contrat exécutable
+- **Impact**: `npx multiai install` était documenté partout mais transmis au binaire Go, qui répondait `Commande inconnue : install`.
+- **Lesson**: Ajouter un test contractuel pour chaque quick-start public. Ici le shim npm restaure l'installation globale historique.
+
+### Ne jamais publier npm depuis un worktree sale
+- **Impact**: le tag `v0.6.6` pointe vers un commit contenant `package.json@0.6.5`, alors que npm a reçu 0.6.6 depuis une modification locale.
+- **Lesson**: Bloquer le publish si le worktree est sale ou si `HEAD` n'a pas le tag exact `v<package.version>`; vérifier aussi cette égalité dans le workflow GitHub Release.
+
+### EOF ignoré dans une boucle interactive = boucle infinie
+- **Impact**: un premier lancement sans TTY traitait EOF comme la réponse par défaut « oui », puis le menu de configuration rebouclait indéfiniment sur une entrée vide.
+- **Lesson**: Toute boucle interactive doit traiter EOF comme une sortie normale et posséder un test avec un reader vide.
+
+### Une évolution de signature doit mettre à jour tous les tests
+- **Impact**: l'ajout du paramètre `secret.Store` avait laissé plusieurs tests et fuzzers non compilables.
+- **Lesson**: Lancer au minimum les tests des packages touchés après toute modification de signature; la CI ne doit jamais accepter des tests qui ne compilent plus.
+
 ## Session v0.4.x (2026-07-05/06)
 
 ### Repo privé = npm cassé

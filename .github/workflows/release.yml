@@ -55,6 +55,15 @@ jobs:
             exit 1
           fi
 
+      - name: Preflight — tag matches npm package
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PACKAGE_VERSION="$(node -p "require('./multiai-go/packaging/npm/package.json').version")"
+          if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "::error file=multiai-go/packaging/npm/package.json::tag $GITHUB_REF_NAME does not match npm package $PACKAGE_VERSION"
+            exit 1
+          fi
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:

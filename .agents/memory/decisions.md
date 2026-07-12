@@ -7,6 +7,13 @@ project: "multiai"
 
 # Decisions
 
+## 2026-07-12 — Contrat npm/npx restauré et release reproductible
+- **Context**: `multiai@0.6.6` échouait sur les nouvelles installations Windows avec Node 24 (`unable to verify the first certificate`). Après contournement TLS, la commande publique `npx multiai install` échouait encore car le CLI Go ne possède pas de sous-commande `install`. Le tag `v0.6.6` contenait en outre `package.json` en `0.6.5`; npm 0.6.6 avait été publié depuis un worktree sale.
+- **Decision**: Préparer `0.6.7` avec (1) Node 24.14+ comme minimum npm et fusion feature-détectée des CA par défaut/système, sans jamais désactiver TLS, (2) support du proxy d'environnement, (3) restauration de `npx multiai install` comme installation npm globale réelle, (4) sortie propre sur EOF/non-TTY, (5) tests npm et preflights `tag == package version` + worktree propre.
+- **Rationale**: Restaurer le contrat historique sans sacrifier la vérification SHA256 et rendre la publication traçable/reproductible.
+- **Consequences**: La release GitHub `v0.6.7` doit être créée depuis le commit contenant `package.json@0.6.7` avant le `npm publish` manuel. Le prepublish refuse une copie sale ou non taguée.
+- **Status**: active
+
 ## 2026-07-06 — Auto-update via GitHub Releases
 - **Context**: Les utilisateurs npm/go install doivent réinstaller manuellement pour obtenir la dernière version. Aucune notification de mise à jour.
 - **Decision**: Ajouter `internal/update/` — au lancement, vérifie l'API GitHub Releases (cache 1h), télécharge le nouveau binaire si plus récent, vérifie SHA256, extrait, re-exec. Tout est silencieux (timeout 5s, jamais bloquant).

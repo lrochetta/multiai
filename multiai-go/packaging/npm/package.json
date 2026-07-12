@@ -1,6 +1,6 @@
 {
   "name": "multiai",
-  "version": "0.6.5",
+  "version": "0.6.7",
   "description": "Route multiple AI CLIs (Claude Code, Codex, OpenCode) with isolated env profiles — native Go binary, SHA256-verified download",
   "keywords": [
     "ai",
@@ -33,11 +33,12 @@
     "README.md"
   ],
   "scripts": {
+    "test": "node --test install.test.js release-preflight.test.js bin/multiai.test.js",
     "postinstall": "node install.js",
-    "prepublishOnly": "node scan-secrets.js"
+    "prepublishOnly": "npm test && node scan-secrets.js && node release-preflight.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=24.14.0"
   },
   "os": [
     "win32",
