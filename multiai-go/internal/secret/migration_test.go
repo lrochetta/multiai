@@ -142,19 +142,6 @@ func setupFileStoreWithCredentials(t *testing.T, creds map[string]map[string]str
 	return store
 }
 
-// verifyFileStoreHas checks that the file store still contains the given
-// credentials (used to verify no data was lost).
-func verifyFileStoreHas(t *testing.T, store *encryptedFileStore, service, key, want string) {
-	t.Helper()
-	got, err := store.Get(service, key)
-	if err != nil {
-		t.Fatalf("file store Get(%q, %q): %v", service, key, err)
-	}
-	if got != want {
-		t.Errorf("file store Get(%q, %q) = %q, want %q", service, key, got, want)
-	}
-}
-
 // ── Tests ─────────────────────────────────────────────────────────────────
 
 // TestMigrateFromFileStore_Success verifies a basic migration: credentials

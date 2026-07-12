@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -499,50 +498,42 @@ func fetchLatestReleaseWithURL(apiURL string) (*Release, error) {
 // API of this package exists with the correct signatures.
 func TestExportedFunctions(t *testing.T) {
 	t.Run("IsNewer signature", func(t *testing.T) {
-		var fn func(string, string) bool
-		fn = IsNewer
+		var fn func(string, string) bool = IsNewer
 		_ = fn
 	})
 
 	t.Run("GetTarget signature", func(t *testing.T) {
-		var fn func() string
-		fn = GetTarget
+		var fn func() string = GetTarget
 		_ = fn
 	})
 
 	t.Run("ReadCache signature", func(t *testing.T) {
-		var fn func() (*Cache, error)
-		fn = ReadCache
+		var fn func() (*Cache, error) = ReadCache
 		_ = fn
 	})
 
 	t.Run("WriteCache signature", func(t *testing.T) {
-		var fn func(Cache) error
-		fn = WriteCache
+		var fn func(Cache) error = WriteCache
 		_ = fn
 	})
 
 	t.Run("CacheFilePath signature", func(t *testing.T) {
-		var fn func() string
-		fn = CacheFilePath
+		var fn func() string = CacheFilePath
 		_ = fn
 	})
 
 	t.Run("ShouldCheck signature", func(t *testing.T) {
-		var fn func() bool
-		fn = ShouldCheck
+		var fn func() bool = ShouldCheck
 		_ = fn
 	})
 
 	t.Run("FetchLatestRelease signature", func(t *testing.T) {
-		var fn func(context.Context) (*Release, error)
-		fn = FetchLatestRelease
+		var fn func(context.Context) (*Release, error) = FetchLatestRelease
 		_ = fn
 	})
 
 	t.Run("DownloadAndVerify signature", func(t *testing.T) {
-		var fn func(context.Context, string, string, string) error
-		fn = DownloadAndVerify
+		var fn func(context.Context, string, string, string) error = DownloadAndVerify
 		_ = fn
 	})
 }
@@ -751,39 +742,4 @@ func BenchmarkCacheRoundTrip(b *testing.B) {
 			_ = json.Unmarshal(data, &out)
 		}
 	})
-}
-
-// ---------------------------------------------------------------------------
-// Test helpers
-// ---------------------------------------------------------------------------
-
-// mustReadAll is a test helper that reads all data from a reader.
-func mustReadAll(t *testing.T, r io.Reader) []byte {
-	t.Helper()
-	data, err := io.ReadAll(r)
-	if err != nil {
-		t.Fatalf("ReadAll failed: %v", err)
-	}
-	return data
-}
-
-// mustWriteFile is a test helper that writes data to a file.
-func mustWriteFile(t *testing.T, path string, data []byte) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("MkdirAll failed: %v", err)
-	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		t.Fatalf("WriteFile failed: %v", err)
-	}
-}
-
-// mustReadFile is a test helper that reads a file.
-func mustReadFile(t *testing.T, path string) []byte {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("ReadFile(%q) failed: %v", path, err)
-	}
-	return data
 }

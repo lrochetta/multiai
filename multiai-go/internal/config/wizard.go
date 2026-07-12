@@ -259,7 +259,6 @@ func configureProvider(prov Provider, byShortcut map[string]*profile.Profile, re
 				return
 			}
 		}
-		isSentinel = false
 		for _, sc := range shortcuts {
 			v := prov.VarMap[sc]
 			if err := store.Delete(secret.ServiceForProfile(byShortcut[sc].Path), v); err != nil {

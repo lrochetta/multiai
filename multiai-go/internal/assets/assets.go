@@ -16,7 +16,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 //go:embed profiles/*.env
@@ -172,11 +171,4 @@ func HashFile(path string) (string, error) {
 	}
 	h := sha256.Sum256(data)
 	return "sha256:" + hex.EncodeToString(h[:]), nil
-}
-
-// hashFromString extracts the hex portion from a "sha256:hex" string.
-// Used in tests and manifest comparison.
-func hashFromString(s string) string {
-	_, hexStr, _ := strings.Cut(s, ":")
-	return hexStr
 }

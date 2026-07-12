@@ -32,8 +32,6 @@ func parseMigrateFlags(args []string) (*migrateOptions, error) {
 			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
 				i++
 				o.fromPS = args[i]
-			} else {
-				// No value: search in default locations.
 			}
 		case "--dry-run":
 			o.dryRun = true
