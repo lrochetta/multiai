@@ -46,4 +46,3 @@ func (s *keychainStore) Delete(service, key string) error {
 func (s *keychainStore) List(service string) (map[string]string, error) {
 	return keychainList(service)
 }
-

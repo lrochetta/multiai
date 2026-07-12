@@ -247,9 +247,9 @@ func TestNewPlatformStore_Unavailable(t *testing.T) {
 
 func TestParseSecretToolSearch(t *testing.T) {
 	tests := []struct {
-		name   string
-		input  string
-		want   map[string]string
+		name  string
+		input string
+		want  map[string]string
 	}{
 		{
 			name: "single entry",
@@ -289,9 +289,9 @@ application = test
 			want: map[string]string{"MY_KEY": "my-val"},
 		},
 		{
-			name:   "empty output",
-			input:  "",
-			want:   map[string]string{},
+			name:  "empty output",
+			input: "",
+			want:  map[string]string{},
 		},
 		{
 			name: "no matching entries",
@@ -304,9 +304,9 @@ value = v
 			want: map[string]string{"K": "v"},
 		},
 		{
-			name:   "only whitespace",
-			input:  "\n\n  \n",
-			want:   map[string]string{},
+			name:  "only whitespace",
+			input: "\n\n  \n",
+			want:  map[string]string{},
 		},
 		{
 			name: "entries without value attribute",
