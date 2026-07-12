@@ -1,5 +1,5 @@
 APP_NAME = multiai
-VERSION = 0.5.0
+VERSION = 0.6.0
 BUILD_DIR = build
 LDFLAGS = -ldflags="-s -w -X main.version=$(VERSION)"
 

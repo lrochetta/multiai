@@ -69,7 +69,7 @@ func SelectTool(profiles []profile.Profile) (string, error) {
 		fmt.Printf("%d. %s (%d %s)\n", i+1, t.Label, t.Count, i18n.T("profiles_count"))
 	}
 	fmt.Println()
-	fmt.Println(i18n.T("back_main_menu"))
+	fmt.Println(i18n.T("back_main"))
 	fmt.Print(i18n.T("choose_tool"))
 
 	reader := bufio.NewReader(os.Stdin)

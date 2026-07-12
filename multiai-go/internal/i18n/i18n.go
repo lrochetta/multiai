@@ -178,6 +178,11 @@ var messages = map[Lang]map[string]string{
 		"store_init_error":       "Erreur d'initialisation du store '%s' : %v",
 		"store_selected":         "Backend de stockage : %s",
 		"store_flag_help":        "  multiai config --store <backend>    Forcer un backend de stockage (wincred, keychain, secret-service, file, auto)",
+		"store_fallback":         "Store natif indisponible, utilisation du store chiffre par fichier (AES-256-GCM).",
+		"store_already_migrated": "Deja migre.",
+		"store_migrate_failed":   "%d echec(s) de migration.",
+		"store_migrated":         "%d cle(s) migree(s) avec succes.",
+		"store_migrate_skip":     "%d cle(s) ignorees (aucun store natif configure).",
 
 		// -- Migration --------------------------------------------------------------------
 		"migrate_no_legacy":     "Aucune installation PowerShell legacy detectee.\nRecherchez avec : multiai migrate --from-ps <chemin>",
@@ -293,6 +298,11 @@ var messages = map[Lang]map[string]string{
 		"store_init_error":       "Error initializing store '%s': %v",
 		"store_selected":         "Storage backend: %s",
 		"store_flag_help":        "  multiai config --store <backend>    Force a storage backend (wincred, keychain, secret-service, file, auto)",
+		"store_fallback":         "Native store unavailable, using file-encrypted store (AES-256-GCM).",
+		"store_already_migrated": "Already migrated.",
+		"store_migrate_failed":   "%d migration(s) failed.",
+		"store_migrated":         "%d key(s) migrated successfully.",
+		"store_migrate_skip":     "%d key(s) skipped (no native store configured).",
 
 		// -- Migration --------------------------------------------------------------------
 		"migrate_no_legacy":     "No PowerShell legacy installation detected.\nSearch with: multiai migrate --from-ps <path>",
