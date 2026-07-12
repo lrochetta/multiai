@@ -138,38 +138,31 @@ async function main() {
 
   const ext = process.platform === 'win32' ? '.zip' : '.tar.gz';
 
-  // Resolve the actual release version to download.  The npm package may be
-  // newer than the Go binary (JS-only fixes).  Try the exact version first;
-  // if the release is missing (404), fall back to the latest GitHub release.
+  // Resolve the binary version to download.
+  // Strategy: try the exact npm version first, then fall back to the latest
+  // GitHub release.  This lets us ship JS-only fixes without a full Go rebuild.
   let releaseVersion = VERSION;
-  let archiveName = `multiai_${releaseVersion}_${target}${ext}`;
-  let base = `https://github.com/${REPO}/releases/download/v${releaseVersion}`;
+
+  async function resolveVersion() {
+    // 1. Try exact npm version.
+    const probeURL = `https://github.com/${REPO}/releases/download/v${releaseVersion}/checksums.txt`;
+    try { await fetch(probeURL); return; } catch (_) { /* 404 — fallback */ }
+
+    // 2. Fallback: ask GitHub API for the latest release tag.
+    const apiURL = `https://api.github.com/repos/${REPO}/releases/latest`;
+    const body = JSON.parse((await fetch(apiURL)).toString('utf8'));
+    releaseVersion = body.tag_name.replace(/^v/, '');
+    console.log(`Release v${VERSION} not found — using v${releaseVersion} instead.`);
+  }
+  await resolveVersion();
+
+  const archiveName = `multiai_${releaseVersion}_${target}${ext}`;
+  const base = `https://github.com/${REPO}/releases/download/v${releaseVersion}`;
 
   console.log(`multiai ${VERSION} — downloading ${archiveName}...`);
 
   // 1. Checksums first: no checksums, no install.
-  let checksumsText;
-  try {
-    checksumsText = (await fetch(`${base}/checksums.txt`)).toString('utf8');
-  } catch (err) {
-    // Release not found for this exact npm version — fall back to latest.
-    if (err.message && err.message.includes('HTTP')) {
-      console.log('Release not found for v' + releaseVersion + ', fetching latest...');
-      try {
-        const api = `https://api.github.com/repos/${REPO}/releases/latest`;
-        const latest = JSON.parse((await fetch(api)).toString('utf8'));
-        releaseVersion = latest.tag_name.replace(/^v/, '');
-        archiveName = `multiai_${releaseVersion}_${target}${ext}`;
-        base = `https://github.com/${REPO}/releases/download/v${releaseVersion}`;
-        console.log('Using v' + releaseVersion);
-        checksumsText = (await fetch(`${base}/checksums.txt`)).toString('utf8');
-      } catch (_) {
-        throw err; // original error if fallback also fails
-      }
-    } else {
-      throw err;
-    }
-  }
+  const checksumsText = (await fetch(`${base}/checksums.txt`)).toString('utf8');
   const expected = expectedChecksum(checksumsText, archiveName);
   if (!expected) {
     throw new Error(`${archiveName} not found in checksums.txt`);
