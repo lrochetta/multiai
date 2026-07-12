@@ -98,7 +98,7 @@ jobs:
           subject-checksums: multiai-go/dist/checksums.txt
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@d94fae1f1b4a79d0f33d9dc8cea74ef262c5742a # v0.18.0
+        uses: anchore/sbom-action@v0.18.0 # v0.18.0
         with:
           path: ./multiai-go
           format: cyclonedx-json
