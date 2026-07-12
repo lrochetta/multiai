@@ -148,7 +148,6 @@ nfpms:
 #     homepage: "https://github.com/lrochetta/multiai"
 #     description: "Route multiple AI CLIs with isolated env profiles."
 #     license: "MIT"
-            regex: "$sha256[\\s]+multiai_v$version_windows_amd64.zip"
 
 snapshot:
   version_template: "{{ incpatch .Version }}-dev"
