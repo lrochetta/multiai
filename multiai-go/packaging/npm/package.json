@@ -1,6 +1,6 @@
 {
   "name": "multiai",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Route multiple AI CLIs (Claude Code, Codex, OpenCode) with isolated env profiles — native Go binary, SHA256-verified download",
   "keywords": [
     "ai",
