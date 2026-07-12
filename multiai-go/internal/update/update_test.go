@@ -498,43 +498,35 @@ func fetchLatestReleaseWithURL(apiURL string) (*Release, error) {
 // API of this package exists with the correct signatures.
 func TestExportedFunctions(t *testing.T) {
 	t.Run("IsNewer signature", func(t *testing.T) {
-		var fn func(string, string) bool = IsNewer
-		_ = fn
+		_ = (func(string, string) bool)(IsNewer)
 	})
 
 	t.Run("GetTarget signature", func(t *testing.T) {
-		var fn func() string = GetTarget
-		_ = fn
+		_ = (func() string)(GetTarget)
 	})
 
 	t.Run("ReadCache signature", func(t *testing.T) {
-		var fn func() (*Cache, error) = ReadCache
-		_ = fn
+		_ = (func() (*Cache, error))(ReadCache)
 	})
 
 	t.Run("WriteCache signature", func(t *testing.T) {
-		var fn func(Cache) error = WriteCache
-		_ = fn
+		_ = (func(Cache) error)(WriteCache)
 	})
 
 	t.Run("CacheFilePath signature", func(t *testing.T) {
-		var fn func() string = CacheFilePath
-		_ = fn
+		_ = (func() string)(CacheFilePath)
 	})
 
 	t.Run("ShouldCheck signature", func(t *testing.T) {
-		var fn func() bool = ShouldCheck
-		_ = fn
+		_ = (func() bool)(ShouldCheck)
 	})
 
 	t.Run("FetchLatestRelease signature", func(t *testing.T) {
-		var fn func(context.Context) (*Release, error) = FetchLatestRelease
-		_ = fn
+		_ = (func(context.Context) (*Release, error))(FetchLatestRelease)
 	})
 
 	t.Run("DownloadAndVerify signature", func(t *testing.T) {
-		var fn func(context.Context, string, string, string) error = DownloadAndVerify
-		_ = fn
+		_ = (func(context.Context, string, string, string) error)(DownloadAndVerify)
 	})
 }
 
