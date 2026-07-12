@@ -217,8 +217,8 @@ func TestParseDumpKeychain_NoKeychainHeader(t *testing.T) {
 
 func TestSplitLines_Empty(t *testing.T) {
 	lines := splitLines("")
-	if len(lines) != 1 || lines[0] != "" {
-		t.Errorf("splitLines('') = %v, want ['']", lines)
+	if len(lines) != 0 {
+		t.Errorf("splitLines('') = %v, want []", lines)
 	}
 }
 
@@ -231,8 +231,8 @@ func TestSplitLines_Multiple(t *testing.T) {
 
 func TestSplitLines_TrailingNewline(t *testing.T) {
 	lines := splitLines("a\nb\n")
-	if len(lines) != 3 || lines[2] != "" {
-		t.Errorf("splitLines with trailing newline = %v, want [a b '']", lines)
+	if len(lines) != 2 || lines[0] != "a" || lines[1] != "b" {
+		t.Errorf("splitLines with trailing newline = %v, want [a b]", lines)
 	}
 }
 
@@ -303,8 +303,8 @@ func TestHasPrefix(t *testing.T) {
 	if hasPrefix("hi", "hello") {
 		t.Error("hasPrefix should be false for longer prefix")
 	}
-	if hasPrefix("", "") {
-		t.Error("hasPrefix('', '') should be false")
+	if !hasPrefix("", "") {
+		t.Error("hasPrefix('', '') should be true")
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -205,8 +206,11 @@ func TestE2E_Version(t *testing.T) {
 
 	// Version output must start with "multiai " and contain a version number.
 	requireContains(t, stdout, "multiai")
-	// Must contain a semver-like pattern (digit.digit.digit)
-	requireContains(t, stdout, "0.5.0")
+	// Must contain a semver-like pattern (digit.digit.digit). Release builds
+	// may override the development version through ldflags.
+	if !regexp.MustCompile(`\b\d+\.\d+\.\d+\b`).MatchString(stdout) {
+		t.Fatalf("expected semver-like version output, got:\n%s", stdout)
+	}
 }
 
 // ---------------------------------------------------------------------------

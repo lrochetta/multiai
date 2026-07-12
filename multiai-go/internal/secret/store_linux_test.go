@@ -96,10 +96,11 @@ func extractArgsAfterDash() []string {
 // fakeSecretTool returns a replacement for execCommand that re-executes the test
 // binary as the fake secret-tool, with the given behavior.
 func fakeSecretTool(behavior string) func(string, ...string) *exec.Cmd {
-	return func(name string, args ...string) *exec.Cmd {
+	return func(_ string, args ...string) *exec.Cmd {
 		// Build args: -test.run to invoke the helper, then "--" as separator,
-		// then the original command name and args.
-		cmdArgs := []string{"-test.run=^TestSecretToolHelper$", "--", name}
+		// followed by the original command arguments. The executable name is
+		// intentionally omitted: secret-tool receives only its subcommand.
+		cmdArgs := []string{"-test.run=^TestSecretToolHelper$", "--"}
 		cmdArgs = append(cmdArgs, args...)
 		cmd := exec.Command(os.Args[0], cmdArgs...)
 		cmd.Env = append(os.Environ(),
