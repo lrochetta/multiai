@@ -3,10 +3,11 @@
 A Homebrew **cask** is generated at release time by GoReleaser (see the
 `homebrew_casks` section of `multiai-go/.goreleaser.yaml` — the old `brews`
 formula config is deprecated since GoReleaser 2.10) with the real SHA256 of
-each released macOS archive. On every `v*` tag it lands in:
+each released macOS archive. The section is now **active** (uncommented) and
+always produces the cask file. On every `v*` tag it lands in:
 
 ```
-dist/homebrew/Casks/multiai.rb
+dist/homebrew-tap/Casks/multiai.rb
 ```
 
 The generated cask includes a post-install hook that removes the macOS
@@ -36,10 +37,10 @@ only pushed when the token is explicitly provided.
    has push access to the tap repository.
 3. Add the PAT as a repository secret named `TAP_GITHUB_TOKEN` in the
    main `multiai` repository settings.
-4. In the CI workflow (`release.yml`), add the secret to the GoReleaser
-   step's `env:` block:
+4. The env is already wired in `release.yml` under the GoReleaser step:
    ```yaml
    env:
+     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
      TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
    ```
 
@@ -49,11 +50,11 @@ On the next `v*` tag, GoReleaser will push the updated cask to
 ## Manual publication (no token)
 
 If you have not configured `TAP_GITHUB_TOKEN`, the cask is still
-generated in `dist/homebrew/Casks/multiai.rb`. Copy this file to the
+generated in `dist/homebrew-tap/Casks/multiai.rb`. Copy this file to the
 `Casks/` directory of your tap repository:
 
 ```sh
-cp dist/homebrew/Casks/multiai.rb /path/to/homebrew-tap/Casks/
+cp dist/homebrew-tap/Casks/multiai.rb /path/to/homebrew-tap/Casks/
 cd /path/to/homebrew-tap
 git add Casks/multiai.rb
 git commit -m "multiai v$(git describe --tags)"

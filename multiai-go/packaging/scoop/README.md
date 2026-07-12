@@ -1,16 +1,15 @@
 # Scoop bucket — multiai
 
-The Scoop manifest for multiai is **generated at release time** by GoReleaser.
-It is post-processed by `packaging/scoop/patch-manifest.sh` to inject
-`checkver` and `autoupdate` fields required by Scoop's auto-update mechanism.
+The Scoop manifest for multiai is **generated at release time** by GoReleaser, with
+`checkver` and `autoupdate` fields natively injected (GoReleaser v2).
+`packaging/scoop/patch-manifest.sh` is kept as a dev fallback for local testing.
 
 ## How it works
 
 1. On every `v*` tag push, the release workflow runs `goreleaser release`.
-2. GoReleaser generates a base manifest into `dist/scoop/multiai.json` with:
+2. GoReleaser generates the full manifest into `dist/scoop-bucket/multiai.json` with:
    - Version, URL, and SHA256 hash of the Windows amd64 archive
    - Homepage, license, and description from `.goreleaser.yaml`
-3. The workflow then runs `patch-manifest.sh` which injects:
    - `checkver` — points to `lrochetta/multiai` GitHub releases so Scoop
      knows when a new version is available
    - `autoupdate` — URL template and hash extraction from `checksums.txt`
@@ -19,7 +18,7 @@ It is post-processed by `packaging/scoop/patch-manifest.sh` to inject
 ## Generated manifest location
 
 ```
-multiai-go/dist/scoop/multiai.json
+multiai-go/dist/scoop-bucket/multiai.json
 ```
 
 ## Installation
@@ -36,8 +35,8 @@ scoop install multiai
 ### Manual (first releases)
 
 1. After a release run completes, download the generated `multiai.json` from
-   the workflow's artifacts (or copy it from your local `dist/scoop/` after
-   running `goreleaser release --clean --skip-upload`).
+   the workflow's artifacts (or copy it from your local `dist/scoop-bucket/`
+   after running `goreleaser release --clean --skip-upload`).
 2. Push it to the `lrochetta/scoop-bucket` repository:
    ```powershell
    git clone https://github.com/lrochetta/scoop-bucket.git
@@ -54,13 +53,14 @@ scoop install multiai
    push access to `lrochetta/scoop-bucket`.
 2. Add it as a repository secret named `TAP_GITHUB_TOKEN` in the multiai
    repository settings (Settings > Secrets and variables > Actions).
-3. In `.goreleaser.yaml`, set `skip_upload: false` for the `scoops` section.
-4. The next release will automatically push the generated (and patched)
-   manifest to `lrochetta/scoop-bucket`.
+3. The env is already wired in `release.yml` under the GoReleaser step.
+   The next release will automatically push the generated manifest to
+   `lrochetta/scoop-bucket`.
 
 ## Checkver and autoupdate details
 
-The patched manifest includes:
+These fields are now generated **natively by GoReleaser** — no post-processing
+step is required. The manifest includes:
 
 ```json
 {

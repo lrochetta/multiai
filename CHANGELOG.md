@@ -66,7 +66,48 @@ All notable changes to the multiai project.
 
 ---
 
-## [multiai-go 0.4.0-dev] — Unreleased
+## [multiai-go 0.6.0] — 2026-07-12
+
+> **24 stories livrées** (5 BLOCKER + 10 HIGH + 8 MEDIUM + 1 LOW) — Écosystème & Distribution.
+> Credential stores natifs, 5 package managers, registre communautaire, quality gates CI.
+
+### 🔴 Sécurité — Credential Stores Natifs (7 stories)
+
+- **S5.1 — WinCred** : `internal/secret/store_windows.go` natif via `wincred` API. Intégration Windows Credential Manager (lecture/écriture/suppression). Tests unitaires avec parser mocké. Story S5.1.
+- **S5.2 — Keychain** : `internal/secret/store_darwin.go` natif via `security` CLI. Intégration macOS Keychain, fallback shell-out si CGo indisponible. Tests `parseDumpKeychain` macOS. Story S5.2.
+- **S5.3 — libsecret** : `internal/secret/store_linux.go` natif via `secret-tool` exec. Intégration D-Bus secret-service, détection via `DBUS_SESSION_BUS_ADDRESS`. Tests avec exec.Command mocké. Story S5.3.
+- **S5.4 — `--store` flag** : `multiai config --store wincred|keychain|secret-service|file|auto`. Routage utilisateur vers le backend choisi, validation du nom, message clair. Story S5.4.
+- **S5.5 — Zéroisation mémoire** : `Zeroize()` dans `internal/secret/crypto.go` avec protection anti-optimisation compilateur (`//go:nosplit`, `runtime.KeepAlive`). Appelée partout après usage du masterKey. Benchmarks et tests `-race` propres. Story S5.5.
+- **S5.6 — Fallback fichier** : si store natif indisponible (API non trouvée, D-Bus absent), fallback silencieux vers le store fichier AES-256-GCM existant. Détection automatique, zéro message d'erreur. Story S5.6.
+- **S5.7 — Migration auto** : `secret.MigrateFromFileStore()` déclenchée au premier `multiai config --store <natif>`. Verrou inter-processus, rollback sur échec, messages i18n. Story S5.7.
+
+### 🟠 Distribution — Package Managers (6 stories)
+
+- **S6.1 — APT (Ubuntu/Debian)** : dépôt sur GitHub Pages avec `Release`, `Packages.gz`, `InRelease`. Script `scripts/update-apt-repo.sh`. Architectures amd64 + arm64. Story S6.1.
+- **S6.2 — AUR (Arch Linux)** : `PKGBUILD` avec `source=`, `sha256sums` dynamiques, `validpgpkeys=`. Script `scripts/update-aur-checksums.sh` pour mise à jour automatique. Story S6.2.
+- **S6.3 — Migration PowerShell** : `cmd/multiai/cmd_migrate.go` — `multiai migrate --from-ps`. Détecte l'installation PowerShell legacy, importe les profils `.env`, les clés API, la configuration. Story S6.3.
+- **S6.4 — Homebrew tap** : `goreleaser` pousse automatiquement la formula dans `homebrew-tap`. `brew install --cask lrochetta/tap/multiai`. Story S6.4.
+- **S6.5 — Scoop bucket** : `goreleaser` pousse le manifeste dans `scoop-bucket`. `scoop install multiai`. Story S6.5.
+- **S6.6 — Scripts d'installation** : `install.sh` (Linux/macOS) et `install.ps1` (Windows) avec vérification SHA256, détection OS/arch, progression. Tests CI sur chaque OS. Story S6.6.
+
+### 🔵 Qualité — Quality Gates & Tests (5 stories)
+
+- **S7.1 — Tests E2E complets** : 15+ tests d'intégration dans `tests/` couvrant le cycle complet (config → launch → fallback → exit code). Tests cross-platform CI (Linux, macOS, Windows). Story S7.1.
+- **S7.2 — Timeout processus enfants** : `LaunchOptions.Timeout` + `context.WithTimeout`. `--timeout 30s` dans l'interface CLI. Processus tué proprement (SIGTERM → SIGKILL). Messages i18n FR/EN. Story S7.2.
+- **S7.3 — Whitelist case-insensitive Windows** : `BuildCleanEnv()` normalise les noms de variables via `strings.EqualFold` sur Windows. `%Path%` et `%PATH%` résolus correctement. Story S7.3.
+- **S7.4 — Quality gates CI** : `govulncheck ./...` bloquant (0 CVE). `golangci-lint run ./...` avec 15+ linters (errcheck, gocyclo, misspell, gosec). `staticcheck` sans `|| true`. Story S7.4.
+- **S7.6 — Fuzz testing étendu** : 7 fuzzers (`.env`, YAML, profile parser, store serialization, cache, i18n keys, service name). Zero crash après 1h CPU. Story S7.6.
+
+### 🟣 Communauté — Registre & Écosystème (6 stories)
+
+- **S8.1 — Dépôt registre communautaire** : `github.com/lrochetta/profiles-multiai` avec 12 profils seed, `index.json` pour la découverte, workflow `validate.yml` (gitleaks, en-têtes, sécurité, doublons). Story S8.1.
+- **S8.3 — `multiai profile search`** : recherche full-text dans le registre communautaire via `index.json`. Cache 1h, mode offline, tri par pertinence. Story S8.3.
+- **S8.4 — `multiai profile install`** : téléchargement et installation d'un profil depuis le registre. Vérification SHA256, gestion de conflits, backup de l'ancien profil. Story S8.4.
+- **S8.5 — Documentation contributrice** : `docs/advanced/contributing-profiles.md` guide complet pour soumettre un profil. `CONTRIBUTING.md` mis à jour avec section profils. Story S8.5.
+- **S8.6 — Feedback & Discussions** : 6 catégories GitHub Discussions (General, Q&A, Show and Tell, Ideas, Profiles, Support). Templates dédiés. Story S8.6.
+- **S8.7 — Badges README** : 12 badges (Go Report Card, Codecov, OpenSSF Scorecard, CI, License, Cosign, Go Version, Platform, npm, npm downloads, Stars, Discussions). Story S8.7.
+
+---
 
 Jalon de **parité fonctionnelle** avec l'implémentation PowerShell v0.3.0 : le
 binaire Go devient l'implémentation de référence. Le saut de version 0.2.x → 0.4.0

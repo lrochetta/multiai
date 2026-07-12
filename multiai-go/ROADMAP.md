@@ -55,26 +55,31 @@ Devenir le routeur de reference pour les developpeurs utilisant plusieurs CLI d'
 
 ---
 
-## v0.6.0 — Ecosysteme & Distribution
+## v0.6.0 (livré) — Écosystème & Distribution
 
-- [ ] Store natif OS (Windows Credential Manager, macOS Keychain, libsecret Linux)
-- [ ] Registre communautaire de profils
-- [ ] APT (Ubuntu/Debian)
-- [ ] AUR (Arch Linux) — SHA256 verifies
-- [ ] `multiai config --store wincred|keychain|secret-service` implemente
-- [ ] Zeroisation memoire complete des secrets
-- [ ] Timeout/context sur processus enfants
-- [ ] Whitelist env case-insensitive sous Windows
-- [ ] Tests d'integration complets (E2E)
-- [ ] Migration automatique depuis l'ancienne version PowerShell
+- [x] Store natif OS (Windows Credential Manager, macOS Keychain, libsecret Linux)
+- [x] Registre communautaire de profils (`multiai profile search/install`)
+- [x] APT (Ubuntu/Debian)
+- [x] AUR (Arch Linux) — SHA256 vérifiés
+- [x] `multiai config --store wincred|keychain|secret-service|file|auto` implémenté
+- [x] Zéroisation mémoire complète des secrets
+- [x] Timeout/context sur processus enfants (`--timeout 30s`)
+- [x] Whitelist env case-insensitive sous Windows
+- [x] Tests d'intégration complets (E2E)
+- [x] Migration automatique depuis l'ancienne version PowerShell
 
 ## v1.0.0 — Production
 
-- [ ] >=90% test coverage
-- [ ] 0 vulnerabilite connue (govulncheck)
+- [ ] Qualité industrielle (ADRs, diagrammes C4, godoc complet)
+- [ ] 75%+ test coverage (90% sur packages critiques)
+- [ ] 0 CVE connu (govulncheck -- permanent)
 - [ ] 0 warning golangci-lint
-- [ ] Documentation complete (site + help integre)
-- [ ] Programme de feedback (Discord/Discussions)
+- [ ] Documentation complète (20+ pages VitePress, site build propre)
+- [ ] CONTRIBUTING.md v2 + 10 good first issues
+- [ ] Sécurité >= 9.0/10 (audit 6 vecteurs)
+- [ ] Programme de feedback (Discord/Discussions actif)
+- [ ] Campagne lancement (Product Hunt, Show HN, Reddit, newsletters)
+- [ ] Vidéo démo 3 min + tutoriel 12 min
 - [ ] 500+ stars GitHub
 - [ ] 10+ contributeurs externes
-- [ ] 3500+ telechargements cumules
+- [ ] 3500+ téléchargements cumulés

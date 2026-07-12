@@ -11,7 +11,7 @@
 [![Cosign](https://img.shields.io/badge/signed-Cosign%20keyless-2ea44f)](https://github.com/lrochetta/multiai)
 
 <!-- Distribution -->
-[![Go Version](https://img.shields.io/badge/Go-1.22-blue)](https://go.dev)
+[![Go Version](https://img.shields.io/badge/Go-1.24-blue)](https://go.dev)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078D4)](#installation)
 [![npm](https://img.shields.io/npm/v/multiai)](https://www.npmjs.com/package/multiai)
 [![npm downloads](https://img.shields.io/npm/dm/multiai)](https://www.npmjs.com/package/multiai)
@@ -82,11 +82,13 @@ Lancement : claude (OpenRouter Fusion — panel multi-modele)
 
 | Méthode | Commande | Disponibilité |
 |---------|----------|---------------|
-| **npm** | `npx multiai install` | ✅ v0.4.2 (binaire Go natif, SHA256 vérifié) |
+| **npm** | `npx multiai install` | ✅ v0.6.0 (binaire Go natif, SHA256 vérifié) |
 | **Go** | `go install github.com/lrochetta/multiai/multiai-go/cmd/multiai@latest` | ✅ maintenant |
-| **Homebrew** | `brew install --cask lrochetta/tap/multiai` | ✅ v0.4.3 (auto-upload GoReleaser) |
-| **Scoop** | `scoop bucket add lrochetta https://github.com/lrochetta/scoop-bucket && scoop install lrochetta/multiai` | ✅ v0.4.3 (auto-upload GoReleaser) |
-| **Script** | `curl -fsSL https://rochetta.fr/multiai/install.sh \| bash` | v0.4.2 |
+| **Homebrew** | `brew install --cask lrochetta/tap/multiai` | ✅ v0.6.0 (auto-upload GoReleaser) |
+| **Scoop** | `scoop bucket add lrochetta https://github.com/lrochetta/scoop-bucket && scoop install lrochetta/multiai` | ✅ v0.6.0 (auto-upload GoReleaser) |
+| **APT** | `apt install multiai` | ✅ v0.6.0 (dépôt GitHub Pages) |
+| **AUR** | `yay -S multiai` | ✅ v0.6.0 (PKGBUILD SHA256) |
+| **Script** | `curl -fsSL https://rochetta.fr/multiai/install.sh \| bash` | ✅ v0.6.0 |
 
 ---
 
@@ -94,7 +96,7 @@ Lancement : claude (OpenRouter Fusion — panel multi-modele)
 
 | Composant | Version | Rôle |
 |-----------|---------|------|
-| `multiai-go/` | **v0.4.2** | Implémentation de référence : binaire Go natif, 37 profils, 13 fournisseurs, fallback chains, credential store AES-256-GCM, menus colorés, Cosign keyless |
+| `multiai-go/` | **v0.6.0** | Implémentation de référence : binaire Go natif, 37 profils, 13 fournisseurs, fallback chains, credential store natif OS + AES-256-GCM, menus colorés, Cosign keyless, registre communautaire |
 | `multiai-powershell/` | v0.3.0 (gelée) | Version d'origine, archivée — le package npm a basculé sur le binaire Go en v0.4.0 |
 
 ---
@@ -102,16 +104,20 @@ Lancement : claude (OpenRouter Fusion — panel multi-modele)
 ## Usage rapide
 
 ```bash
-multiai                        # Menu interactif
-multiai launch -p ds           # DeepSeek V4 Pro via Claude Code
-multiai launch -p or-fusion    # OpenRouter Fusion (panel multi-modele)
-multiai launch -p codex55      # Codex GPT-5.5
-multiai list --json            # Liste tous les profils en JSON
-multiai config                 # Configurer les cles API (menu colore vert/jaune/gris)
-multiai launch -t claude        # Choisir un profil Claude Code (menu colore)
-multiai models                 # Decouvrir les modeles OpenRouter (300+)
-multiai search "claude"        # Rechercher un modele
-multiai completion bash        # Autocompletion bash
+multiai                                # Menu interactif
+multiai launch -p ds                   # DeepSeek V4 Pro via Claude Code
+multiai launch -p or-fusion --timeout 120s  # Avec limite de temps
+multiai launch -p codex55              # Codex GPT-5.5
+multiai list --json                    # Liste tous les profils en JSON
+multiai config                         # Configurer les cles API (menu colore)
+multiai config --store wincred         # Store natif Windows Credential Manager
+multiai launch -t claude               # Choisir un profil Claude Code
+multiai models                         # Decouvrir les modeles OpenRouter (300+)
+multiai search "claude"                # Rechercher un modele
+multiai profile search deepseek        # Chercher un profil communautaire
+multiai profile install ds-pro         # Installer un profil du registre
+multiai migrate --from-ps              # Migrer depuis PowerShell legacy
+multiai completion bash                # Autocompletion bash
 ```
 
 ---
@@ -235,7 +241,7 @@ Windows amd64 • macOS Intel • macOS Apple Silicon • Linux amd64/arm64
 
 ```
 .
-├── multiai-go/                  → Go v0.4.0 (implémentation de référence)
+├── multiai-go/                  → Go v0.6.0 (implémentation de référence)
 │   ├── cmd/multiai/             → Point d'entrée CLI (7 sous-commandes)
 │   ├── internal/
 │   │   ├── assets/              → 37 profils .env embarqués
@@ -264,16 +270,19 @@ Windows amd64 • macOS Intel • macOS Apple Silicon • Linux amd64/arm64
 
 ## Qualité & Audit
 
-**Score global BMAD+ : 8.5/10** (audit 3 agents — 2026-07-05)
+**Score global BMAD+ : 9.0/10** (audit 5 agents — 2026-07-12)
 
 | Métrique | Valeur |
 |----------|--------|
-| Tests Go | 13 packages, tous verts |
+| Tests Go | 15+ packages, tous verts |
 | go vet | 0 warning |
+| golangci-lint | 0 warning (15+ linters) |
 | govulncheck | 0 vulnérabilité |
-| Dépendances Go | 1 seule (yaml.v3), 0 CVE |
-| CI/CD | lint → test (3 OS) → security → build → release (GoReleaser + Cosign) |
-| Release signing | SHA256 + Cosign keyless + GitHub provenance |
+| Fuzz testing | 7 fuzzers, 0 crash |
+| CI/CD | lint → test (5 OS) → quality gates → security → build → release (GoReleaser + Cosign) |
+| Release signing | SHA256 + Cosign keyless + SBOM CycloneDX + GitHub provenance |
+| Stores natifs | WinCred, Keychain, libsecret + fallback AES-256-GCM |
+| Distribution | npm, Go install, Homebrew, Scoop, APT, AUR |
 
 Rapports d'audit complets dans [`audit/`](audit/).
 
