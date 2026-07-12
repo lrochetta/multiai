@@ -186,10 +186,10 @@ func FindByShortcut(profiles []Profile, name string) (*Profile, error) {
 		}
 	}
 	if len(matches) == 0 {
-		return nil, fmt.Errorf("profil introuvable : %s. Lance 'multiai -List' pour voir les profils.", name)
+		return nil, fmt.Errorf("profil introuvable : %s. Lance 'multiai -List' pour voir les profils", name)
 	}
 	if len(matches) > 1 {
-		return nil, fmt.Errorf("plusieurs profils correspondent a : %s. Utilise l'id exact.", name)
+		return nil, fmt.Errorf("plusieurs profils correspondent a : %s. Utilise l'id exact", name)
 	}
 	return &matches[0], nil
 }

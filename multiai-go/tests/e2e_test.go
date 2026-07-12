@@ -122,14 +122,6 @@ func requireContains(t *testing.T, s, substr string) {
 	}
 }
 
-// requireNotContains fails the test if s contains substr.
-func requireNotContains(t *testing.T, s, substr string) {
-	t.Helper()
-	if strings.Contains(s, substr) {
-		t.Errorf("expected output NOT to contain %q\n--- got:\n%s", substr, s)
-	}
-}
-
 // requireJSONValid fails the test if s cannot be unmarshalled into v.
 func requireJSONValid(t *testing.T, s string, v interface{}) {
 	t.Helper()

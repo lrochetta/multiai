@@ -299,8 +299,6 @@ func main() {
 				fmt.Fprintf(os.Stderr, "%s\n", i18n.T("store_migrated", len(report.Migrated)))
 			} else if len(report.ServicesFound) > 0 && len(report.Migrated) == 0 {
 				fmt.Fprintf(os.Stderr, "%s\n", i18n.T("store_migrate_skip", len(report.Skipped)))
-			} else {
-				// No services found at all -- nothing to migrate, silent.
 			}
 		}
 		if hasFlag(os.Args, "--provider") {

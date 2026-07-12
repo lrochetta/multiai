@@ -24,7 +24,7 @@ func TestTargetName_Format(t *testing.T) {
 	// Verify hex prefix is 16 hex chars
 	hexPart := tn[4:20]
 	for i, c := range hexPart {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			t.Errorf("hexPart[%d] = %c, want hex digit", i, c)
 		}
 	}

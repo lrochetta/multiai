@@ -89,12 +89,7 @@ func FuzzLaunchArgs(f *testing.F) {
 			Tool:        cmd + "_tool",
 			Command:     cmd,
 		}
-		expanded := expandHookVars(arg, prof)
-		// If input contains {{.Profile.*}} they should be replaced.
-		// Must never contain unresolved templates.
-		if strings.Contains(expanded, "{{.") {
-			// Some templates may remain if they don't match known keys — that's fine.
-		}
+		_ = expandHookVars(arg, prof)
 	})
 }
 
