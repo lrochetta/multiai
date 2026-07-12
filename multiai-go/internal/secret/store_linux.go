@@ -15,8 +15,8 @@ var execCommand = exec.Command
 // using the secret-tool CLI (libsecret). The actual secret is piped through
 // stdin on store, never passed as an argument.
 //
-// If secret-tool is not available in PATH, newPlatformStore returns an error.
-// The caller (S5.6) is responsible for falling back to the encrypted file store.
+// If secret-tool is not available in PATH, newPlatformStore falls back to the
+// encrypted file store so headless Linux environments remain usable.
 type libsecretStore struct{}
 
 // secretToolCheckPath wraps exec.LookPath so tests can mock availability checks.
@@ -24,7 +24,11 @@ var secretToolLookPath = exec.LookPath
 
 func newPlatformStore() (Store, error) {
 	if _, err := secretToolLookPath("secret-tool"); err != nil {
-		return nil, fmt.Errorf("secret-tool not found in PATH: %w", err)
+		store, storeErr := newEncryptedFileStore()
+		if storeErr != nil {
+			return nil, fmt.Errorf("secret-tool not found in PATH (%v) and file store unavailable: %w", err, storeErr)
+		}
+		return &fallbackStoreWrapper{store: store}, nil
 	}
 	return &libsecretStore{}, nil
 }

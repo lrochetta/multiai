@@ -13,7 +13,7 @@ package secret
 // ── CF helpers ──────────────────────────────────────────────────────────
 
 static CFStringRef _cfstr(const char *s) {
-	return CFStringCreateWithCString(kCFAllocDefault, s, kCFStringEncodingUTF8);
+	return CFStringCreateWithCString(kCFAllocatorDefault, s, kCFStringEncodingUTF8);
 }
 
 // _cfstrdup returns a malloc'd C copy of the CFString, or NULL.
@@ -38,12 +38,12 @@ int darwin_keychain_set(const char *service, const char *account,
 						const char *password, char **error) {
 	CFStringRef cfService = _cfstr(service);
 	CFStringRef cfAccount = _cfstr(account);
-	CFDataRef cfPassword = CFDataCreate(kCFAllocDefault,
+	CFDataRef cfPassword = CFDataCreate(kCFAllocatorDefault,
 		(const UInt8 *)password, (CFIndex)strlen(password));
 
 	const void *addKeys[] = { kSecClass, kSecAttrService, kSecAttrAccount, kSecValueData };
 	const void *addVals[] = { kSecClassGenericPassword, cfService, cfAccount, cfPassword };
-	CFDictionaryRef addQuery = CFDictionaryCreate(kCFAllocDefault,
+	CFDictionaryRef addQuery = CFDictionaryCreate(kCFAllocatorDefault,
 		addKeys, addVals, 4,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
@@ -52,13 +52,13 @@ int darwin_keychain_set(const char *service, const char *account,
 		// Update the existing item's password.
 		const void *findKeys[] = { kSecClass, kSecAttrService, kSecAttrAccount };
 		const void *findVals[] = { kSecClassGenericPassword, cfService, cfAccount };
-		CFDictionaryRef findQuery = CFDictionaryCreate(kCFAllocDefault,
+		CFDictionaryRef findQuery = CFDictionaryCreate(kCFAllocatorDefault,
 			findKeys, findVals, 3,
 			&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
 		const void *updKeys[] = { kSecValueData };
 		const void *updVals[] = { cfPassword };
-		CFDictionaryRef updQuery = CFDictionaryCreate(kCFAllocDefault,
+		CFDictionaryRef updQuery = CFDictionaryCreate(kCFAllocatorDefault,
 			updKeys, updVals, 1,
 			&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
@@ -93,7 +93,7 @@ int darwin_keychain_get(const char *service, const char *account,
 						   kSecReturnData, kSecMatchLimit };
 	const void *vals[] = { kSecClassGenericPassword, cfService, cfAccount,
 						   kCFBooleanTrue, kSecMatchLimitOne };
-	CFDictionaryRef query = CFDictionaryCreate(kCFAllocDefault,
+	CFDictionaryRef query = CFDictionaryCreate(kCFAllocatorDefault,
 		keys, vals, 5,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
@@ -135,7 +135,7 @@ int darwin_keychain_delete(const char *service, const char *account,
 
 	const void *keys[] = { kSecClass, kSecAttrService, kSecAttrAccount };
 	const void *vals[] = { kSecClassGenericPassword, cfService, cfAccount };
-	CFDictionaryRef query = CFDictionaryCreate(kCFAllocDefault,
+	CFDictionaryRef query = CFDictionaryCreate(kCFAllocatorDefault,
 		keys, vals, 3,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
@@ -165,7 +165,7 @@ int darwin_keychain_list(const char *service, char ***accounts,
 						   kSecReturnAttributes, kSecReturnData, kSecMatchLimit };
 	const void *vals[] = { kSecClassGenericPassword, cfService,
 						   kCFBooleanTrue, kCFBooleanTrue, kSecMatchLimitAll };
-	CFDictionaryRef query = CFDictionaryCreate(kCFAllocDefault,
+	CFDictionaryRef query = CFDictionaryCreate(kCFAllocatorDefault,
 		keys, vals, 5,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
