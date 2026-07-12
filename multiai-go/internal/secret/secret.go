@@ -150,7 +150,6 @@ func NewStoreWithBackend(backend string) (Store, error) {
 	}
 }
 
-
 // ── Encrypted File Store (fallback pour Linux) ──────────────────────────────
 
 type encryptedFileStore struct {
