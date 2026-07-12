@@ -5,6 +5,7 @@ package config
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strconv"
@@ -143,7 +144,13 @@ func runConfigMenu(cat *catalog.Catalog, byShortcut map[string]*profile.Profile,
 		fmt.Println()
 		fmt.Print(i18n.T("choice_prompt"))
 
-		choice, _ := reader.ReadString('\n')
+		choice, err := reader.ReadString('\n')
+		if err != nil && err != io.EOF {
+			return fmt.Errorf("read configuration choice: %w", err)
+		}
+		if err == io.EOF && len(choice) == 0 {
+			return nil
+		}
 		choice = strings.TrimSpace(choice)
 
 		switch {

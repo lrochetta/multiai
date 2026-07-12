@@ -60,7 +60,7 @@ func TestUpdateEnvFile_SentinelInvariant(t *testing.T) {
 	}
 
 	const value = "sk-ant-api03-wizard-test-1234567890"
-	if err := updateEnvFile(profPath, "ANTHROPIC_API_KEY", value, false); err != nil {
+	if err := updateEnvFile(profPath, "ANTHROPIC_API_KEY", value, false, nil); err != nil {
 		t.Fatalf("updateEnvFile: %v", err)
 	}
 
@@ -96,7 +96,7 @@ func TestUpdateEnvFile_VariableNotFound(t *testing.T) {
 	if err := os.WriteFile(profPath, []byte("SHORTCUT=ca\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := updateEnvFile(profPath, "MISSING_VAR", "x", false); err != nil {
+	if err := updateEnvFile(profPath, "MISSING_VAR", "x", false, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	data, _ := os.ReadFile(profPath)
@@ -167,7 +167,7 @@ func TestValidateAPIKey(t *testing.T) {
 // ── ConfigureProviderByID (contract consumed by cmd/multiai) ────────────────
 
 func TestConfigureProviderByID_UnknownProvider(t *testing.T) {
-	err := ConfigureProviderByID(nil, "doesnotexist", newReader(""))
+	err := ConfigureProviderByID(nil, "doesnotexist", newReader(""), nil)
 	if err == nil {
 		t.Fatal("expected error for unknown provider id")
 	}
@@ -193,7 +193,7 @@ func TestConfigureProviderByID_PropagatesToWholeGroup(t *testing.T) {
 	}
 
 	const key = "sk-ant-api03-group-propagation-test-123"
-	if err := ConfigureProviderByID(profiles, "anthropic", newReader(key+"\n")); err != nil {
+	if err := ConfigureProviderByID(profiles, "anthropic", newReader(key+"\n"), nil); err != nil {
 		t.Fatalf("ConfigureProviderByID: %v", err)
 	}
 
@@ -223,7 +223,7 @@ func TestConfigureProviderByID_EmptyInputIgnores(t *testing.T) {
 		writeProfile(t, dir, "ca", "ANTHROPIC_API_KEY", "PASTE_ANTHROPIC_API_KEY_HERE"),
 	}
 
-	if err := ConfigureProviderByID(profiles, "anthropic", newReader("\n")); err != nil {
+	if err := ConfigureProviderByID(profiles, "anthropic", newReader("\n"), nil); err != nil {
 		t.Fatalf("ConfigureProviderByID: %v", err)
 	}
 	if got := readFile(t, profiles[0].Path); !strings.Contains(got, "ANTHROPIC_API_KEY=PASTE_ANTHROPIC_API_KEY_HERE") {
@@ -240,7 +240,7 @@ func TestConfigureProviderByID_ShortKeyDeclined(t *testing.T) {
 		writeProfile(t, dir, "ca", "ANTHROPIC_API_KEY", "PASTE_ANTHROPIC_API_KEY_HERE"),
 	}
 
-	if err := ConfigureProviderByID(profiles, "anthropic", newReader("short\nn\n")); err != nil {
+	if err := ConfigureProviderByID(profiles, "anthropic", newReader("short\nn\n"), nil); err != nil {
 		t.Fatalf("ConfigureProviderByID: %v", err)
 	}
 	if got := readFile(t, profiles[0].Path); !strings.Contains(got, "PASTE_ANTHROPIC_API_KEY_HERE") {
@@ -257,7 +257,7 @@ func TestConfigureProviderByID_ShortKeyForced(t *testing.T) {
 		writeProfile(t, dir, "ca", "ANTHROPIC_API_KEY", "PASTE_ANTHROPIC_API_KEY_HERE"),
 	}
 
-	if err := ConfigureProviderByID(profiles, "anthropic", newReader("short\no\n")); err != nil {
+	if err := ConfigureProviderByID(profiles, "anthropic", newReader("short\no\n"), nil); err != nil {
 		t.Fatalf("ConfigureProviderByID: %v", err)
 	}
 	if got := readFile(t, profiles[0].Path); !strings.Contains(got, "ANTHROPIC_API_KEY="+secret.Sentinel) {
@@ -268,7 +268,7 @@ func TestConfigureProviderByID_ShortKeyForced(t *testing.T) {
 func TestConfigureProviderByID_CaseInsensitiveID(t *testing.T) {
 	t.Setenv("MULTIAI_SECRETS_DIR", t.TempDir())
 	// No profiles installed: the provider prompt prints a warning and returns.
-	if err := ConfigureProviderByID(nil, "ANTHROPIC", newReader("")); err != nil {
+	if err := ConfigureProviderByID(nil, "ANTHROPIC", newReader(""), nil); err != nil {
 		t.Fatalf("uppercase id should resolve: %v", err)
 	}
 }
@@ -285,7 +285,7 @@ func TestRunConfigMenu_ConfigureByNumber(t *testing.T) {
 
 	const key = "sk-ant-api03-menu-flow-test-99887766"
 	input := "12\n" + key + "\n0\n"
-	if err := runConfigMenu(catalog.Default(), byShortcut, newReader(input)); err != nil {
+	if err := runConfigMenu(catalog.Default(), byShortcut, newReader(input), nil); err != nil {
 		t.Fatalf("runConfigMenu: %v", err)
 	}
 
@@ -301,8 +301,15 @@ func TestRunConfigMenu_ConfigureByNumber(t *testing.T) {
 // TestRunConfigMenu_InvalidChoiceThenExit: bad input warns and loops.
 func TestRunConfigMenu_InvalidChoiceThenExit(t *testing.T) {
 	t.Setenv("MULTIAI_SECRETS_DIR", t.TempDir())
-	if err := runConfigMenu(catalog.Default(), nil, newReader("zz\n99\n0\n")); err != nil {
+	if err := runConfigMenu(catalog.Default(), nil, newReader("zz\n99\n0\n"), nil); err != nil {
 		t.Fatalf("runConfigMenu: %v", err)
+	}
+}
+
+func TestRunConfigMenu_EOFReturns(t *testing.T) {
+	t.Setenv("MULTIAI_SECRETS_DIR", t.TempDir())
+	if err := runConfigMenu(catalog.Default(), nil, newReader(""), nil); err != nil {
+		t.Fatalf("runConfigMenu on EOF: %v", err)
 	}
 }
 
@@ -317,7 +324,7 @@ func TestRunConfigMenu_AllSequenceWithEmptyInput(t *testing.T) {
 	// 13 empty answers (one per provider; only anthropic has a profile but
 	// every provider prompts or warns) + "n" for the launch prompt.
 	input := "a\n" + strings.Repeat("\n", 13) + "n\n"
-	if err := runConfigMenu(catalog.Default(), byShortcut, newReader(input)); err != nil {
+	if err := runConfigMenu(catalog.Default(), byShortcut, newReader(input), nil); err != nil {
 		t.Fatalf("runConfigMenu: %v", err)
 	}
 	if got := readFile(t, prof.Path); !strings.Contains(got, "PASTE_ANTHROPIC_API_KEY_HERE") {
@@ -343,7 +350,7 @@ func configureGroup(t *testing.T, dir string, providerID string, key string, sho
 		}
 		profiles = append(profiles, writeProfile(t, dir, sc, varName, "PASTE_"+varName+"_HERE"))
 	}
-	if err := ConfigureProviderByID(profiles, providerID, newReader(key+"\n")); err != nil {
+	if err := ConfigureProviderByID(profiles, providerID, newReader(key+"\n"), nil); err != nil {
 		t.Fatal(err)
 	}
 	return profiles, prov
@@ -358,7 +365,7 @@ func TestEraseProviderKeys_ResetsFilesAndStore(t *testing.T) {
 	profiles, prov := configureGroup(t, dir, "anthropic", key, "ca", "ocanthropic")
 	byShortcut := shortcutIndex(profiles)
 
-	if n := EraseProviderKeys(prov, byShortcut); n != 2 {
+	if n := EraseProviderKeys(prov, byShortcut, nil); n != 2 {
 		t.Fatalf("erased = %d, want 2", n)
 	}
 
@@ -386,7 +393,7 @@ func TestEraseProviderKeys_ResetsFilesAndStore(t *testing.T) {
 func TestEraseProviderKeys_SkipsMissingProfiles(t *testing.T) {
 	t.Setenv("MULTIAI_SECRETS_DIR", t.TempDir())
 	prov, _ := catalog.Default().ProviderByID("anthropic")
-	if n := EraseProviderKeys(prov, map[string]*profile.Profile{}); n != 0 {
+	if n := EraseProviderKeys(prov, map[string]*profile.Profile{}, nil); n != 0 {
 		t.Errorf("erased = %d, want 0 with no installed profiles", n)
 	}
 }
@@ -400,7 +407,7 @@ func TestEraseProviderKeys_UnconfiguredCreatesNoStoreEntry(t *testing.T) {
 	prof := writeProfile(t, dir, "ca", "ANTHROPIC_API_KEY", "PASTE_ANTHROPIC_API_KEY_HERE")
 	prov, _ := catalog.Default().ProviderByID("anthropic")
 
-	if n := EraseProviderKeys(prov, shortcutIndex([]profile.Profile{prof})); n != 1 {
+	if n := EraseProviderKeys(prov, shortcutIndex([]profile.Profile{prof}), nil); n != 1 {
 		t.Fatalf("erased = %d, want 1 (placeholder rewrite still counts)", n)
 	}
 	entries, err := filepath.Glob(filepath.Join(secretsDir, "*.enc"))
@@ -428,7 +435,7 @@ func TestEraseProviderKeys_StoreUnavailableStillCleansFiles(t *testing.T) {
 	prov, _ := catalog.Default().ProviderByID("anthropic")
 	byShortcut := shortcutIndex([]profile.Profile{prof})
 
-	if n := EraseProviderKeys(prov, byShortcut); n != 1 {
+	if n := EraseProviderKeys(prov, byShortcut, nil); n != 1 {
 		t.Fatalf("erased = %d, want 1", n)
 	}
 	if got := readFile(t, prof.Path); !strings.Contains(got, "ANTHROPIC_API_KEY=PASTE_ANTHROPIC_API_KEY_HERE") {
@@ -445,7 +452,7 @@ func TestRunEraseMenu_SingleProviderWithConfirmation(t *testing.T) {
 	profiles, _ := configureGroup(t, dir, "anthropic", key, "ca")
 	byShortcut := shortcutIndex(profiles)
 
-	runEraseMenu(catalog.Default(), byShortcut, newReader("12\noui\n"))
+	runEraseMenu(catalog.Default(), byShortcut, newReader("12\noui\n"), nil)
 
 	if got := readFile(t, profiles[0].Path); !strings.Contains(got, "PASTE_ANTHROPIC_API_KEY_HERE") {
 		t.Errorf("key not erased via menu:\n%s", got)
@@ -460,7 +467,7 @@ func TestRunEraseMenu_RefusedConfirmationKeepsKeys(t *testing.T) {
 	profiles, _ := configureGroup(t, dir, "anthropic", key, "ca")
 	byShortcut := shortcutIndex(profiles)
 
-	runEraseMenu(catalog.Default(), byShortcut, newReader("12\nnon\n"))
+	runEraseMenu(catalog.Default(), byShortcut, newReader("12\nnon\n"), nil)
 
 	if got := readFile(t, profiles[0].Path); !strings.Contains(got, "ANTHROPIC_API_KEY="+secret.Sentinel) {
 		t.Errorf("refused confirmation must keep the key:\n%s", got)
@@ -484,7 +491,7 @@ func TestRunEraseMenu_EraseAll(t *testing.T) {
 	all := append(append([]profile.Profile{}, anthProfiles...), orProfiles...)
 	byShortcut := shortcutIndex(all)
 
-	runEraseMenu(catalog.Default(), byShortcut, newReader("a\noui\n"))
+	runEraseMenu(catalog.Default(), byShortcut, newReader("a\noui\n"), nil)
 
 	for _, p := range all {
 		data := readFile(t, p.Path)
@@ -508,7 +515,7 @@ func TestRunConfigMenu_EraseFlowEndToEnd(t *testing.T) {
 	// e -> erase menu; 1 -> openrouter; oui -> confirm; \n -> "Entree pour
 	// revenir"; 0 -> exit config menu.
 	input := "e\n1\noui\n\n0\n"
-	if err := runConfigMenu(catalog.Default(), byShortcut, newReader(input)); err != nil {
+	if err := runConfigMenu(catalog.Default(), byShortcut, newReader(input), nil); err != nil {
 		t.Fatalf("runConfigMenu: %v", err)
 	}
 	if got := readFile(t, profiles[0].Path); !strings.Contains(got, "PASTE_OPENROUTER_API_KEY_HERE") {

@@ -123,6 +123,6 @@ func FuzzConfigEraseKeys(f *testing.F) {
 		}
 
 		// EraseProviderKeys must never panic (may fail gracefully).
-		_ = EraseProviderKeys(prov, byShortcut)
+		_ = EraseProviderKeys(prov, byShortcut, nil)
 	})
 }

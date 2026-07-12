@@ -238,11 +238,11 @@ func main() {
 	switch os.Args[1] {
 	case "version", "--version", "-V":
 		fmt.Printf("multiai %s\n", version)
-			os.Exit(0)
+		return
 
 	case "help", "--help", "-h":
 		printHelp()
-			os.Exit(0)
+		return
 
 	case "list":
 		profiles, err := profile.LoadAllProfiles(getProfilesDir())

@@ -3,6 +3,7 @@ package onboarding
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -46,8 +47,10 @@ func IsFirstRun(profiles []profile.Profile) bool {
 
 // RunWelcome displays the welcome wizard and optionally configures keys.
 func RunWelcome(profiles []profile.Profile) {
-	reader := bufio.NewReader(os.Stdin)
+	runWelcome(profiles, bufio.NewReader(os.Stdin))
+}
 
+func runWelcome(profiles []profile.Profile, reader *bufio.Reader) {
 	fmt.Println()
 	display.PrintInfo("========================================")
 	display.PrintInfo("  Bienvenue dans multiai !")
@@ -64,7 +67,17 @@ func RunWelcome(profiles []profile.Profile) {
 	fmt.Println()
 	fmt.Print("Commencer la configuration ? (O/n) : ")
 
-	choice, _ := reader.ReadString('\n')
+	choice, err := reader.ReadString('\n')
+	if err != nil && err != io.EOF {
+		logging.Error("wizard input failed: %v", err)
+		return
+	}
+	if err == io.EOF && len(choice) == 0 {
+		// A non-interactive npx/CI invocation has no answer. Do not interpret
+		// EOF as the default "yes", and do not suppress the next real welcome.
+		fmt.Println()
+		return
+	}
 	choice = strings.TrimSpace(strings.ToLower(choice))
 
 	if choice == "" || choice == "o" || choice == "y" {

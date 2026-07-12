@@ -9,6 +9,12 @@ project: "multiai"
 
 Reusable patterns that work well in this project.
 
+### Native npm Bootstrap with OS Trust
+- **Problem**: Télécharger un binaire GitHub depuis un lifecycle npm derrière un proxy ou une CA locale sans désactiver TLS.
+- **Shape**: Avec Node 24.14+ comme minimum du bootstrap npm, fusionner `tls.getCACertificates('default')` et `('system')` avec `setDefaultCACertificates` avant la première requête, puis activer le proxy d'environnement. Conserver un timeout global, une limite de redirections et la vérification SHA256 avant extraction. Garder les feature checks comme défense supplémentaire.
+- **Trade-off**: Le magasin de confiance de l'OS peut contenir des CA d'entreprise supplémentaires; c'est cohérent avec la politique de confiance locale mais plus large que le bundle Mozilla de Node.
+- **Status**: `validated`
+
 ## Format
 
 ```

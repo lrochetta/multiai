@@ -1,6 +1,8 @@
 package onboarding
 
 import (
+	"bufio"
+	"strings"
 	"testing"
 
 	"github.com/lrochetta/multiai/internal/profile"
@@ -95,5 +97,17 @@ func TestFirstRunMarker(t *testing.T) {
 	markFirstRunDone()
 	if !FirstRunMarkerExists() {
 		t.Fatal("marker should survive a second markFirstRunDone")
+	}
+}
+
+func TestRunWelcomeEOFReturnsWithoutMarkingFirstRunDone(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("HOME", home)
+
+	runWelcome(nil, bufio.NewReader(strings.NewReader("")))
+
+	if FirstRunMarkerExists() {
+		t.Fatal("EOF must not mark onboarding complete")
 	}
 }

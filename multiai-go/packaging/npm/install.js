@@ -15,9 +15,11 @@
 const { execFileSync } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
+const http = require('http');
 const https = require('https');
 const os = require('os');
 const path = require('path');
+const tls = require('tls');
 
 const pkg = require('./package.json');
 const VERSION = pkg.version;
@@ -25,6 +27,36 @@ const REPO = 'lrochetta/multiai';
 const BINARY_NAME = process.platform === 'win32' ? 'multiai.exe' : 'multiai';
 const NATIVE_DIR = path.join(__dirname, 'bin', 'native');
 const TIMEOUT_MS = 60000; // 60s total for download
+const REQUEST_TIMEOUT_MS = 30000;
+const EXTRACT_TIMEOUT_MS = 30000;
+const MAX_REDIRECTS = 5;
+
+// npm and the operating system may trust a local/company CA that Node's
+// bundled Mozilla store does not know about. On recent Node versions, merge
+// the OS trust store into the existing defaults before contacting GitHub.
+// The package requires Node 24.14+, but guards keep this code defensive on
+// non-standard runtimes.
+function configureNetworkTrust(tlsModule = tls, httpModule = http) {
+  let systemCAEnabled = false;
+  if (
+    typeof tlsModule.getCACertificates === 'function' &&
+    typeof tlsModule.setDefaultCACertificates === 'function'
+  ) {
+    const defaults = tlsModule.getCACertificates('default');
+    const system = tlsModule.getCACertificates('system');
+    if (system.length > 0) {
+      tlsModule.setDefaultCACertificates([...new Set([...defaults, ...system])]);
+      systemCAEnabled = true;
+    }
+  }
+
+  // Node 24.14+ can honour HTTPS_PROXY/NO_PROXY dynamically.
+  if (typeof httpModule.setGlobalProxyFromEnv === 'function') {
+    httpModule.setGlobalProxyFromEnv();
+  }
+
+  return systemCAEnabled;
+}
 
 function getTarget() {
   const map = {
@@ -37,19 +69,23 @@ function getTarget() {
   return map[`${process.platform}-${os.arch()}`] || null;
 }
 
-// Simple HTTPS fetch with timeout.
-function fetch(url) {
+// Simple HTTPS fetch with bounded redirects and timeout.
+function fetch(url, redirects = 0) {
   return new Promise((resolve, reject) => {
+    if (redirects > MAX_REDIRECTS) {
+      reject(new Error(`Too many redirects for ${url}`));
+      return;
+    }
     const req = https.get(
       url,
       {
         headers: { 'User-Agent': `multiai-npm/${VERSION}` },
-        timeout: 30000
+        timeout: REQUEST_TIMEOUT_MS
       },
       (res) => {
         if (res.statusCode >= 301 && res.statusCode <= 308 && res.headers.location) {
           res.resume();
-          resolve(fetch(res.headers.location));
+          resolve(fetch(new URL(res.headers.location, url).toString(), redirects + 1));
           return;
         }
         if (res.statusCode !== 200) {
@@ -84,14 +120,46 @@ function extract(archivePath, destDir) {
   if (process.platform === 'win32') {
     execFileSync('powershell', [
       '-NoProfile', '-NonInteractive', '-Command',
-      `Expand-Archive -LiteralPath '${archivePath}' -DestinationPath '${destDir}' -Force`
-    ], { stdio: 'ignore' });
+      'Expand-Archive -LiteralPath $env:MULTIAI_ARCHIVE -DestinationPath $env:MULTIAI_DEST -Force'
+    ], {
+      env: {
+        ...process.env,
+        MULTIAI_ARCHIVE: archivePath,
+        MULTIAI_DEST: destDir
+      },
+      stdio: 'ignore',
+      timeout: EXTRACT_TIMEOUT_MS
+    });
   } else {
-    execFileSync('tar', ['xzf', archivePath, '-C', destDir], { stdio: 'ignore' });
+    execFileSync('tar', ['xzf', archivePath, '-C', destDir], {
+      stdio: 'ignore',
+      timeout: EXTRACT_TIMEOUT_MS
+    });
   }
 }
 
+function isCertificateError(err) {
+  const code = err && err.code ? String(err.code) : '';
+  const message = err && err.message ? String(err.message) : '';
+  return [
+    'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+    'SELF_SIGNED_CERT_IN_CHAIN',
+    'DEPTH_ZERO_SELF_SIGNED_CERT',
+    'UNABLE_TO_GET_ISSUER_CERT_LOCALLY'
+  ].includes(code) || /unable to verify|self[- ]signed certificate|issuer certificate/i.test(message);
+}
+
+function isSupportedNode(version = process.versions.node) {
+  const [major, minor] = String(version).split('.').map(Number);
+  return major > 24 || (major === 24 && minor >= 14);
+}
+
 async function main() {
+  if (!isSupportedNode()) {
+    throw new Error(`Node.js 24.14+ is required (current: ${process.versions.node})`);
+  }
+  configureNetworkTrust();
+
   if (process.env.MULTIAI_SKIP_DOWNLOAD) {
     console.log('multiai: MULTIAI_SKIP_DOWNLOAD set, skipping binary download.');
     return;
@@ -158,10 +226,32 @@ async function main() {
 }
 
 // Overall timeout — don't hang CI or user terminals.
-const timer = setTimeout(() => { console.error('multiai: download timed out'); process.exit(1); }, TIMEOUT_MS);
-main().then(() => clearTimeout(timer)).catch(err => {
-  clearTimeout(timer);
-  console.error('multiai install failed: ' + err.message);
-  console.error('Manual download: https://github.com/' + REPO + '/releases/tag/v' + VERSION);
-  process.exit(1);
-});
+function run() {
+  const timer = setTimeout(() => {
+    console.error('multiai: download timed out');
+    process.exit(1);
+  }, TIMEOUT_MS);
+
+  main().then(() => clearTimeout(timer)).catch(err => {
+    clearTimeout(timer);
+    console.error('multiai install failed: ' + err.message);
+    if (isCertificateError(err)) {
+      console.error('Node.js could not trust GitHub\'s TLS certificate.');
+      console.error('Try NODE_USE_SYSTEM_CA=1 or configure NODE_EXTRA_CA_CERTS.');
+    }
+    console.error('Manual download: https://github.com/' + REPO + '/releases/tag/v' + VERSION);
+    process.exit(1);
+  });
+}
+
+if (require.main === module) {
+  run();
+}
+
+module.exports = {
+  configureNetworkTrust,
+  expectedChecksum,
+  getTarget,
+  isCertificateError,
+  isSupportedNode
+};

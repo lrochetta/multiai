@@ -3,21 +3,29 @@ title: Project Context
 description: Living state — updated by Zecher
 created: "2026-06-23"
 project: "multiai"
-last_updated: "2026-07-06T01:30:00Z"
-version: "0.4.3"
+last_updated: "2026-07-12"
+version: "0.6.7-prep"
 score: "8.5/10"
-status: "PRODUCTION"
+status: "FIX READY — RELEASE PENDING"
 ---
 
-# Project Context — multiai v0.4.3
+# Project Context — multiai v0.6.7 (préparée)
+
+## Reprise Zecher — 2026-07-12
+
+- **Version publique actuelle** : npm + GitHub `0.6.6`.
+- **Incident confirmé** : `postinstall` n'utilisait pas la CA système Node 24; `npx multiai install` atteignait ensuite une commande Go inexistante; un lancement frais sans TTY pouvait boucler sur EOF.
+- **Correctif local** : `0.6.7` préparée, tests Node 12/12, tests Go ciblés verts, installation réelle depuis tarball/cache vierge validée sur Windows sans `--use-system-ca`.
+- **Publication** : non effectuée. Il faut commit → tag `v0.6.7` → attendre les artefacts GitHub → `npm publish` manuel (2FA).
+- **Limitation de validation locale** : certains `.exe` Go fraîchement compilés restent parfois bloqués avant `main` dans l'environnement Windows; la suite complète peut expirer, tandis que les packages modifiés passent séparément.
 
 ## Project Identity
 
 - **Name** : multiai
-- **Version** : **0.4.2** (npm + Go)
+- **Version** : **0.6.6 publiée**, **0.6.7 préparée**
 - **Path** : `D:\travail\DEV\multiai`
 - **Go module** : `github.com/lrochetta/multiai` (multiai-go/)
-- **npm** : `multiai@0.4.3` (publié, binaire Go natif)
+- **npm** : `multiai@0.6.6` publié; `0.6.7` en attente de release
 - **Stack** : Go 1.22 (référence) + PowerShell 5.1+ (gelé/archivé)
 - **Score** : **8.5/10** (audit BMAD+ 3 agents, 2026-07-05)
 
@@ -38,6 +46,8 @@ status: "PRODUCTION"
 | 2026-07-06 00:30 | v0.4.2 : README final, npm publié |
 | 2026-07-06 01:00 | Auto-update : `internal/update/`, check GitHub Releases au lancement |
 | 2026-07-06 01:30 | v0.4.3 : npm publié avec auto-update |
+| 2026-07-12 | v0.6.6 publiée après plusieurs correctifs install/release, mais depuis un worktree sale |
+| 2026-07-12 | v0.6.7 préparée : CA système, contrat npx install, EOF, tests/preflights |
 
 ## v0.4.x — Nouveautés (2026-07-05/06)
 

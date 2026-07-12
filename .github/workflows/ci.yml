@@ -52,6 +52,8 @@ jobs:
           fi
       - name: go vet
         run: go vet ./...
+      - name: npm packaging tests
+        run: npm test --prefix packaging/npm
       - name: gosec
         # G104 (unhandled errors on prints/exits) excluded, as in .golangci.yml.
         run: go run github.com/securego/gosec/v2/cmd/gosec@latest -exclude=G104 ./... || true
