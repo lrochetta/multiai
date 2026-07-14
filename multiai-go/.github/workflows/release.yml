@@ -209,7 +209,8 @@ jobs:
     needs: [goreleaser]
     runs-on: ubuntu-latest
     permissions:
-      contents: write # push updated PKGBUILD / .SRCINFO to master
+      contents: write # push an update branch for PKGBUILD / .SRCINFO
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -229,6 +230,7 @@ jobs:
 
       - name: Commit updated PKGBUILD and .SRCINFO
         env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           git config user.name "github-actions[bot]"
@@ -237,8 +239,18 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to PKGBUILD — skipping commit."
           else
+            VERSION="${RELEASE_TAG#v}"
+            BRANCH="automation/aur-${VERSION}"
+            git switch -c "$BRANCH"
             git commit -m "chore: pin AUR checksums for $RELEASE_TAG"
-            git push
+            git push --force-with-lease --set-upstream origin "$BRANCH"
+            if ! gh pr list --head "$BRANCH" --state open --json number --jq 'length' | grep -qx '1'; then
+              gh pr create \
+                --base master \
+                --head "$BRANCH" \
+                --title "chore: pin AUR checksums for $RELEASE_TAG" \
+                --body "Automated AUR metadata update generated from the verified $RELEASE_TAG source tarball."
+            fi
           fi
 
       - name: Push to AUR repository
