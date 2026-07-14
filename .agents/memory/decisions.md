@@ -7,9 +7,16 @@ project: "multiai"
 
 # Decisions
 
+## 2026-07-14 — Auth GitHub de release via le coffre partagé, sans persistance locale
+- **Context**: Le token OAuth du keyring `gh` possède `repo` mais pas `workflow`, donc GitHub refuse tout push modifiant `.github/workflows/*`.
+- **Decision**: Utiliser le pointeur `D:\travail\Ressources DEV\accounts\github\CREDENTIALS.md`, résoudre le PAT actif depuis le coffre central, vérifier ses scopes puis l'injecter uniquement dans l'environnement du processus Git via `http.extraHeader`. Ne jamais copier sa valeur dans le dépôt ni remplacer le token `gh` du keyring.
+- **Rationale**: Le dépôt garde zéro secret et l'autorisation étendue n'existe que pendant l'opération explicitement demandée.
+- **Consequences**: Le push du hotfix `079019c` a réussi avec `repo` + `workflow`; toutes les variables temporaires ont été supprimées dans un bloc `finally`. Le coffre reste la source de vérité et doit être roté séparément.
+- **Status**: active
+
 ## 2026-07-14 — Rollback public 0.6.6 et gate Avast obligatoire pour 0.6.8
 - **Context**: Le binaire Windows 0.6.7 publié est retenu par Avast CyberCapture dans `CreateProcess`, avant le runtime Go. Le postinstall annonçait néanmoins un succès et le shim pouvait attendre indéfiniment.
-- **Decision**: Remettre immédiatement npm `latest` sur 0.6.6 et déprécier 0.6.7. Préparer 0.6.8 avec Go 1.25.11, smoke postinstall borné, probes du shim bornées et tests E2E dont les appels `CreateProcess` sont contrôlés hors du thread de test.
+- **Decision**: Remettre immédiatement npm `latest` sur 0.6.6 et déprécier 0.6.7. Préparer 0.6.8 avec Go 1.25.12 (plus récent patch sécurisé de la branche 1.25), smoke postinstall borné, probes du shim bornées et tests E2E dont les appels `CreateProcess` sont contrôlés hors du thread de test.
 - **Rationale**: Un timeout de `CommandContext` ne suffit pas si Windows bloque directement `CreateProcess`; la borne doit entourer l'appel `Run` lui-même. Aucune release 0.6.8 ne peut être promue sans CI complète et essai de l'artefact officiel sur une machine Avast/CyberCapture.
 - **Consequences**: 0.6.6 reste la version stable. Le tag v0.6.8 peut produire une GitHub prerelease et npm 0.6.8 peut rester sous le tag `next` pour tester exactement les hashes finaux; aucune promotion stable/`latest` avant qualification Avast ou whitelisting.
 - **Status**: active

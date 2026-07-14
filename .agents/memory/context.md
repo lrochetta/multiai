@@ -16,10 +16,12 @@ status: "P0 AVAST/CYBERCAPTURE — 0.6.6 STABLE, 0.6.8 NO-GO"
 - **Incident confirmé** : l'asset Windows 0.6.7 et les nouveaux exécutables locaux sont retenus par Avast CyberCapture dans `CreateProcess`, avant le runtime Go et `main`.
 - **Rollback effectué** : npm `latest` pointe de nouveau sur 0.6.6; l'installation globale locale est 0.6.6 et `multiai version` répond. La release GitHub 0.6.7 est marquée prerelease.
 - **0.6.7 dépréciée** : avertissement npm complet publié après validation 2FA.
-- **Hotfix local 0.6.8** : Go release piné à 1.25.11, `os.Exit(0)` restauré pour version/help, smoke postinstall 20s, timeout shim uniquement sur probes version, E2E et test Windows bornés autour de `Run`.
+- **Hotfix local 0.6.8** : Go release piné à 1.25.12 (correctif GO-2026-5856), `os.Exit(0)` restauré pour version/help, smoke postinstall 20s, timeout shim uniquement sur probes version, E2E et test Windows bornés autour de `Run`.
 - **Validation** : 32/32 tests npm verts, scan secrets vert, workflows synchronisés, diff check vert. Le test Windows anti-gel échoue proprement en 10s sous Avast local, ce qui confirme le diagnostic.
 - **Gate** : commit/push et CI sont autorisés. Après CI verte, v0.6.8 reste une GitHub prerelease et npm reste sous `next` pour qualifier les hashes exacts. Aucune promotion stable/`latest` avant essai Avast/CyberCapture ou whitelisting.
 - **Stable publique** : 0.6.6. Ne pas promouvoir 0.6.7.
+- **Auth release** : le PAT GitHub partagé est référencé uniquement par `D:\travail\Ressources DEV\accounts\github\CREDENTIALS.md`. Il a été utilisé en mémoire pour pousser `079019c`, sans valeur copiée dans le projet ni persistance dans `gh`.
+- **CI `079019c`** : tous les jobs fonctionnels et multi-OS sont verts; seul govulncheck a refusé Go 1.25.11 pour GO-2026-5856. Reprise sur Go 1.25.12 avant toute release.
 
 ## Point de reprise Nexus — 2026-07-14 (autoritatif)
 
