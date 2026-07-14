@@ -84,13 +84,16 @@ func RunMigration(src *DetectResult, dstDir string, opts MigrateOptions) (*Migra
 
 	// Copy profiles that don't already exist in the target.
 	for _, name := range report.Migrated {
+		if err := validateProfileName(name); err != nil {
+			return nil, err
+		}
 		srcPath := filepath.Join(src.ProfilesDir, name)
 		dstPath := filepath.Join(dstDir, name)
 		data, err := os.ReadFile(srcPath)
 		if err != nil {
 			return nil, fmt.Errorf("cannot read %s: %w", srcPath, err)
 		}
-		if err := os.WriteFile(dstPath, data, 0o600); err != nil {
+		if err := os.WriteFile(dstPath, data, 0o600); err != nil { // #nosec G703 -- name is validated as a base .env filename above.
 			return nil, fmt.Errorf("cannot write %s: %w", dstPath, err)
 		}
 	}
@@ -114,6 +117,10 @@ func backupProfiles(srcDir, backupDir string) error {
 		if e.IsDir() {
 			continue
 		}
+		if err := validateProfileName(e.Name()); err != nil {
+			lastErr = err
+			continue
+		}
 		srcPath := filepath.Join(srcDir, e.Name())
 		dstPath := filepath.Join(backupDir, e.Name())
 		data, err := os.ReadFile(srcPath)
@@ -121,12 +128,19 @@ func backupProfiles(srcDir, backupDir string) error {
 			lastErr = fmt.Errorf("cannot read %s: %w", srcPath, err)
 			continue
 		}
-		if err := os.WriteFile(dstPath, data, 0o600); err != nil {
+		if err := os.WriteFile(dstPath, data, 0o600); err != nil { // #nosec G703 -- ReadDir supplies a base name, validated above.
 			lastErr = fmt.Errorf("cannot write backup %s: %w", dstPath, err)
 			continue
 		}
 	}
 	return lastErr
+}
+
+func validateProfileName(name string) error {
+	if name == "" || name != filepath.Base(name) || !strings.HasSuffix(name, ".env") {
+		return fmt.Errorf("invalid profile filename %q", name)
+	}
+	return nil
 }
 
 // existingProfiles returns a set of .env filenames already present in dir.

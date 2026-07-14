@@ -346,6 +346,17 @@ func TestRunMigration_DryRun(t *testing.T) {
 	}
 }
 
+func TestRunMigrationRejectsTraversalProfile(t *testing.T) {
+	srcDir := t.TempDir()
+	detected := &DetectResult{
+		ProfilesDir:  srcDir,
+		ProfileNames: []string{".." + string(filepath.Separator) + "outside.env"},
+	}
+	if _, err := RunMigration(detected, t.TempDir(), MigrateOptions{}); err == nil {
+		t.Fatal("RunMigration() accepted a traversal profile name")
+	}
+}
+
 func TestRunMigration_WithExistingTarget(t *testing.T) {
 	srcRoot := fakePSInstallation(t)
 	detected, err := Detect(srcRoot)

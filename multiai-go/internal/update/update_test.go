@@ -217,6 +217,12 @@ func TestFetchReleaseMetadata(t *testing.T) {
 	}
 }
 
+func TestFetchReleaseRejectsUntrustedURL(t *testing.T) {
+	if _, err := fetchReleaseFromURL(context.Background(), "https://example.com/release"); err == nil {
+		t.Fatal("fetchReleaseFromURL() accepted an untrusted host")
+	}
+}
+
 func TestFetchReleaseRejectsInvalidMetadata(t *testing.T) {
 	tests := []string{
 		`{"assets":[]}`,

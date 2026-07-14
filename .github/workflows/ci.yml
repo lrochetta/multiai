@@ -224,4 +224,4 @@ jobs:
           cache-dependency-path: multiai-go/go.sum
       - name: Scan complete Git history
         working-directory: .
-        run: go run github.com/zricethezav/gitleaks/v8@v8.28.0 git --redact --verbose --no-banner .
+        run: go run github.com/zricethezav/gitleaks/v8@v8.28.0 git --config .gitleaks.toml --redact --verbose --no-banner .

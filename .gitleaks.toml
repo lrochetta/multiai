@@ -43,6 +43,9 @@ tags = ["huggingface", "token"]
 description = "Allowlisted paths and regex patterns"
 paths = [
   '''audit/''',
+  # A Go module cache was accidentally committed in 355fdb6. The two
+  # sumdb note keys in this upstream example are public test vectors.
+  '''\.claude/go-path/pkg/mod/golang\.org/x/mod@v0\.31\.0/sumdb/note/note\.go''',
   '''_test\.go''',
   '''tests/''',
   '''testdata/''',

@@ -144,6 +144,11 @@ func FetchLatestRelease(ctx context.Context) (*Release, error) {
 }
 
 func fetchReleaseFromURL(ctx context.Context, url string) (*Release, error) {
+	if !strings.HasPrefix(url, "https://api.github.com/") &&
+		!strings.HasPrefix(url, "http://127.0.0.1:") &&
+		!strings.HasPrefix(url, "http://[::1]:") {
+		return nil, fmt.Errorf("release URL must use the GitHub API")
+	}
 	timeout := requestTimeout
 	if value := os.Getenv("MULTIAI_UPDATE_TIMEOUT"); value != "" {
 		if parsed, err := time.ParseDuration(value); err == nil && parsed > 0 {
@@ -154,7 +159,7 @@ func fetchReleaseFromURL(ctx context.Context, url string) (*Release, error) {
 		}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil) // #nosec G704 -- URL is restricted to the HTTPS GitHub API above.
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +167,7 @@ func fetchReleaseFromURL(ctx context.Context, url string) (*Release, error) {
 	req.Header.Set("Accept", "application/json")
 
 	client := &http.Client{Timeout: timeout}
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) // #nosec G704 -- request URL is restricted to the HTTPS GitHub API above.
 	if err != nil {
 		return nil, err
 	}
