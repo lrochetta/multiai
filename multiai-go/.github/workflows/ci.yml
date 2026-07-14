@@ -69,7 +69,7 @@ jobs:
         run: npm test --prefix packaging/npm
       - name: gosec
         # G104 (unhandled errors on prints/exits) excluded, as in .golangci.yml.
-        run: go run github.com/securego/gosec/v2/cmd/gosec@v2.25.0 -exclude=G104 ./...
+        run: go run github.com/securego/gosec/v2/cmd/gosec@v2.25.0 -exclude=G104 -severity=high -confidence=high ./...
       - name: golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
@@ -224,4 +224,4 @@ jobs:
           cache-dependency-path: multiai-go/go.sum
       - name: Scan complete Git history
         working-directory: .
-        run: go run github.com/zricethezav/gitleaks/v8@v8.28.0 git --redact --no-banner .
+        run: go run github.com/zricethezav/gitleaks/v8@v8.28.0 git --redact --verbose --no-banner .

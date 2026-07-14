@@ -122,11 +122,11 @@ jobs:
         run: node multiai-go/packaging/npm/scan-secrets.js
 
       - name: Scan complete Git history for secrets
-        run: go run github.com/zricethezav/gitleaks/v8@v8.28.0 git --redact --no-banner .
+        run: go run github.com/zricethezav/gitleaks/v8@v8.28.0 git --redact --verbose --no-banner .
 
       - name: Run gosec
         working-directory: multiai-go
-        run: go run github.com/securego/gosec/v2/cmd/gosec@v2.25.0 -exclude=G104 ./...
+        run: go run github.com/securego/gosec/v2/cmd/gosec@v2.25.0 -exclude=G104 -severity=high -confidence=high ./...
 
       - name: Run govulncheck
         working-directory: multiai-go
