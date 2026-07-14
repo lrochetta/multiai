@@ -55,10 +55,6 @@ func parseUpdateFlags(args []string) (*updateOptions, error) {
 	return options, nil
 }
 
-func printUpdateHelp() {
-	printUpdateHelpTo(os.Stdout)
-}
-
 func printUpdateHelpTo(output io.Writer) {
 	fmt.Fprintln(output, `Usage:
   multiai update [options]      Verifier et installer une mise a jour persistante
