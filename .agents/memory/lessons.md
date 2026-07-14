@@ -9,6 +9,14 @@ project: "multiai"
 
 ## Incident Avast/CyberCapture — 2026-07-14
 
+### Un timeout synchrone Node ne borne pas un `CreateProcess` retenu
+- **Impact**: Le test isolé de npm 0.6.8 est resté figé au-delà de 60 secondes malgré les options `timeout` de `execFileSync` et `spawnSync`, car l'appel Windows n'avait pas encore rendu le contrôle à Node.
+- **Lesson**: Placer la tentative de lancement dans un worker externe et faire porter la deadline par son parent déjà démarré. Tester avec un faux EXE qui dort, vérifier le code 124 et l'absence de processus orphelin.
+
+### Les mécanismes Windows de repli peuvent eux-mêmes échouer
+- **Impact**: `Start-Process` a refusé un environnement contenant `Path` et `PATH`; ensuite `taskkill /T /F` a renvoyé « accès refusé » sous Avast et `ErrorActionPreference=Stop` court-circuitait le nettoyage.
+- **Lesson**: Utiliser `ProcessStartInfo` sans reconstruire l'environnement, neutraliser l'erreur native de `taskkill`, puis toujours exécuter un fallback CIM + `Process.Kill`. Valider ces branches en boîte noire sur Windows PowerShell 5.
+
 ### `CommandContext` ne borne pas toujours `CreateProcess` sous Windows
 - **Impact**: CyberCapture peut retenir le syscall avant que `exec.Cmd.Start` retourne. L'annulation de contexte n'est alors pas encore armée et un test apparemment borné reste gelé.
 - **Lesson**: Exécuter `cmd.Run()` dans un goroutine contrôleur, sélectionner explicitement sur une deadline et ne lire les buffers qu'après le retour du processus. Garder le smoke de l'artefact officiel comme gate de release.

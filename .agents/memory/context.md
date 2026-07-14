@@ -3,15 +3,25 @@ title: Project Context
 description: Living state — updated by Zecher
 created: "2026-06-23"
 project: "multiai"
-last_updated: "2026-07-14"
-version: "0.6.8-hotfix-release-blocked"
+last_updated: "2026-07-15"
+version: "0.6.9-rc"
 score: "5.8/10"
-status: "P0 AVAST/CYBERCAPTURE — 0.6.6 STABLE, 0.6.8 NO-GO"
+status: "P0 AVAST/CYBERCAPTURE — 0.6.6 STABLE, 0.6.9 CI PENDING"
 ---
 
-# Project Context — multiai v0.6.8 hotfix (publication bloquée)
+# Project Context — multiai v0.6.9 release candidate
 
-## Point de reprise P0 Avast/CyberCapture — 2026-07-14 23h (autoritatif)
+## Point de reprise P0 Avast/CyberCapture — 2026-07-15 01h (autoritatif)
+
+- **Canaux publics sûrs** : GitHub `latest` et npm `latest` restent en 0.6.6. v0.6.7 et v0.6.8 sont des prereleases; npm 0.6.8 est uniquement sous `next`.
+- **Défaut restant de 0.6.8** : les timeouts synchrones Node ne bornent pas un `CreateProcess` retenu par Avast. Le postinstall isolé pouvait donc encore geler avant que Node ne puisse appliquer son timer.
+- **Correctif 0.6.9 local** : contrôleur Windows externe à deux processus pour le postinstall et les probes `version`; timeout 124 explicite, fallback lorsque `taskkill` est refusé, aucune limite ajoutée aux commandes interactives.
+- **Preuves boîte noire** : faux EXE dormant une heure interrompu en environ 2,9 s pour une limite de 2 s, sans PID résiduel; 36/36 tests npm verts; tarball dry-run de 9 fichiers contenant le module et le contrôleur; scan secrets et synchronisation workflows verts.
+- **Go local** : tous les paquets `cmd`, `internal` et `pkg` passent. Le paquet d'intégration `tests` compile mais son lancement est retenu localement par Avast avant le runtime; la validation d'exécution reste à fournir par GitHub Actions.
+- **Gate de distribution** : pousser le commit, attendre toute la CI, taguer v0.6.9, publier uniquement comme GitHub prerelease avec `latest=false`, puis npm avec `--tag next`. Vérifier ensuite que 0.6.6 reste stable.
+- **Auth release** : utiliser seulement le pointeur du coffre `D:\travail\Ressources DEV\accounts\github\CREDENTIALS.md` et injecter le PAT en mémoire; ne jamais copier ni journaliser sa valeur.
+
+## Point de reprise P0 Avast/CyberCapture — 2026-07-14 23h (archive)
 
 - **Incident confirmé** : l'asset Windows 0.6.7 et les nouveaux exécutables locaux sont retenus par Avast CyberCapture dans `CreateProcess`, avant le runtime Go et `main`.
 - **Rollback effectué** : npm `latest` pointe de nouveau sur 0.6.6; l'installation globale locale est 0.6.6 et `multiai version` répond. La release GitHub 0.6.7 est marquée prerelease.

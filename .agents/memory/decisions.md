@@ -7,6 +7,13 @@ project: "multiai"
 
 # Decisions
 
+## 2026-07-15 — Canal 0.6.9 borné hors du processus Node
+- **Context**: Le paquet npm 0.6.8, bien que limité à `next`, pouvait encore rester bloqué dans `execFileSync`/`spawnSync` lorsque Avast retenait directement `CreateProcess`; le timeout Node n'était alors jamais armé.
+- **Decision**: Publier le correctif suivant sous 0.6.9 avec un contrôleur Windows externe à deux processus. Le contrôleur lance la probe dans un worker PowerShell, attend une deadline, tente de tuer l'arbre puis applique un fallback CIM + `Kill` si l'antivirus refuse `taskkill`. Seules les probes de version sont bornées; les commandes interactives restent sans limite.
+- **Rationale**: La deadline doit vivre dans un processus déjà démarré et de confiance, indépendant du thread retenu dans `CreateProcess`.
+- **Consequences**: 0.6.9 doit rester GitHub prerelease (`latest=false`) et npm `next`; 0.6.6 demeure stable. La promotion requiert CI complète, contrôle du tarball exact et essai sur un autre PC. Les identifiants GitHub restent des pointeurs vers `D:\travail\Ressources DEV`, sans valeur secrète copiée dans le projet.
+- **Status**: implemented locally; CI pending
+
 ## 2026-07-14 — Auth GitHub de release via le coffre partagé, sans persistance locale
 - **Context**: Le token OAuth du keyring `gh` possède `repo` mais pas `workflow`, donc GitHub refuse tout push modifiant `.github/workflows/*`.
 - **Decision**: Utiliser le pointeur `D:\travail\Ressources DEV\accounts\github\CREDENTIALS.md`, résoudre le PAT actif depuis le coffre central, vérifier ses scopes puis l'injecter uniquement dans l'environnement du processus Git via `http.extraHeader`. Ne jamais copier sa valeur dans le dépôt ni remplacer le token `gh` du keyring.

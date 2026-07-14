@@ -62,21 +62,27 @@ test('Node 24.14 is the minimum supported bootstrap runtime', () => {
 
 test('downloaded native binary must report the package version', () => {
   const calls = [];
-  const fakeExec = (file, args, options) => {
-    calls.push({ file, args, options });
+  const fakeExec = (file, timeout) => {
+    calls.push({ file, timeout });
     return 'multiai 0.6.8\n';
   };
   verifyBinary('multiai.exe', '0.6.8', fakeExec);
   assert.equal(calls.length, 1);
-  assert.deepEqual(calls[0].args, ['--version']);
-  assert.equal(calls[0].options.env.MULTIAI_SKIP_UPDATE, '1');
-  assert.equal(calls[0].options.timeout, 20000);
+  assert.equal(calls[0].timeout, 20000);
 });
 
 test('native binary smoke timeout fails the install explicitly', () => {
   const timeout = Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' });
   assert.throws(
     () => verifyBinary('multiai.exe', '0.6.8', () => { throw timeout; }),
+    /smoke test timed out after 20s/
+  );
+});
+
+test('Windows controller exit 124 is reported as a smoke timeout', () => {
+  const timeout = Object.assign(new Error('controller timeout'), { status: 124 });
+  assert.throws(
+    () => verifyBinary('multiai.exe', '0.6.9', () => { throw timeout; }),
     /smoke test timed out after 20s/
   );
 });

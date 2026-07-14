@@ -9,6 +9,12 @@ project: "multiai"
 
 Reusable patterns that work well in this project.
 
+### External Windows CreateProcess Watchdog
+- **Problem**: `execFileSync` et `spawnSync` ne peuvent pas appliquer leur timeout lorsque l'antivirus bloque avant le retour de `CreateProcess`.
+- **Shape**: Node lance un contrôleur PowerShell système déjà approuvé. Celui-ci démarre un second PowerShell worker chargé d'exécuter uniquement `binary --version`, attend une deadline, puis nettoie enfants et worker avec `taskkill` et un fallback CIM/`Kill`. Le code 124 est traduit en échec explicite du postinstall ou du shim.
+- **Trade-off**: Le bootstrap dépend de Windows PowerShell 5 et ajoute un processus intermédiaire; il faut embarquer le module JavaScript et le script dans l'allowlist npm. Les commandes interactives ne doivent jamais emprunter ce chemin borné.
+- **Status**: `validated`
+
 ### Bounded Windows Process Startup
 - **Problem**: Un antivirus peut bloquer `CreateProcess` avant le retour de `exec.Cmd.Start`, rendant `CommandContext` seul insuffisant.
 - **Shape**: Lancer `cmd.Run()` dans un goroutine contrôleur, attendre soit son résultat soit une deadline, et n'accéder aux buffers de sortie qu'après un résultat. Ajouter une probe répétée `--version` de l'artefact réellement distribué.

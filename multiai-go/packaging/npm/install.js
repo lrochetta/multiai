@@ -20,6 +20,7 @@ const https = require('https');
 const os = require('os');
 const path = require('path');
 const tls = require('tls');
+const { runVersionProbe } = require('./lib/version-probe');
 
 const pkg = require('./package.json');
 const VERSION = pkg.version;
@@ -155,18 +156,12 @@ function isSupportedNode(version = process.versions.node) {
   return major > 24 || (major === 24 && minor >= 14);
 }
 
-function verifyBinary(binaryPath, version = VERSION, exec = execFileSync) {
+function verifyBinary(binaryPath, version = VERSION, exec = runVersionProbe) {
   let output;
   try {
-    output = exec(binaryPath, ['--version'], {
-      encoding: 'utf8',
-      env: { ...process.env, MULTIAI_SKIP_UPDATE: '1' },
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: BINARY_SMOKE_TIMEOUT_MS,
-      windowsHide: true
-    });
+    output = exec(binaryPath, BINARY_SMOKE_TIMEOUT_MS);
   } catch (err) {
-    if (err && (err.code === 'ETIMEDOUT' || err.killed)) {
+    if (err && (err.code === 'ETIMEDOUT' || err.killed || err.status === 124)) {
       throw new Error(`native binary smoke test timed out after ${BINARY_SMOKE_TIMEOUT_MS / 1000}s`);
     }
     throw new Error(`native binary smoke test failed: ${err.message}`);

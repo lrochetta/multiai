@@ -14,6 +14,7 @@ const {
   replaceProcessPath,
   windowsCommandProcessor
 } = require('../lib/windows-path');
+const { runVersionProbe } = require('../lib/version-probe');
 
 const exe = process.platform === 'win32' ? 'multiai.exe' : 'multiai';
 const native = path.join(__dirname, 'native', exe);
@@ -145,7 +146,8 @@ function installGlobally(args) {
   const smoke = spawnSync(smokeCommand, smokeArgs, {
     env: smokeEnv,
     stdio: 'inherit',
-    timeout: 15000,
+    // The command shim owns a 30s version watchdog; allow it to clean up.
+    timeout: NATIVE_TIMEOUT_MS + 15000,
     windowsHide: true
   });
   if (smoke.error || smoke.status !== 0) {
@@ -169,6 +171,19 @@ function runNative(argv, spawn = spawnSync, nativePath = native) {
   const timeout = argv.length === 1 && ['--version', 'version'].includes(argv[0])
     ? NATIVE_TIMEOUT_MS
     : undefined;
+  if (timeout !== undefined && process.platform === 'win32' && spawn === spawnSync) {
+    try {
+      process.stdout.write(runVersionProbe(nativePath, timeout));
+      return 0;
+    } catch (err) {
+      if (err.status === 124 || err.code === 'ETIMEDOUT') {
+        console.error(`multiai: native binary timed out after ${NATIVE_TIMEOUT_MS / 1000}s.`);
+      } else {
+        console.error('multiai: native version probe failed:', err.message);
+      }
+      return 1;
+    }
+  }
   const result = spawn(nativePath, argv, {
     stdio: 'inherit',
     ...(timeout === undefined ? {} : { timeout }),

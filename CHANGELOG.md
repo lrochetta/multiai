@@ -4,11 +4,12 @@ All notable changes to the multiai project.
 
 ---
 
-## [Unreleased — target multiai-go 0.6.8] — hotfix Windows 2026-07-14
+## [Unreleased — target multiai-go 0.6.9] — hotfix Windows 2026-07-15
 
 - Épingle la toolchain de release à Go 1.25.12 : les exécutables Go 1.26.5 sont bloqués au démarrage par Avast sur Windows, tandis que 1.25.12 corrige GO-2026-5856.
 - Restaure la terminaison immédiate de `version` et `help` avec `os.Exit(0)`.
 - Ajoute un smoke test du binaire natif au `postinstall` npm et un timeout défensif dans le shim.
+- Remplace les timeouts Node synchrones inefficaces pendant `CreateProcess` par un contrôleur Windows externe borné, avec nettoyage de l'arbre de processus même lorsque l'antivirus refuse `taskkill`.
 
 ### Fixed
 

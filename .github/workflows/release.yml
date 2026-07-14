@@ -164,7 +164,9 @@ jobs:
           distribution: goreleaser
           version: v2.17.0
           workdir: multiai-go
-          args: release --clean
+          # Keep v0.6.9 hidden as a draft until the explicit prerelease step.
+          # This prevents it from transiently replacing v0.6.6 as latest.
+          args: release --clean ${{ github.ref_name == 'v0.6.9' && '--draft' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -196,10 +198,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          if [ "$RELEASE_TAG" = "v0.6.8" ]; then
+          if [ "$RELEASE_TAG" = "v0.6.9" ]; then
             # Qualify the exact Windows hash under Avast before it can become
             # the GitHub latest release consumed by the auto-updater.
-            gh release edit "$RELEASE_TAG" --draft=false --prerelease
+            gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
           else
             gh release edit "$RELEASE_TAG" --draft=false
           fi
