@@ -14,10 +14,12 @@ on:
     paths:
       - "multiai-go/**"
       - ".github/**"
+      - ".gitleaks.toml"
   pull_request:
     paths:
       - "multiai-go/**"
       - ".github/**"
+      - ".gitleaks.toml"
 
 permissions:
   contents: read
