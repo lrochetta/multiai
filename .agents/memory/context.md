@@ -142,6 +142,15 @@ multiai-go/                  → Go v0.4.2 (référence)
 ✅ Branch protection: 6 status checks
 ```
 
+## Release v0.6.7 (2026-07-14)
+
+- Tag annoté `v0.6.7` sur `4180aa4` (signature GPG indisponible sur la machine de publication).
+- CI et workflow Release verts : race tests multi-OS, lint, gosec, Gitleaks, govulncheck, cross-builds et smoke test.
+- GitHub Release publique avec archives Windows/macOS/Linux, paquets DEB, checksums SHA-256, bundle Cosign, provenance et SBOM CycloneDX.
+- `multiai@0.6.7` publié sur npm et installation isolée validée ; le binaire npm est identique à l'asset Windows de la release.
+- Métadonnées AUR `0.6.7` et checksum source canonique enregistrés dans le dépôt. Le push AUR externe reste désactivé tant que `AUR_SSH_KEY` et `AUR_KNOWN_HOSTS` ne sont pas configurés.
+- Le lancement local des exécutables Go reste affecté par le blocage Windows global `CreateProcessWithLogonW failed: 2`; les runners GitHub confirment le fonctionnement du binaire.
+
 ## Open Questions
 
 - [ ] Credential stores natifs OS (Windows Credential Manager, macOS Keychain, libsecret)
