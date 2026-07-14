@@ -367,8 +367,8 @@ CLEAR_ENV=true
 
 	requireExitCode(t, exitCode, 0)
 
-	// The config menu should have printed the provider list to stdout.
-	requireContains(t, outBuf.String(), "Configurer")
+	// Assert stable catalog content rather than a localized menu label. The
+	// command selects French or English from the host locale (notably macOS CI).
 	requireContains(t, outBuf.String(), "Anthropic")
 
 	// Verify the file store was created in the temp secrets dir.

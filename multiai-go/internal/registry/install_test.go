@@ -576,3 +576,21 @@ func TestInstallProfileRejectsSymlinkDestinationBeforeDownload(t *testing.T) {
 		t.Fatalf("outside target changed: data=%q err=%v", data, err)
 	}
 }
+
+func TestValidateInstallPathIgnoresSymlinkAboveProfilesBoundary(t *testing.T) {
+	base := t.TempDir()
+	realParent := filepath.Join(base, "real-parent")
+	profilesDir := filepath.Join(realParent, "profiles")
+	if err := os.MkdirAll(profilesDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	linkedParent := filepath.Join(base, "linked-parent")
+	if err := os.Symlink(realParent, linkedParent); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	rootThroughSystemLink := filepath.Join(linkedParent, "profiles")
+	dest := filepath.Join(rootThroughSystemLink, "safe.env")
+	if err := validateInstallPath(rootThroughSystemLink, dest); err != nil {
+		t.Fatalf("validateInstallPath() rejected symlink above profiles boundary: %v", err)
+	}
+}

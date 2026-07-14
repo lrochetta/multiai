@@ -128,7 +128,7 @@ func TestEncryptedFileStore(t *testing.T) {
 func TestPlatformStoreRoundTrip(t *testing.T) {
 	t.Setenv("MULTIAI_SECRETS_DIR", t.TempDir())
 
-	store, err := NewStore()
+	store, err := NewStoreWithBackend("file")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func TestServiceForProfile_SamePath_SameService(t *testing.T) {
 func TestMigrateServiceName(t *testing.T) {
 	t.Setenv("MULTIAI_SECRETS_DIR", t.TempDir())
 
-	store, err := NewStore()
+	store, err := NewStoreWithBackend("file")
 	if err != nil {
 		t.Fatal(err)
 	}

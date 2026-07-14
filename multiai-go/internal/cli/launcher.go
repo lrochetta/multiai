@@ -21,6 +21,11 @@ import (
 // AllowedCommands is the immutable list of binaries allowed by default.
 var AllowedCommands = []string{"claude", "codex", "opencode"}
 
+// newSecretStore is a test seam for isolating credential-store tests from
+// shared native stores such as macOS Keychain. Production always uses the
+// platform-selected backend.
+var newSecretStore = secret.NewStore
+
 // IsCommandAllowed checks whether a command is in the whitelist.
 func IsCommandAllowed(cmd string) bool {
 	for _, allowed := range AllowedCommands {
@@ -310,7 +315,7 @@ func resolveStoredSecrets(prof *profile.Profile) error {
 	if len(pending) == 0 {
 		return nil
 	}
-	store, err := secret.NewStore()
+	store, err := newSecretStore()
 	if err != nil {
 		return fmt.Errorf("credential store indisponible pour le profil '%s' : %w", prof.Shortcut, err)
 	}

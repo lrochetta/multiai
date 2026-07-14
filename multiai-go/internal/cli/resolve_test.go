@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -8,17 +9,27 @@ import (
 	"github.com/lrochetta/multiai/internal/secret"
 )
 
+func useIsolatedSecretStore(t *testing.T) {
+	t.Helper()
+	t.Setenv("MULTIAI_SECRETS_DIR", t.TempDir())
+	original := newSecretStore
+	newSecretStore = func() (secret.Store, error) {
+		return secret.NewStoreWithBackend("file")
+	}
+	t.Cleanup(func() { newSecretStore = original })
+}
+
 // TestResolveStoredSecrets covers the config→launch flow that was broken:
 // a profile whose .env carries the credential-store sentinel must launch
 // with the real value, never with the literal sentinel.
 func TestResolveStoredSecrets(t *testing.T) {
-	t.Setenv("MULTIAI_SECRETS_DIR", t.TempDir())
+	useIsolatedSecretStore(t)
 
 	const key = "ANTHROPIC_API_KEY"
 	const value = "sk-ant-api03-resolve-test-1234567890"
-	profPath := "/profiles/ca.env"
+	profPath := filepath.Join(t.TempDir(), "ca.env")
 
-	store, err := secret.NewStore()
+	store, err := newSecretStore()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,11 +55,12 @@ func TestResolveStoredSecrets(t *testing.T) {
 }
 
 func TestResolveStoredSecrets_MissingFromStore(t *testing.T) {
-	t.Setenv("MULTIAI_SECRETS_DIR", t.TempDir())
+	useIsolatedSecretStore(t)
+	profPath := filepath.Join(t.TempDir(), "ca.env")
 
 	prof := &profile.Profile{
 		Shortcut: "ca",
-		Path:     "/profiles/ca.env",
+		Path:     profPath,
 		Env:      map[string]string{"ANTHROPIC_API_KEY": secret.Sentinel},
 	}
 

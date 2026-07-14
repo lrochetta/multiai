@@ -54,6 +54,9 @@ func TestSecretToolHelper(t *testing.T) {
 		os.Exit(0)
 
 	case "search":
+		if behavior == "notfound" {
+			os.Exit(1)
+		}
 		if behavior == "empty" {
 			os.Exit(0)
 		}

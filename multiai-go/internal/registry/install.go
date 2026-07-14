@@ -102,7 +102,7 @@ func InstallProfile(ctx context.Context, entry *ProfileEntry, profilesDir string
 	if err != nil {
 		return "", err
 	}
-	if err := validateInstallPath(destPath); err != nil {
+	if err := validateInstallPath(profilesDir, destPath); err != nil {
 		return "", err
 	}
 
@@ -124,7 +124,7 @@ func InstallProfile(ctx context.Context, entry *ProfileEntry, profilesDir string
 	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
 		return "", fmt.Errorf("create profiles dir: %w", err)
 	}
-	if err := validateInstallPath(destPath); err != nil {
+	if err := validateInstallPath(profilesDir, destPath); err != nil {
 		return "", err
 	}
 
@@ -136,29 +136,45 @@ func InstallProfile(ctx context.Context, entry *ProfileEntry, profilesDir string
 	return destPath, nil
 }
 
-// validateInstallPath rejects filesystem indirection in the destination and
-// every existing ancestor. Windows reparse points include junctions that are
-// not necessarily exposed as ordinary symlinks by os.Lstat.
-func validateInstallPath(destPath string) error {
+// validateInstallPath rejects filesystem indirection from profilesDir through
+// the destination. Ancestors above profilesDir are deliberately outside this
+// boundary: macOS commonly exposes /var as a system-managed symlink.
+func validateInstallPath(profilesDir, destPath string) error {
+	root, err := filepath.Abs(profilesDir)
+	if err != nil {
+		return fmt.Errorf("resolve profiles directory: %w", err)
+	}
+	root = filepath.Clean(root)
+	destPath, err = filepath.Abs(destPath)
+	if err != nil {
+		return fmt.Errorf("resolve registry destination: %w", err)
+	}
 	destPath = filepath.Clean(destPath)
+	rel, err := filepath.Rel(root, destPath)
+	if err != nil || filepath.IsAbs(rel) || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("registry destination escapes profiles directory")
+	}
 	current := destPath
 	for {
-		info, err := os.Lstat(current)
+		info, statErr := os.Lstat(current)
 		switch {
-		case err == nil:
+		case statErr == nil:
 			if info.Mode()&os.ModeSymlink != 0 || isReparsePoint(info) {
 				return fmt.Errorf("unsafe registry install path %q: symlink or reparse point is forbidden", current)
 			}
 			if current == destPath && !info.Mode().IsRegular() {
 				return fmt.Errorf("unsafe registry destination %q: existing target is not a regular file", current)
 			}
-		case os.IsNotExist(err):
+		case os.IsNotExist(statErr):
 		default:
-			return fmt.Errorf("inspect registry install path %q: %w", current, err)
+			return fmt.Errorf("inspect registry install path %q: %w", current, statErr)
+		}
+		if current == root {
+			return nil
 		}
 		parent := filepath.Dir(current)
 		if parent == current {
-			return nil
+			return fmt.Errorf("registry install path does not reach profiles directory")
 		}
 		current = parent
 	}
