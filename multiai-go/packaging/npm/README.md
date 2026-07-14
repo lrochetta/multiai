@@ -32,6 +32,17 @@ npx --yes --allow-scripts=multiai multiai@latest
 3. Installs the binary inside the package and exposes it through a Node shim
    (`multiai` on your PATH).
 
+On Windows, the explicit `install` command discovers npm's global prefix,
+verifies that `multiai.cmd` exists, and adds that directory to the current
+user's persistent `PATH` when needed. The operation is idempotent, requires no
+administrator rights, and never uses `setx`. Open a new terminal after the
+first installation; a child process cannot rewrite the current shell's
+environment.
+
+This PATH automation belongs to the explicit `npx ... multiai install`
+workflow above. A raw `npm install --global multiai` still relies on npm's
+global prefix already being configured in `PATH`.
+
 The `checksums.txt` itself is signed with Cosign (keyless, GitHub Actions
 OIDC). To verify the whole chain manually:
 
@@ -54,6 +65,7 @@ run the commands above if you want signature-level assurance.
 |---|---|
 | `MULTIAI_SKIP_DOWNLOAD=1` | Skip the binary download (CI, offline). |
 | `MULTIAI_INSTALL_DIR=path` | Also copy the verified binary to `path`. |
+| `MULTIAI_SKIP_PATH_UPDATE=1` | Do not update the Windows user `PATH` (managed environments). |
 
 ## Usage
 

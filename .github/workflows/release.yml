@@ -1,8 +1,8 @@
 # Release pipeline: GoReleaser + checksums + Cosign keyless + GitHub provenance.
 #
 # MONOREPO NOTE: GitHub only executes workflows located in
-# <repo root>/.github/workflows/. This file is maintained here (next to the Go
-# module) and must be deployed to the repo root with:
+# <repo root>/.github/workflows/. This root file is authoritative. The copy
+# under multiai-go/.github/ is a checked mirror maintained by:
 #   multiai-go/scripts/sync-workflows.ps1
 #
 # All actions are pinned by full commit SHA (audit v0.2.1, finding #14).
@@ -28,9 +28,114 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  preflight:
+    name: Release gate (source, tests, security)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag is a version on master
+        env:
+          RELEASE_REF: ${{ github.ref }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]] || {
+            echo "::error::invalid release tag: $RELEASE_TAG"
+            exit 1
+          }
+          git fetch --no-tags origin master
+          git merge-base --is-ancestor "$RELEASE_REF" origin/master || {
+            echo "::error::tag $RELEASE_TAG is not a descendant of master"
+            exit 1
+          }
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: '1.26.5'
+          cache-dependency-path: multiai-go/go.sum
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.14.0'
+
+      - name: Verify workflow mirrors
+        shell: pwsh
+        run: ./multiai-go/scripts/sync-workflows.ps1 -Check
+
+      - name: Require a reviewer-protected release environment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/environments/release" |
+            jq -e '.protection_rules | any(.type == "required_reviewers")' >/dev/null || {
+              echo "::error::GitHub environment 'release' must exist and require at least one reviewer."
+              exit 1
+            }
+
+      - name: Verify release version contract
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if ! grep -Eq '^var version' multiai-go/cmd/multiai/main.go; then
+            echo "::error file=multiai-go/cmd/multiai/main.go::version must remain injectable"
+            exit 1
+          fi
+          TAG_VERSION="${RELEASE_TAG#v}"
+          PACKAGE_VERSION="$(node -p "require('./multiai-go/packaging/npm/package.json').version")"
+          test "$TAG_VERSION" = "$PACKAGE_VERSION" || {
+            echo "::error file=multiai-go/packaging/npm/package.json::tag $RELEASE_TAG does not match npm package $PACKAGE_VERSION"
+            exit 1
+          }
+
+      - name: Verify formatting
+        working-directory: multiai-go
+        run: |
+          unformatted="$(gofmt -l .)"
+          test -z "$unformatted" || {
+            echo "::error::gofmt required for: $unformatted"
+            exit 1
+          }
+
+      - name: Run tests with race detector
+        working-directory: multiai-go
+        run: go test -race ./...
+
+      - name: Run vet
+        working-directory: multiai-go
+        run: go vet ./...
+
+      - name: Run npm packaging contract tests
+        run: npm test --prefix multiai-go/packaging/npm
+
+      - name: Scan packaged profiles for secrets
+        run: node multiai-go/packaging/npm/scan-secrets.js
+
+      - name: Scan complete Git history for secrets
+        run: go run github.com/zricethezav/gitleaks/v8@v8.28.0 git --redact --no-banner .
+
+      - name: Run gosec
+        working-directory: multiai-go
+        run: go run github.com/securego/gosec/v2/cmd/gosec@v2.25.0 -exclude=G104 ./...
+
+      - name: Run govulncheck
+        working-directory: multiai-go
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+
   goreleaser:
     name: GoReleaser (build, checksums, sign, attest)
+    needs: [preflight]
+    environment: release
     runs-on: ubuntu-latest
     permissions:
       contents: write # create the GitHub release + upload assets
@@ -48,27 +153,16 @@ jobs:
           go-version: '1.26.5'
           cache-dependency-path: multiai-go/go.sum
 
-      - name: Preflight — version must be injectable
-        run: |
-          if ! grep -Eq '^var version' multiai-go/cmd/multiai/main.go; then
-            echo "::error file=multiai-go/cmd/multiai/main.go::declare 'var version = ...' (not const) so -ldflags -X main.version=... can inject the release version"
-            exit 1
-          fi
-
-      - name: Preflight — tag matches npm package
-        run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          PACKAGE_VERSION="$(node -p "require('./multiai-go/packaging/npm/package.json').version")"
-          if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
-            echo "::error file=multiai-go/packaging/npm/package.json::tag $GITHUB_REF_NAME does not match npm package $PACKAGE_VERSION"
-            exit 1
-          fi
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.0.6
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
           distribution: goreleaser
-          version: "~> v2"
+          version: v2.17.0
           workdir: multiai-go
           args: release --clean
         env:
@@ -85,7 +179,7 @@ jobs:
           subject-checksums: multiai-go/dist/checksums.txt
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@v0.18.0 # v0.18.0
+        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
         with:
           path: ./multiai-go
           format: cyclonedx-json
@@ -94,7 +188,14 @@ jobs:
       - name: Upload SBOM to release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ github.ref_name }} sbom.cyclonedx.json --clobber
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release upload "$RELEASE_TAG" sbom.cyclonedx.json --clobber
+
+      - name: Publish verified release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release edit "$RELEASE_TAG" --draft=false
 
   aur:
     name: Update AUR PKGBUILD
@@ -111,13 +212,17 @@ jobs:
           fetch-depth: 1
 
       - name: Pin checksums
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           # Strip 'v' prefix from ref to get semver: refs/tags/v0.5.0 -> 0.5.0
-          VERSION="${{ github.ref_name }}"
+          VERSION="$RELEASE_TAG"
           VERSION="${VERSION#v}"
           bash multiai-go/scripts/update-aur-checksums.sh "$VERSION"
 
       - name: Commit updated PKGBUILD and .SRCINFO
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -125,28 +230,37 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to PKGBUILD — skipping commit."
           else
-            git commit -m "chore: pin AUR checksums for ${{ github.ref_name }}"
+            git commit -m "chore: pin AUR checksums for $RELEASE_TAG"
             git push
           fi
 
       - name: Push to AUR repository
         env:
           AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+          AUR_KNOWN_HOSTS: ${{ secrets.AUR_KNOWN_HOSTS }}
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           if [ -z "$AUR_SSH_KEY" ]; then
             echo "AUR_SSH_KEY not set — skipping AUR push."
             echo "Set the secret to enable automatic AUR publishing."
             exit 0
           fi
+          if [ -z "$AUR_KNOWN_HOSTS" ]; then
+            echo "::error::AUR_KNOWN_HOSTS is required when AUR_SSH_KEY is configured."
+            exit 1
+          fi
 
           # Set up SSH key for AUR
           mkdir -p ~/.ssh
           echo "$AUR_SSH_KEY" > ~/.ssh/aur
           chmod 600 ~/.ssh/aur
+          printf '%s\n' "$AUR_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
           cat >> ~/.ssh/config << 'EOF'
           Host aur.archlinux.org
             IdentityFile ~/.ssh/aur
-            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            StrictHostKeyChecking yes
           EOF
 
           # Clone AUR repo
@@ -164,6 +278,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "AUR PKGBUILD unchanged — skipping push."
           else
-            git commit -m "upstream v${{ github.ref_name }}"
+            git commit -m "upstream $RELEASE_TAG"
             git push
           fi

@@ -11,30 +11,77 @@ import (
 
 // FindProjectConfig looks for .multiai.yaml or .multiai.yml in current and ancestor directories.
 func FindProjectConfig() (*ProfileYAML, string, error) {
+	store, err := DefaultProjectTrustStore()
+	if err != nil {
+		return nil, "", err
+	}
+	return FindProjectConfigWithTrustStore(store)
+}
+
+// FindProjectConfigWithTrustStore is FindProjectConfig with an explicit trust
+// store. It is primarily useful for tests and embedded callers. A discovered
+// configuration is returned only when its canonical path and exact SHA-256 are
+// approved; untrusted, changed, or corrupt-store states fail closed.
+func FindProjectConfigWithTrustStore(store *ProjectTrustStore) (*ProfileYAML, string, error) {
+	if store == nil {
+		return nil, "", fmt.Errorf("project trust store is nil")
+	}
 	dir, err := os.Getwd()
 	if err != nil {
 		return nil, "", err
 	}
+	return findProjectConfigFrom(dir, store)
+}
 
+// FindProjectConfigPath locates the nearest project configuration without
+// parsing or trusting it. It exists so the CLI can show, trust, or untrust the
+// exact file before any project-controlled value is applied.
+func FindProjectConfigPath() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	return findProjectConfigPathFrom(dir)
+}
+
+func findProjectConfigFrom(dir string, store *ProjectTrustStore) (*ProfileYAML, string, error) {
+	configPath, err := findProjectConfigPathFrom(dir)
+	if err != nil || configPath == "" {
+		return nil, configPath, err
+	}
+
+	status, data, inspectErr := store.inspectWithContent(configPath)
+	if inspectErr != nil {
+		return nil, status.CanonicalPath, inspectErr
+	}
+	if trustErr := trustError(status); trustErr != nil {
+		return nil, status.CanonicalPath, trustErr
+	}
+
+	var py ProfileYAML
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&py); err != nil {
+		return nil, status.CanonicalPath, fmt.Errorf("cannot parse %s: %w", status.CanonicalPath, err)
+	}
+	return &py, status.CanonicalPath, nil
+}
+
+func findProjectConfigPathFrom(dir string) (string, error) {
+	dir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", fmt.Errorf("resolve project search directory: %w", err)
+	}
 	for {
 		for _, name := range []string{".multiai.yaml", ".multiai.yml"} {
 			configPath := filepath.Join(dir, name)
-			if _, err := os.Stat(configPath); err == nil {
-				data, err := os.ReadFile(configPath)
-				if err != nil {
-					return nil, "", fmt.Errorf("cannot read %s: %w", configPath, err)
+			if _, statErr := os.Stat(configPath); statErr != nil {
+				if os.IsNotExist(statErr) {
+					continue
 				}
-				const maxYAMLSize = 1 << 20 // 1 Mo max
-				if len(data) > maxYAMLSize {
-					return nil, "", fmt.Errorf("yaml file too large: %s (%d bytes, max %d)", configPath, len(data), maxYAMLSize)
-				}
-				var py ProfileYAML
-				decoder := yaml.NewDecoder(bytes.NewReader(data))
-				if err := decoder.Decode(&py); err != nil {
-					return nil, "", fmt.Errorf("cannot parse %s: %w", configPath, err)
-				}
-				return &py, configPath, nil
+				return configPath, fmt.Errorf("cannot inspect %s: %w", configPath, statErr)
 			}
+			return configPath, nil
 		}
 
 		parent := filepath.Dir(dir)
@@ -44,12 +91,22 @@ func FindProjectConfig() (*ProfileYAML, string, error) {
 		dir = parent
 	}
 
-	return nil, "", nil // no config found
+	return "", nil // no config found
 }
 
 // MergeProjectConfig merges a project config override on top of a base profile.
 func MergeProjectConfig(base *Profile, project *ProfileYAML) *Profile {
-	merged := *base // shallow copy
+	merged := *base
+	merged.Args = append([]string(nil), base.Args...)
+	merged.RequiredSecrets = append([]string(nil), base.RequiredSecrets...)
+	merged.Fallback = append([]string(nil), base.Fallback...)
+	if base.Env != nil {
+		merged.Env = make(map[string]string, len(base.Env))
+		for key, value := range base.Env {
+			merged.Env[key] = value
+		}
+	}
+	merged.Hooks = cloneHooksConfig(base.Hooks)
 
 	if project.DisplayName != "" {
 		merged.DisplayName = project.DisplayName
@@ -66,13 +123,23 @@ func MergeProjectConfig(base *Profile, project *ProfileYAML) *Profile {
 		merged.ClearEnv = *project.ClearEnv
 	}
 	if len(project.Args) > 0 {
-		merged.Args = project.Args
+		merged.Args = append([]string(nil), project.Args...)
 	}
 	if project.Hooks != nil {
-		merged.Hooks = project.Hooks
+		merged.Hooks = cloneHooksConfig(project.Hooks)
 	}
 
 	return &merged
+}
+
+func cloneHooksConfig(source *HooksConfig) *HooksConfig {
+	if source == nil {
+		return nil
+	}
+	return &HooksConfig{
+		BeforeLaunch: append([]HookCommand(nil), source.BeforeLaunch...),
+		AfterLaunch:  append([]HookCommand(nil), source.AfterLaunch...),
+	}
 }
 
 // ValidateProfileYAML validates a YAML profile file and returns warnings.

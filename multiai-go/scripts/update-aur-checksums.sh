@@ -7,7 +7,10 @@
 set -euo pipefail
 
 VERSION="${1:?usage: $0 <version> (e.g. 0.4.0)}"
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# MULTIAI_ROOT lets the trusted tag script update a separate publication
+# worktree without executing any script from that mutable worktree.
+ROOT="${MULTIAI_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+ROOT="$(cd "${ROOT}" && pwd)"
 AUR_DIR="${ROOT}/packaging/aur"
 URL="https://github.com/lrochetta/multiai/archive/refs/tags/v${VERSION}.tar.gz"
 

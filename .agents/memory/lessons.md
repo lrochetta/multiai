@@ -7,6 +7,38 @@ project: "multiai"
 
 # Lessons
 
+## Audit BMAD+ complet — 2026-07-14
+
+### Un smoke test par chemin interne peut certifier une installation inutilisable
+- **Impact**: L'ancien bootstrap lançait directement le JavaScript sous `npm root --global`; il passait même lorsque le shell ne trouvait pas `multiai`.
+- **Lesson**: Le test d'acceptation d'un outil CLI doit appeler son nom public avec l'environnement persistant d'une nouvelle session et vérifier le premier shim résolu.
+
+### Les outils Windows n'ont pas tous la même sortie texte
+- **Impact**: `where.exe` a remplacé un caractère Unicode d'un chemin temporaire lors du décodage, rendant une comparaison canonique non fiable.
+- **Lesson**: Garder la résolution de chemins et la sérialisation dans une couche Unicode maîtrisée ; ici PowerShell produit du JSON UTF-8, puis Node valide strictement le résultat.
+
+### Une allowlist npm doit embarquer tout helper transitif
+- **Impact**: Un correctif valide dans le worktree peut disparaître du tarball si `package.json.files` n'inclut pas le module JavaScript et le script PowerShell.
+- **Lesson**: Toute évolution du bootstrap doit finir par `npm pack --dry-run --json` et un test d'installation du tarball exact.
+
+### Un timeout n'est jamais un test vert
+- **Impact**: La suite Go complète et certains sous-processus se bloquent localement sous Windows ; arrêter l'exécution ne prouve ni succès ni absence de vulnérabilité.
+- **Lesson**: Rapporter l'état comme inconclusif, borner chaque enfant avec un contexte et réserver la décision de release à une matrice CI complète et reproductible.
+
+## Session pause release v0.6.7 — 2026-07-13
+
+### Une CI partiellement verte ne prouve pas la portabilité
+- **Impact**: Les tests npm, Windows, le lint, la sécurité, GoReleaser et les cross-compilations étaient verts, mais les tests réels macOS et Ubuntu ont encore détecté des défauts de test et d'isolation.
+- **Lesson**: Pour une distribution multi-OS, attendre la matrice complète. Une cross-compilation ne remplace pas l'exécution avec Keychain, libsecret et la locale du runner.
+
+### Les tests localisés et les stores natifs doivent être déterministes
+- **Impact**: macOS retournait des messages anglais alors que des assertions attendaient le français; deux tests partageaient le Keychain et `MULTIAI_SECRETS_DIR` n'isolait pas le backend natif.
+- **Lesson**: Vérifier des identifiants invariants plutôt que des traductions, utiliser des services uniques avec nettoyage, et forcer le backend fichier pour les tests unitaires de migration.
+
+### Les doubles de processus doivent reproduire le vrai argv
+- **Impact**: Le faux `secret-tool` incluait d'abord le nom de l'exécutable, puis sa correction a révélé qu'il ne simulait pas l'erreur de la sous-commande `search`.
+- **Lesson**: Tester explicitement l'argv transmis et chaque code de sortie simulé pour les wrappers de commandes externes.
+
 ## Session v0.6.7 — 2026-07-12
 
 ### `https.get` Node brut n'hérite pas de la confiance npm/OS

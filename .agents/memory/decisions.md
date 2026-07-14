@@ -7,6 +7,27 @@ project: "multiai"
 
 # Decisions
 
+## 2026-07-14 — Bootstrap PATH Windows explicite, user-scope et fail-closed
+- **Context**: `npx multiai install` terminait son installation globale puis smoke-testait directement le JavaScript du package. Sous Windows, ce test contournait `multiai.cmd` et masquait l'absence du préfixe npm dans `PATH`.
+- **Decision**: Le parcours explicite `npx --yes --allow-scripts=multiai multiai@latest install` résout `npm prefix --global`, valide un chemin de disque local, persiste ce préfixe au scope User via .NET, puis vérifie le premier shim réellement résolu. Pas de `setx`, pas d'élévation, pas de mutation depuis `postinstall`; `npm install -g` seul conserve la sémantique npm standard.
+- **Rationale**: Réparer le contrat utilisateur sans mutation implicite lors d'un lifecycle npm, préserver le PATH existant et refuser tout faux succès ou shim masqué.
+- **Consequences**: `MULTIAI_SKIP_PATH_UPDATE=1` reste disponible pour les postes administrés. Une nouvelle console est nécessaire. L'E2E `Apply` sur VM Windows vierge est une gate obligatoire avant publication.
+- **Status**: implemented locally; release-blocked
+
+## 2026-07-14 — Les frontières de confiance priment sur les nouvelles fonctions
+- **Context**: L'audit Atlas/Forge/Sentinel 2026-07-14 note la maturité à 5,8/10 et identifie quatre bloqueurs indépendants : configuration projet implicite, traversal du registre, updater non persistant/fail-open et workflow de release effectif divergent.
+- **Decision**: Maintenir le NO-GO v0.6.7. Rendre le check d'update de démarrage notification-only, exiger la confiance projet explicite, confiner les écritures du registre et unifier la gate de release avant tout ajout fonctionnel ou publication.
+- **Rationale**: Un produit local-first ne peut être une référence que si un dépôt non fiable, un index distant ou un artefact non qualifié ne peut jamais déclencher une exécution implicite.
+- **Consequences**: La roadmap P0 dans `audit/2026-07-14-bmad-plus-complete/05-roadmap-priorisee.md` complète la matrice CI déjà exigée. Aucun tag, release GitHub ou `npm publish` avant fermeture des sept lignes P0.
+- **Status**: active
+
+## 2026-07-13 — Aucun tag ou publish avant matrice CI entièrement verte
+- **Context**: Le correctif `0.6.7` et quatre commits sont poussés, mais le run CI `29213384824` reste rouge sur macOS et Ubuntu malgré les contrôles Windows, sécurité, lint, GoReleaser et cross-compilation verts.
+- **Decision**: Suspendre la release. Aucun tag `v0.6.7`, aucune release GitHub et aucun `npm publish` ne sont autorisés avant une reprise explicite et une matrice CI complète verte.
+- **Rationale**: Les échecs restants révèlent des tests dépendants de la langue et des stores natifs partagés; les ignorer produirait une release non reproductible.
+- **Consequences**: La reprise commence par les correctifs de tests documentés dans le handoff, suivis d'un commit/push et d'une nouvelle CI. La publication npm restera manuelle avec 2FA.
+- **Status**: active
+
 ## 2026-07-12 — Contrat npm/npx restauré et release reproductible
 - **Context**: `multiai@0.6.6` échouait sur les nouvelles installations Windows avec Node 24 (`unable to verify the first certificate`). Après contournement TLS, la commande publique `npx multiai install` échouait encore car le CLI Go ne possède pas de sous-commande `install`. Le tag `v0.6.6` contenait en outre `package.json` en `0.6.5`; npm 0.6.6 avait été publié depuis un worktree sale.
 - **Decision**: Préparer `0.6.7` avec (1) Node 24.14+ comme minimum npm et fusion feature-détectée des CA par défaut/système, sans jamais désactiver TLS, (2) support du proxy d'environnement, (3) restauration de `npx multiai install` comme installation npm globale réelle, (4) sortie propre sur EOF/non-TTY, (5) tests npm et preflights `tag == package version` + worktree propre.
@@ -19,7 +40,7 @@ project: "multiai"
 - **Decision**: Ajouter `internal/update/` — au lancement, vérifie l'API GitHub Releases (cache 1h), télécharge le nouveau binaire si plus récent, vérifie SHA256, extrait, re-exec. Tout est silencieux (timeout 5s, jamais bloquant).
 - **Rationale**: Maintient les utilisateurs à jour sans friction. Pas de dépendance externe (stdlib uniquement).
 - **Consequences**: `update.Check(version)` dans `main()`, package `internal/update/`, cache dans `UserConfigDir/multiai/update-check.json`.
-- **Status**: active
+- **Status**: superseded by the 2026-07-14 notification-only decision; remediation pending
 
 ## 2026-07-06 — Menus colorés selon statut de configuration
 - **Context**: Les utilisateurs ne savaient pas quels profils/fournisseurs étaient configurés sans entrer dans le wizard.

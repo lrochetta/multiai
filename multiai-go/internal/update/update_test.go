@@ -2,8 +2,8 @@ package update
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -15,9 +15,21 @@ import (
 	"time"
 )
 
-// ---------------------------------------------------------------------------
-// TestIsNewer
-// ---------------------------------------------------------------------------
+func restoreHooks(t *testing.T) {
+	t.Helper()
+	originalExecutablePath := executablePath
+	originalLookPath := lookPath
+	originalNow := now
+	originalRunCommand := runCommand
+	originalFetchLatest := fetchLatest
+	t.Cleanup(func() {
+		executablePath = originalExecutablePath
+		lookPath = originalLookPath
+		now = originalNow
+		runCommand = originalRunCommand
+		fetchLatest = originalFetchLatest
+	})
+}
 
 func TestIsNewer(t *testing.T) {
 	tests := []struct {
@@ -26,712 +38,479 @@ func TestIsNewer(t *testing.T) {
 		latest  string
 		want    bool
 	}{
-		{"equal versions", "0.4.0", "0.4.0", false},
-		{"v prefix on both", "v0.4.1", "v0.4.0", false},
-		{"newer patch", "0.4.0", "0.4.1", true},
-		{"newer minor", "0.4.0", "0.5.0", true},
-		{"newer major", "0.4.0", "1.0.0", true},
-		{"older patch", "0.4.1", "0.4.0", false},
-		{"mixed v/no-v", "v0.4.0", "0.5.0", true},
-		{"invalid versions", "abc", "1.0", false},
-		{"empty current", "", "0.4.0", false},
+		{"equal", "0.6.7", "0.6.7", false},
+		{"newer patch", "0.6.6", "0.6.7", true},
+		{"newer minor", "0.6.7", "0.7.0", true},
+		{"newer major", "0.6.7", "1.0.0", true},
+		{"older", "1.0.0", "0.9.9", false},
+		{"v prefix", "v0.6.6", "v0.6.7", true},
+		{"stable after prerelease", "1.0.0-rc1", "1.0.0", true},
+		{"invalid current", "dev", "1.0.0", false},
+		{"invalid latest", "1.0.0", "latest", false},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := IsNewer(tt.current, tt.latest)
-			if got != tt.want {
-				t.Errorf("IsNewer(%q, %q) = %v, want %v", tt.current, tt.latest, got, tt.want)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := IsNewer(test.current, test.latest); got != test.want {
+				t.Fatalf("IsNewer(%q, %q) = %v, want %v", test.current, test.latest, got, test.want)
 			}
 		})
 	}
 }
 
-// ---------------------------------------------------------------------------
-// TestGetTarget
-// ---------------------------------------------------------------------------
-
-func TestGetTarget(t *testing.T) {
-	got := GetTarget()
-
-	parts := strings.SplitN(got, "_", 2)
-	if len(parts) != 2 {
-		t.Fatalf("GetTarget() = %q, want format os_arch", got)
+func TestNormalizeReleaseVersionRejectsPackageSpecInjection(t *testing.T) {
+	invalid := []string{
+		"",
+		"latest",
+		"1.2",
+		"1.2.3 --global evil",
+		"1.2.3/../../evil",
+		"1.2.3;calc.exe",
+		"1.2.3+build",
+		"v1.2.3\n--force",
 	}
-	if parts[0] == "" || parts[1] == "" {
-		t.Fatalf("GetTarget() = %q, both OS and arch must be non-empty", got)
+	for _, version := range invalid {
+		if _, err := normalizeReleaseVersion(version); err == nil {
+			t.Errorf("normalizeReleaseVersion(%q) unexpectedly succeeded", version)
+		}
+	}
+
+	valid := []string{"0.6.7", "v1.2.3", "2.0.0-rc.1"}
+	for _, version := range valid {
+		if _, err := normalizeReleaseVersion(version); err != nil {
+			t.Errorf("normalizeReleaseVersion(%q): %v", version, err)
+		}
 	}
 }
 
-func TestGetTargetMatchesRuntime(t *testing.T) {
-	want := runtime.GOOS + "_" + runtime.GOARCH
-	got := GetTarget()
-	if got != want {
-		t.Errorf("GetTarget() = %q, want %q (matching runtime.GOOS/_GOARCH)", got, want)
+func TestCheckLatestIsMetadataOnlyAndTestable(t *testing.T) {
+	restoreHooks(t)
+	fetchLatest = func(ctx context.Context) (*Release, error) {
+		return &Release{TagName: "v0.7.0"}, nil
+	}
+
+	result, err := CheckLatest(context.Background(), "0.6.7")
+	if err != nil {
+		t.Fatalf("CheckLatest(): %v", err)
+	}
+	if result.LatestVersion != "0.7.0" || !result.HasUpdate {
+		t.Fatalf("CheckLatest() = %+v", result)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// TestReadWriteCache
-// ---------------------------------------------------------------------------
+func TestCheckLatestHonorsCallerDeadline(t *testing.T) {
+	restoreHooks(t)
+	fetchLatest = func(ctx context.Context) (*Release, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+
+	_, err := CheckLatest(ctx, "0.6.7")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("CheckLatest() error = %v, want deadline exceeded", err)
+	}
+}
 
 func TestReadWriteCache(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("MULTIAI_CACHE_DIR", dir)
-
-	c := Cache{
-		LastCheck:     time.Now().Truncate(time.Second),
-		LatestVersion: "1.2.3",
+	want := Cache{
+		LastCheck:     time.Date(2026, 7, 14, 12, 0, 0, 0, time.UTC),
+		LatestVersion: "0.6.7",
 	}
-
-	if err := WriteCache(c); err != nil {
-		t.Fatalf("WriteCache() unexpected error: %v", err)
+	if err := WriteCache(want); err != nil {
+		t.Fatalf("WriteCache(): %v", err)
 	}
-
 	got, err := ReadCache()
 	if err != nil {
-		t.Fatalf("ReadCache() unexpected error: %v", err)
+		t.Fatalf("ReadCache(): %v", err)
 	}
-
-	if !got.LastCheck.Equal(c.LastCheck) {
-		t.Errorf("ReadCache().LastCheck = %v, want %v", got.LastCheck, c.LastCheck)
-	}
-	if got.LatestVersion != c.LatestVersion {
-		t.Errorf("ReadCache().LatestVersion = %q, want %q", got.LatestVersion, c.LatestVersion)
+	if !got.LastCheck.Equal(want.LastCheck) || got.LatestVersion != want.LatestVersion {
+		t.Fatalf("ReadCache() = %+v, want %+v", got, want)
 	}
 }
 
-func TestReadCacheMissingFile(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("MULTIAI_CACHE_DIR", dir)
+func TestReadCacheErrors(t *testing.T) {
+	t.Run("missing", func(t *testing.T) {
+		t.Setenv("MULTIAI_CACHE_DIR", t.TempDir())
+		if _, err := ReadCache(); err == nil {
+			t.Fatal("ReadCache() unexpectedly succeeded")
+		}
+	})
 
-	_, err := ReadCache()
-	if err == nil {
-		t.Fatal("ReadCache() expected error for missing cache file")
-	}
+	t.Run("corrupt", func(t *testing.T) {
+		dir := t.TempDir()
+		t.Setenv("MULTIAI_CACHE_DIR", dir)
+		if err := os.WriteFile(filepath.Join(dir, "update-check.json"), []byte("{bad"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ReadCache(); err == nil {
+			t.Fatal("ReadCache() unexpectedly accepted corrupt JSON")
+		}
+	})
 }
 
-func TestReadCacheCorruptedFile(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("MULTIAI_CACHE_DIR", dir)
+func TestShouldCheckDeterministic(t *testing.T) {
+	restoreHooks(t)
+	fixedNow := time.Date(2026, 7, 14, 12, 0, 0, 0, time.UTC)
+	now = func() time.Time { return fixedNow }
 
-	// Ensure the directory matches what CacheFilePath would return.
-	cacheDir := filepath.Join(dir, "multiai")
-	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	// Write garbage.
-	if err := os.WriteFile(filepath.Join(cacheDir, "update-check.json"), []byte("{bad json"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	_, err := ReadCache()
-	if err == nil {
-		t.Fatal("ReadCache() expected error for corrupted cache file")
-	}
-}
-
-// ---------------------------------------------------------------------------
-// TestCacheFilePath
-// ---------------------------------------------------------------------------
-
-func TestCacheFilePath(t *testing.T) {
-	path := CacheFilePath()
-	if !strings.HasSuffix(path, "update-check.json") {
-		t.Errorf("CacheFilePath() = %q, want path ending with update-check.json", path)
-	}
-}
-
-func TestCacheFilePathUsesEnvVar(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("MULTIAI_CACHE_DIR", dir)
-
-	path := CacheFilePath()
-	if !strings.HasPrefix(path, dir) {
-		t.Errorf("CacheFilePath() = %q, want prefix %q", path, dir)
-	}
-	if !strings.HasSuffix(path, "update-check.json") {
-		t.Errorf("CacheFilePath() = %q, want suffix update-check.json", path)
-	}
-}
-
-func TestCacheFilePathDefaultDir(t *testing.T) {
-	// Unset env var so the default user cache dir is used.
-	t.Setenv("MULTIAI_CACHE_DIR", "")
-
-	path := CacheFilePath()
-	if path == "" {
-		t.Fatal("CacheFilePath() returned empty string")
-	}
-	if !strings.HasSuffix(path, "update-check.json") {
-		t.Errorf("CacheFilePath() = %q, want suffix update-check.json", path)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// TestShouldCheck
-// ---------------------------------------------------------------------------
-
-func TestShouldCheck(t *testing.T) {
 	tests := []struct {
-		name  string
-		setup func(t *testing.T) // prepares the cache, returns nothing
-		want  bool
+		name string
+		age  time.Duration
+		want bool
 	}{
-		{
-			name: "no cache file",
-			setup: func(t *testing.T) {
-				t.Setenv("MULTIAI_CACHE_DIR", t.TempDir())
-			},
-			want: true,
-		},
-		{
-			name: "cache older than one hour",
-			setup: func(t *testing.T) {
-				dir := t.TempDir()
-				t.Setenv("MULTIAI_CACHE_DIR", dir)
-				c := Cache{
-					LastCheck:     time.Now().Add(-2 * time.Hour),
-					LatestVersion: "0.1.0",
-				}
-				if err := WriteCache(c); err != nil {
-					t.Fatal(err)
-				}
-			},
-			want: true,
-		},
-		{
-			name: "cache newer than one hour",
-			setup: func(t *testing.T) {
-				dir := t.TempDir()
-				t.Setenv("MULTIAI_CACHE_DIR", dir)
-				c := Cache{
-					LastCheck:     time.Now().Add(-30 * time.Minute),
-					LatestVersion: "0.1.0",
-				}
-				if err := WriteCache(c); err != nil {
-					t.Fatal(err)
-				}
-			},
-			want: false,
-		},
-		{
-			name: "cache just under one hour",
-			setup: func(t *testing.T) {
-				dir := t.TempDir()
-				t.Setenv("MULTIAI_CACHE_DIR", dir)
-				c := Cache{
-					LastCheck:     time.Now().Add(-59 * time.Minute),
-					LatestVersion: "0.1.0",
-				}
-				if err := WriteCache(c); err != nil {
-					t.Fatal(err)
-				}
-			},
-			want: false,
-		},
-		{
-			name: "cache exactly one hour",
-			setup: func(t *testing.T) {
-				dir := t.TempDir()
-				t.Setenv("MULTIAI_CACHE_DIR", dir)
-				c := Cache{
-					LastCheck:     time.Now().Add(-1 * time.Hour),
-					LatestVersion: "0.1.0",
-				}
-				if err := WriteCache(c); err != nil {
-					t.Fatal(err)
-				}
-			},
-			want: false, // exactly 1h is still within the window
-		},
+		{"recent", 30 * time.Minute, false},
+		{"boundary", time.Hour, false},
+		{"stale", time.Hour + time.Second, true},
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.setup(t)
-			got := ShouldCheck()
-			if got != tt.want {
-				t.Errorf("ShouldCheck() = %v, want %v", got, tt.want)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dir := t.TempDir()
+			t.Setenv("MULTIAI_CACHE_DIR", dir)
+			if err := WriteCache(Cache{LastCheck: fixedNow.Add(-test.age)}); err != nil {
+				t.Fatal(err)
+			}
+			if got := ShouldCheck(); got != test.want {
+				t.Fatalf("ShouldCheck() = %v, want %v", got, test.want)
 			}
 		})
 	}
 }
 
-// ---------------------------------------------------------------------------
-// TestFetchLatestRelease
-// ---------------------------------------------------------------------------
+func TestShouldCheckWithoutCache(t *testing.T) {
+	t.Setenv("MULTIAI_CACHE_DIR", t.TempDir())
+	if !ShouldCheck() {
+		t.Fatal("ShouldCheck() = false without cache")
+	}
+}
 
-func TestFetchLatestRelease(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestCacheFilePathUsesOverride(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("MULTIAI_CACHE_DIR", dir)
+	want := filepath.Join(dir, "update-check.json")
+	if got := CacheFilePath(); got != want {
+		t.Fatalf("CacheFilePath() = %q, want %q", got, want)
+	}
+}
+
+func TestFetchReleaseMetadata(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
+			t.Errorf("method = %s", r.Method)
 		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{
-			"tag_name": "v1.2.3",
-			"assets": [
-				{"name": "multiai_windows_amd64.zip", "browser_download_url": "https://example.com/multiai_windows_amd64.zip"},
-				{"name": "multiai_linux_amd64.tar.gz", "browser_download_url": "https://example.com/multiai_linux_amd64.tar.gz"}
-			]
-		}`)
+		if r.Header.Get("Accept") != "application/json" {
+			t.Errorf("Accept = %q", r.Header.Get("Accept"))
+		}
+		fmt.Fprint(w, `{"tag_name":"v1.2.3","assets":[{"name":"checksums.txt"}]}`)
 	}))
-	defer srv.Close()
+	defer server.Close()
 
-	release, err := fetchLatestReleaseWithURL(srv.URL + "/repos/lrochetta/multiai/releases/latest")
+	release, err := fetchReleaseFromURL(context.Background(), server.URL)
 	if err != nil {
-		t.Fatalf("fetchLatestRelease() unexpected error: %v", err)
+		t.Fatalf("fetchReleaseFromURL(): %v", err)
 	}
-
-	if release.TagName != "v1.2.3" {
-		t.Errorf("TagName = %q, want %q", release.TagName, "v1.2.3")
-	}
-	if len(release.Assets) != 2 {
-		t.Fatalf("len(Assets) = %d, want 2", len(release.Assets))
-	}
-	if release.Assets[0].Name != "multiai_windows_amd64.zip" {
-		t.Errorf("Asset[0].Name = %q, want %q", release.Assets[0].Name, "multiai_windows_amd64.zip")
-	}
-	if release.Assets[0].BrowserDownloadURL != "https://example.com/multiai_windows_amd64.zip" {
-		t.Errorf("Asset[0].BrowserDownloadURL = %q, want %q", release.Assets[0].BrowserDownloadURL, "https://example.com/multiai_windows_amd64.zip")
+	if release.TagName != "v1.2.3" || len(release.Assets) != 1 {
+		t.Fatalf("release = %+v", release)
 	}
 }
 
-func TestFetchLatestReleaseWithTargetAsset(t *testing.T) {
-	target := GetTarget()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{
-			"tag_name": "v1.2.3",
-			"assets": [
-				{"name": "multiai_%s.zip", "browser_download_url": "https://example.com/multiai_%s.zip"},
-				{"name": "multiai_linux_arm64.tar.gz", "browser_download_url": "https://example.com/multiai_linux_arm64.tar.gz"}
-			]
-		}`, target, target)
-	}))
-	defer srv.Close()
+func TestFetchReleaseRejectsInvalidMetadata(t *testing.T) {
+	tests := []string{
+		`{"assets":[]}`,
+		`{"tag_name":"latest"}`,
+		`{"tag_name":"v1.2.3;evil"}`,
+		`{broken`,
+	}
+	for _, body := range tests {
+		t.Run(body, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprint(w, body)
+			}))
+			defer server.Close()
+			if _, err := fetchReleaseFromURL(context.Background(), server.URL); err == nil {
+				t.Fatal("invalid metadata unexpectedly accepted")
+			}
+		})
+	}
+}
 
-	release, err := fetchLatestReleaseWithURL(srv.URL + "/repos/lrochetta/multiai/releases/latest")
+func TestFetchReleaseHTTPErrorAndTimeout(t *testing.T) {
+	t.Run("status", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusForbidden)
+		}))
+		defer server.Close()
+		if _, err := fetchReleaseFromURL(context.Background(), server.URL); err == nil {
+			t.Fatal("HTTP error unexpectedly accepted")
+		}
+	})
+
+	t.Run("timeout", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(200 * time.Millisecond)
+			fmt.Fprint(w, `{"tag_name":"v1.2.3"}`)
+		}))
+		defer server.Close()
+		t.Setenv("MULTIAI_UPDATE_TIMEOUT", "20ms")
+		if _, err := fetchReleaseFromURL(context.Background(), server.URL); err == nil {
+			t.Fatal("timeout unexpectedly succeeded")
+		}
+	})
+}
+
+func TestFetchLatestReleaseURLOverrideIsRestricted(t *testing.T) {
+	t.Setenv("MULTIAI_GITHUB_API_URL", "https://evil.example/releases/latest")
+	t.Setenv("MULTIAI_DEV", "1")
+	if _, err := FetchLatestRelease(context.Background()); err == nil {
+		t.Fatal("non-GitHub override unexpectedly accepted")
+	}
+}
+
+func TestIsNPMInstallPath(t *testing.T) {
+	binaryName := "multiai"
+	if runtime.GOOS == "windows" {
+		binaryName += ".exe"
+	}
+	valid := filepath.Join(t.TempDir(), "node_modules", "multiai", "bin", "native", binaryName)
+	if !isNPMInstallPath(valid) {
+		t.Fatalf("official npm path rejected: %q", valid)
+	}
+	invalid := []string{
+		filepath.Join(t.TempDir(), binaryName),
+		filepath.Join(t.TempDir(), "node_modules", "other", "bin", "native", binaryName),
+		filepath.Join(t.TempDir(), "node_modules", "multiai", "bin", binaryName),
+	}
+	for _, path := range invalid {
+		if isNPMInstallPath(path) {
+			t.Errorf("non-npm path accepted: %q", path)
+		}
+	}
+}
+
+func TestInstallReleaseDelegatesExactVersionAndVerifiesPersistentBinary(t *testing.T) {
+	restoreHooks(t)
+	binaryName := "multiai"
+	if runtime.GOOS == "windows" {
+		binaryName += ".exe"
+	}
+	currentExe := filepath.Join(t.TempDir(), "node_modules", "multiai", "bin", "native", binaryName)
+	npmExe := filepath.Join(t.TempDir(), "npm.exe")
+	executablePath = func() (string, error) { return currentExe, nil }
+	lookPath = func(file string) (string, error) {
+		if file != "npm" {
+			t.Fatalf("lookPath(%q)", file)
+		}
+		return npmExe, nil
+	}
+
+	type invocation struct {
+		name string
+		args []string
+	}
+	var calls []invocation
+	runCommand = func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		calls = append(calls, invocation{name: name, args: append([]string(nil), args...)})
+		if strings.HasSuffix(strings.Join(args, " "), "root --global") {
+			return []byte(filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(currentExe)))) + "\n"), nil
+		}
+		if name == currentExe {
+			return []byte("multiai 1.2.3\n"), nil
+		}
+		return []byte("updated 1 package"), nil
+	}
+
+	result, err := InstallRelease(context.Background(), &Release{TagName: "v1.2.3"})
 	if err != nil {
-		t.Fatalf("fetchLatestRelease() unexpected error: %v", err)
+		t.Fatalf("InstallRelease(): %v", err)
 	}
-
-	if len(release.Assets) != 2 {
-		t.Fatalf("len(Assets) = %d, want 2", len(release.Assets))
+	if result.Manager != "npm" || result.Version != "1.2.3" || result.ExecutablePath != currentExe {
+		t.Fatalf("result = %+v", result)
 	}
-}
-
-func TestFetchLatestReleaseInvalidResponse(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"this is not the expected schema`)
-	}))
-	defer srv.Close()
-
-	_, err := fetchLatestReleaseWithURL(srv.URL + "/repos/lrochetta/multiai/releases/latest")
-	if err == nil {
-		t.Fatal("fetchLatestRelease() expected error for invalid JSON response")
+	if len(calls) != 3 {
+		t.Fatalf("calls = %d, want ownership check + manager + verification", len(calls))
+	}
+	if got := strings.Join(calls[0].args, " "); !strings.HasSuffix(got, "root --global") {
+		t.Fatalf("ownership call args = %q", got)
+	}
+	joined := strings.Join(calls[1].args, " ")
+	if !strings.Contains(joined, "install --global") || !strings.Contains(joined, "multiai@1.2.3") {
+		t.Fatalf("npm args = %q", joined)
+	}
+	if calls[2].name != currentExe || strings.Join(calls[2].args, " ") != "--version" {
+		t.Fatalf("verification call = %+v", calls[2])
 	}
 }
 
-func TestFetchLatestReleaseHTTPError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusForbidden)
-		fmt.Fprint(w, `{"message": "API rate limit exceeded"}`)
-	}))
-	defer srv.Close()
+func TestInstallReleaseRefusesNPMFromDifferentGlobalRoot(t *testing.T) {
+	restoreHooks(t)
+	binaryName := "multiai"
+	if runtime.GOOS == "windows" {
+		binaryName += ".exe"
+	}
+	currentExe := filepath.Join(t.TempDir(), "node_modules", "multiai", "bin", "native", binaryName)
+	executablePath = func() (string, error) { return currentExe, nil }
+	lookPath = func(string) (string, error) { return filepath.Join(t.TempDir(), "npm.exe"), nil }
 
-	_, err := fetchLatestReleaseWithURL(srv.URL + "/repos/lrochetta/multiai/releases/latest")
-	if err == nil {
-		t.Fatal("fetchLatestRelease() expected error for HTTP 403")
+	var calls int
+	runCommand = func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		calls++
+		return []byte(filepath.Join(t.TempDir(), "node_modules") + "\n"), nil
+	}
+
+	result, err := InstallRelease(context.Background(), &Release{TagName: "v1.2.3"})
+	if result != nil || err == nil || !strings.Contains(err.Error(), "possible PATH hijack") {
+		t.Fatalf("result=%+v err=%v, want PATH hijack refusal", result, err)
+	}
+	if calls != 1 {
+		t.Fatalf("calls = %d, want ownership check only", calls)
 	}
 }
 
-func TestFetchLatestReleaseTimeout(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Sleep longer than the client timeout.
-		time.Sleep(2 * time.Second)
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"tag_name":"v1.0.0","assets":[]}`)
-	}))
-	defer srv.Close()
+func TestInstallReleaseRefusesUnknownInstallationWithoutRunningAnything(t *testing.T) {
+	restoreHooks(t)
+	executablePath = func() (string, error) { return filepath.Join(t.TempDir(), "multiai.exe"), nil }
+	called := false
+	runCommand = func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		called = true
+		return nil, nil
+	}
 
-	t.Setenv("MULTIAI_UPDATE_TIMEOUT", "100ms")
-
-	_, err := fetchLatestReleaseWithURL(srv.URL + "/repos/lrochetta/multiai/releases/latest")
-	if err == nil {
-		t.Fatal("fetchLatestRelease() expected timeout error")
+	result, err := InstallRelease(context.Background(), &Release{TagName: "v1.2.3"})
+	if result != nil || !errors.Is(err, ErrUnsupportedInstall) {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	if called {
+		t.Fatal("a command was run for an unsupported installation")
 	}
 }
 
-// ---------------------------------------------------------------------------
-// TestDownloadAndVerify
-// ---------------------------------------------------------------------------
-
-func TestDownloadAndVerify(t *testing.T) {
-	payload := []byte("this is a fake binary content for testing")
-	hash := sha256.Sum256(payload)
-	checksum := fmt.Sprintf("%x", hash)
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write(payload) //nolint:errcheck
-	}))
-	defer srv.Close()
-
-	ctx := context.Background()
-	dest := filepath.Join(t.TempDir(), "downloaded.zip")
-	err := DownloadAndVerify(ctx, srv.URL, checksum, dest)
-	if err != nil {
-		t.Fatalf("DownloadAndVerify() unexpected error: %v", err)
+func TestInstallReleaseFailsClosedOnManagerOrVerificationError(t *testing.T) {
+	tests := []struct {
+		name       string
+		managerErr error
+		verifyOut  string
+		verifyErr  error
+	}{
+		{"manager error", errors.New("npm failed"), "", nil},
+		{"wrong version", nil, "multiai 1.2.2", nil},
+		{"invalid output", nil, "something else", nil},
+		{"verification error", nil, "", errors.New("cannot start")},
 	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			restoreHooks(t)
+			binaryName := "multiai"
+			if runtime.GOOS == "windows" {
+				binaryName += ".exe"
+			}
+			currentExe := filepath.Join(t.TempDir(), "node_modules", "multiai", "bin", "native", binaryName)
+			executablePath = func() (string, error) { return currentExe, nil }
+			lookPath = func(string) (string, error) { return filepath.Join(t.TempDir(), "npm.exe"), nil }
+			call := 0
+			runCommand = func(ctx context.Context, name string, args ...string) ([]byte, error) {
+				call++
+				if call == 1 {
+					return []byte(filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(currentExe)))) + "\n"), nil
+				}
+				if call == 2 {
+					return []byte("manager output"), test.managerErr
+				}
+				return []byte(test.verifyOut), test.verifyErr
+			}
 
-	// Verify the file exists and has the correct content.
-	data, err := os.ReadFile(dest)
-	if err != nil {
+			result, err := InstallRelease(context.Background(), &Release{TagName: "v1.2.3"})
+			if result != nil || err == nil {
+				t.Fatalf("result=%+v err=%v, want fail-closed", result, err)
+			}
+		})
+	}
+}
+
+func TestInstallReleaseRejectsInvalidReleaseBeforeExecuting(t *testing.T) {
+	restoreHooks(t)
+	called := false
+	runCommand = func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		called = true
+		return nil, nil
+	}
+	if _, err := InstallRelease(context.Background(), &Release{TagName: "latest;evil"}); err == nil {
+		t.Fatal("invalid release unexpectedly accepted")
+	}
+	if called {
+		t.Fatal("command executed for invalid release")
+	}
+}
+
+func TestResolveNPMCommandAvoidsWindowsBatchExecution(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows-specific npm shim contract")
+	}
+	restoreHooks(t)
+	dir := t.TempDir()
+	npmPath := filepath.Join(dir, "npm.cmd")
+	nodePath := filepath.Join(dir, "node.exe")
+	cliPath := filepath.Join(dir, "node_modules", "npm", "bin", "npm-cli.js")
+	if err := os.MkdirAll(filepath.Dir(cliPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if string(data) != string(payload) {
-		t.Errorf("downloaded content = %q, want %q", string(data), string(payload))
+	for _, path := range []string{npmPath, nodePath, cliPath} {
+		if err := os.WriteFile(path, []byte("test"), 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
-}
+	lookPath = func(string) (string, error) { return npmPath, nil }
 
-func TestDownloadAndVerifyWrongChecksum(t *testing.T) {
-	payload := []byte("real content")
-	wrongChecksum := fmt.Sprintf("%x", sha256.Sum256([]byte("wrong content")))
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write(payload) //nolint:errcheck
-	}))
-	defer srv.Close()
-
-	ctx := context.Background()
-	dest := filepath.Join(t.TempDir(), "downloaded.zip")
-	err := DownloadAndVerify(ctx, srv.URL, wrongChecksum, dest)
-	if err == nil {
-		t.Fatal("DownloadAndVerify() expected error for checksum mismatch")
-	}
-}
-
-func TestDownloadAndVerifyServerError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer srv.Close()
-
-	ctx := context.Background()
-	dest := filepath.Join(t.TempDir(), "downloaded.zip")
-	err := DownloadAndVerify(ctx, srv.URL, "abc123", dest)
-	if err == nil {
-		t.Fatal("DownloadAndVerify() expected error for HTTP 500")
-	}
-}
-
-func TestDownloadAndVerifyEmptyBody(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	ctx := context.Background()
-	dest := filepath.Join(t.TempDir(), "empty.zip")
-	err := DownloadAndVerify(ctx, srv.URL, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", dest)
+	command, args, err := resolveNPMCommand()
 	if err != nil {
-		t.Fatalf("DownloadAndVerify() unexpected error for empty body: %v", err)
+		t.Fatalf("resolveNPMCommand(): %v", err)
+	}
+	if command != nodePath || len(args) != 1 || args[0] != cliPath {
+		t.Fatalf("command=%q args=%q", command, args)
 	}
 }
-
-// ---------------------------------------------------------------------------
-// Test that FetchLatestRelease validates MULTIAI_GITHUB_API_URL
-// ---------------------------------------------------------------------------
-
-func TestFetchLatestReleaseURLBuilding(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("requires MULTIAI_DEV when MULTIAI_GITHUB_API_URL is set", func(t *testing.T) {
-		t.Setenv("MULTIAI_GITHUB_API_URL", "https://api.github.com/repos/x/y/releases/latest")
-		_, err := FetchLatestRelease(ctx)
-		if err == nil {
-			t.Fatal("expected error: MULTIAI_GITHUB_API_URL requires MULTIAI_DEV=1")
-		}
-	})
-
-	t.Run("rejects non-GitHub URL even with MULTIAI_DEV", func(t *testing.T) {
-		t.Setenv("MULTIAI_GITHUB_API_URL", "https://evil.com/repos/x/y/releases/latest")
-		t.Setenv("MULTIAI_DEV", "1")
-		_, err := FetchLatestRelease(ctx)
-		if err == nil {
-			t.Fatal("expected error: URL must start with https://api.github.com/")
-		}
-	})
-
-	t.Run("default URL does not trigger validation", func(t *testing.T) {
-		// When MULTIAI_GITHUB_API_URL is unset, the function uses the
-		// hardcoded production URL and does not check MULTIAI_DEV.
-		// We expect a network error (not a validation error).
-		_, err := FetchLatestRelease(ctx)
-		if err != nil && strings.Contains(err.Error(), "MULTIAI_GITHUB_API_URL") {
-			t.Fatalf("unexpected validation error: %v", err)
-		}
-	})
-}
-
-// ---------------------------------------------------------------------------
-// Helper: fetchLatestReleaseWithURL wraps FetchLatestRelease with a
-// configurable GitHub API base URL for testing.
-// ---------------------------------------------------------------------------
-
-func fetchLatestReleaseWithURL(apiURL string) (*Release, error) {
-	return fetchReleaseFromURL(context.Background(), apiURL)
-}
-
-// ---------------------------------------------------------------------------
-// Ensure exported symbols compile (interface check)
-// ---------------------------------------------------------------------------
-
-// TestExportedFunctions is a compile-time assertion that the expected public
-// API of this package exists with the correct signatures.
-func TestExportedFunctions(t *testing.T) {
-	t.Run("IsNewer signature", func(t *testing.T) {
-		_ = (func(string, string) bool)(IsNewer)
-	})
-
-	t.Run("GetTarget signature", func(t *testing.T) {
-		_ = (func() string)(GetTarget)
-	})
-
-	t.Run("ReadCache signature", func(t *testing.T) {
-		_ = (func() (*Cache, error))(ReadCache)
-	})
-
-	t.Run("WriteCache signature", func(t *testing.T) {
-		_ = (func(Cache) error)(WriteCache)
-	})
-
-	t.Run("CacheFilePath signature", func(t *testing.T) {
-		_ = (func() string)(CacheFilePath)
-	})
-
-	t.Run("ShouldCheck signature", func(t *testing.T) {
-		_ = (func() bool)(ShouldCheck)
-	})
-
-	t.Run("FetchLatestRelease signature", func(t *testing.T) {
-		_ = (func(context.Context) (*Release, error))(FetchLatestRelease)
-	})
-
-	t.Run("DownloadAndVerify signature", func(t *testing.T) {
-		_ = (func(context.Context, string, string, string) error)(DownloadAndVerify)
-	})
-}
-
-// ---------------------------------------------------------------------------
-// Cache test helpers
-// ---------------------------------------------------------------------------
-
-// TestWriteCacheRoundTripJSON ensures the serialization/deserialization
-// of Cache is stable.
-func TestWriteCacheRoundTripJSON(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("MULTIAI_CACHE_DIR", dir)
-
-	original := Cache{
-		LastCheck:     time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
-		LatestVersion: "0.5.0",
-	}
-
-	if err := WriteCache(original); err != nil {
-		t.Fatalf("WriteCache() error: %v", err)
-	}
-
-	read, err := ReadCache()
-	if err != nil {
-		t.Fatalf("ReadCache() error: %v", err)
-	}
-
-	if !read.LastCheck.Equal(original.LastCheck) {
-		t.Errorf("LastCheck: got %v, want %v", read.LastCheck, original.LastCheck)
-	}
-	if read.LatestVersion != original.LatestVersion {
-		t.Errorf("LatestVersion: got %q, want %q", read.LatestVersion, original.LatestVersion)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Concurrency test for cache
-// ---------------------------------------------------------------------------
 
 func TestWriteCacheConcurrentSafe(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("MULTIAI_CACHE_DIR", dir)
-
+	t.Setenv("MULTIAI_CACHE_DIR", t.TempDir())
 	done := make(chan struct{})
 	for i := 0; i < 5; i++ {
-		go func(v string) {
-			_ = WriteCache(Cache{
-				LastCheck:     time.Now(),
-				LatestVersion: v,
-			})
+		go func(version int) {
+			_ = WriteCache(Cache{LastCheck: time.Now(), LatestVersion: fmt.Sprintf("1.%d.0", version)})
 			done <- struct{}{}
-		}(fmt.Sprintf("v1.%d.0", i))
+		}(i)
 	}
 	for i := 0; i < 5; i++ {
 		<-done
 	}
-
-	// Should not panic, and at least one write should have succeeded.
-	_, err := ReadCache()
-	if err != nil {
+	if _, err := ReadCache(); err != nil {
 		t.Fatalf("ReadCache() after concurrent writes: %v", err)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Helper: downloadReader is used in TestDownloadAndVerify variants
-// ---------------------------------------------------------------------------
-
-func TestDownloadAndVerifyCustomDir(t *testing.T) {
-	payload := []byte("custom directory download test")
-	hash := sha256.Sum256(payload)
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write(payload) //nolint:errcheck
-	}))
-	defer srv.Close()
-
-	ctx := context.Background()
-	destDir := t.TempDir()
-	dest := filepath.Join(destDir, "output", "nested", "binary.exe")
-	err := DownloadAndVerify(ctx, srv.URL, fmt.Sprintf("%x", hash), dest)
-	if err != nil {
-		t.Fatalf("DownloadAndVerify() with nested dir: %v", err)
-	}
-	if _, err := os.Stat(dest); os.IsNotExist(err) {
-		t.Fatal("DownloadAndVerify() did not create the destination file")
-	}
+func TestExportedContractsCompile(t *testing.T) {
+	_ = (func(context.Context, string))(Check)
+	_ = (func(context.Context, string) (CheckResult, error))(CheckLatest)
+	_ = (func(context.Context) (*Release, error))(FetchLatestRelease)
+	_ = (func(context.Context, *Release) (*InstallResult, error))(InstallRelease)
+	_ = (func(string, string) bool)(IsNewer)
+	_ = (func() bool)(ShouldCheck)
+	_ = (func() (*Cache, error))(ReadCache)
+	_ = (func(Cache) error)(WriteCache)
 }
-
-// ---------------------------------------------------------------------------
-// Edge cases for IsNewer
-// ---------------------------------------------------------------------------
-
-func TestIsNewerEdgeCases(t *testing.T) {
-	tests := []struct {
-		name    string
-		current string
-		latest  string
-		want    bool
-	}{
-		{"both empty", "", "", false},
-		{"only latest empty", "1.0.0", "", false},
-		{"pre-release suffix", "1.0.0", "1.0.1-beta", true},
-		{"pre-release current", "1.0.1-beta", "1.0.1", true},
-		{"three-digit", "1.2.3", "1.2.4", true},
-		{"long version", "10.20.30", "10.20.31", true},
-		{"current higher", "2.0.0", "1.9.9", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := IsNewer(tt.current, tt.latest)
-			if got != tt.want {
-				t.Errorf("IsNewer(%q, %q) = %v, want %v", tt.current, tt.latest, got, tt.want)
-			}
-		})
-	}
-}
-
-// ---------------------------------------------------------------------------
-// TestFetchLatestReleasePartialData — e.g. missing assets field
-// ---------------------------------------------------------------------------
-
-func TestFetchLatestReleasePartialData(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"tag_name": "v0.0.1"}`) // no "assets" key
-	}))
-	defer srv.Close()
-
-	release, err := fetchLatestReleaseWithURL(srv.URL + "/repos/lrochetta/multiai/releases/latest")
-	if err != nil {
-		t.Fatalf("fetchLatestRelease() unexpected error: %v", err)
-	}
-	if release.TagName != "v0.0.1" {
-		t.Errorf("TagName = %q, want %q", release.TagName, "v0.0.1")
-	}
-	if release.Assets == nil {
-		t.Fatal("Assets should be non-nil (empty slice)")
-	}
-}
-
-// ---------------------------------------------------------------------------
-// TestFetchLatestReleaseWithHeader simulates rate-limit headers
-// ---------------------------------------------------------------------------
-
-func TestFetchLatestReleaseRateLimit(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("X-RateLimit-Remaining", "0")
-		w.Header().Set("X-RateLimit-Reset", fmt.Sprintf("%d", time.Now().Add(10*time.Minute).Unix()))
-		w.WriteHeader(http.StatusForbidden)
-		fmt.Fprint(w, `{"message":"API rate limit exceeded"}`)
-	}))
-	defer srv.Close()
-
-	_, err := fetchLatestReleaseWithURL(srv.URL + "/repos/lrochetta/multiai/releases/latest")
-	if err == nil {
-		t.Fatal("fetchLatestRelease() expected error for rate limit")
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Benchmark: IsNewer
-// ---------------------------------------------------------------------------
 
 func BenchmarkIsNewer(b *testing.B) {
-	versions := []struct{ cur, lat string }{
-		{"0.4.0", "0.4.0"},
-		{"0.4.0", "0.4.1"},
-		{"0.4.0", "0.5.0"},
-		{"0.4.0", "1.0.0"},
-		{"1.0.0", "0.9.9"},
-		{"abc", "1.0"},
-	}
-
-	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		v := versions[i%len(versions)]
-		IsNewer(v.cur, v.lat)
+		IsNewer("0.6.7", "1.0.0")
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Benchmark: JSON marshal/unmarshal of Cache
-// ---------------------------------------------------------------------------
-
-func BenchmarkCacheRoundTrip(b *testing.B) {
-	c := Cache{
-		LastCheck:     time.Now(),
-		LatestVersion: "1.2.3",
+func BenchmarkCacheJSON(b *testing.B) {
+	cache := Cache{LastCheck: time.Now(), LatestVersion: "1.2.3"}
+	for i := 0; i < b.N; i++ {
+		data, _ := json.Marshal(cache)
+		var decoded Cache
+		_ = json.Unmarshal(data, &decoded)
 	}
-
-	b.Run("marshal", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			_, _ = json.Marshal(c)
-		}
-	})
-
-	data, _ := json.Marshal(c)
-	b.Run("unmarshal", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			var out Cache
-			_ = json.Unmarshal(data, &out)
-		}
-	})
 }

@@ -2,7 +2,25 @@
 
 Cette page détaille toutes les méthodes d'installation de multiai.
 
-## go install (recommandé)
+## npm / npx (recommandé)
+
+Prérequis : Node.js 24.14 ou ultérieur.
+
+```bash
+npx --yes --allow-scripts=multiai multiai@latest install
+# Sous Windows, ouvre ensuite un nouveau terminal
+multiai version
+```
+
+Cette commande installe globalement le binaire Go natif et vérifie son SHA256.
+Sous Windows, elle détecte le préfixe npm, vérifie le shim `multiai.cmd` et
+ajoute le dossier au `PATH` utilisateur de façon idempotente, sans droits
+administrateur. Le processus d'installation ne peut pas modifier le terminal
+déjà ouvert : ferme-le puis ouvre-en un nouveau. Pour un poste géré, définis
+`MULTIAI_SKIP_PATH_UPDATE=1` afin de conserver un `PATH` administré
+manuellement.
+
+## go install (alternative)
 
 Si tu as Go installé (version 1.22 ou ultérieure) :
 
@@ -103,15 +121,15 @@ Mise à jour :
 scoop update multiai
 ```
 
-## npm wrapper
+## Exécution ponctuelle avec npm
 
-Pour les environnements Node.js, un wrapper npm est disponible :
+Avec Node.js 24.14 ou ultérieur :
 
 ```bash
-npm install -g multiai-cli
+npx --yes --allow-scripts=multiai multiai@latest
 ```
 
-Le wrapper télécharge et exécute le binaire natif. Il suit les versions de multiai automatiquement.
+Cette commande lance multiai sans installation globale.
 
 ## Compilation manuelle
 
@@ -119,21 +137,21 @@ Tu peux compiler depuis les sources :
 
 ```bash
 git clone https://github.com/lrochetta/multiai.git
-cd multiai
-go build -o multiai .
+cd multiai/multiai-go
+go build -o multiai ./cmd/multiai/
 ```
 
 Pour compiler pour une plateforme spécifique :
 
 ```bash
 # Linux amd64
-GOOS=linux GOARCH=amd64 go build -o multiai-linux-amd64 .
+GOOS=linux GOARCH=amd64 go build -o multiai-linux-amd64 ./cmd/multiai/
 
 # macOS arm64 (Apple Silicon)
-GOOS=darwin GOARCH=arm64 go build -o multiai-darwin-arm64 .
+GOOS=darwin GOARCH=arm64 go build -o multiai-darwin-arm64 ./cmd/multiai/
 
 # Windows amd64
-GOOS=windows GOARCH=amd64 go build -o multiai.exe .
+GOOS=windows GOARCH=amd64 go build -o multiai.exe ./cmd/multiai/
 ```
 
 ## Vérification

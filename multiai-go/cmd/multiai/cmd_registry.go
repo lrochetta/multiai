@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -64,7 +63,6 @@ Options:
   --json, -j           Sortie JSON
   --remote             Lister les profils du registre (profile list)
   --force              Ecraser un profil existant (profile install)
-  --no-verify          Sauter la verification SHA-256 (profile install)
   --help, -h           Cette aide
 
 Exemples:
@@ -112,12 +110,11 @@ func printProfileInstallHelp() {
   multiai profile install <name> [options]   Installer un profil communautaire
 
 Telecharge le fichier .env du profil depuis le registre communautaire,
-verifie l'empreinte SHA-256 (si disponible), et le copie dans le dossier
+verifie obligatoirement l'empreinte SHA-256, et le copie dans le dossier
 des profils locaux.
 
 Options:
   --force              Ecraser si le profil existe deja
-  --no-verify          Sauter la verification SHA-256
 
 Exemple:
   multiai profile install ds
@@ -388,15 +385,14 @@ func renderStars(n int) string {
 
 // profileInstallOptions collects flags for the profile install subcommand.
 type profileInstallOptions struct {
-	force    bool
-	noVerify bool
-	help     bool
-	name     string
+	force bool
+	help  bool
+	name  string
 }
 
 // cmdProfileInstall implements "multiai profile install <name>".
 // It fetches the index, looks up the profile by name, downloads the .env file
-// from the registry repo, verifies SHA-256 (when available), checks for
+// from the registry repo, verifies the mandatory SHA-256 checksum, checks for
 // existing files, and writes it atomically into the profiles directory.
 func cmdProfileInstall(args []string) int {
 	o, err := parseProfileInstallFlags(args)
@@ -411,6 +407,10 @@ func cmdProfileInstall(args []string) int {
 	if o.name == "" {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", i18n.T("error"), i18n.T("registry_search_missing"))
 		printProfileInstallHelp()
+		return 1
+	}
+	if err := registry.ValidateProfileName(o.name); err != nil {
+		fmt.Fprintln(os.Stderr, i18n.T("error")+":", err)
 		return 1
 	}
 
@@ -429,29 +429,30 @@ func cmdProfileInstall(args []string) int {
 		return 1
 	}
 
-	// Check for existing profile file.
+	// Validate remote metadata and prove confinement before any filesystem test.
 	profilesDir := getProfilesDir()
-	destPath := filepath.Join(profilesDir, profile.Name+".env")
+	destPath, err := registry.ResolveInstallPath(profile, profilesDir)
+	if err != nil {
+		if registry.IsChecksumError(err) {
+			fmt.Fprintln(os.Stderr, "[X]", i18n.T("registry_checksum_error", profile.Name)+":", err)
+		} else {
+			fmt.Fprintln(os.Stderr, "[X]", err)
+		}
+		return 2
+	}
 	if _, err := os.Stat(destPath); err == nil && !o.force {
 		fmt.Fprintf(os.Stderr, "[!] %s\n", i18n.T("registry_install_exists", profile.Name, destPath))
 		return 1
 	}
 
-	// Clear SHA256 when --no-verify is set so the installer skips verification.
-	if o.noVerify {
-		profile.SHA256 = ""
-	}
-
 	fmt.Fprintf(os.Stderr, "[i] %s %s...\n", i18n.T("registry_downloading"), profile.Name)
 
-	if profile.SHA256 != "" {
-		fmt.Fprintf(os.Stderr, "[i] %s\n", i18n.T("registry_checksum_verify"))
-	}
+	fmt.Fprintln(os.Stderr, "[i]", i18n.T("registry_checksum_verify", profile.Name))
 
 	installedPath, err := registry.InstallProfile(ctx, profile, profilesDir)
 	if err != nil {
 		if registry.IsChecksumError(err) {
-			fmt.Fprintf(os.Stderr, "[X] %s\n", i18n.T("registry_checksum_error"))
+			fmt.Fprintf(os.Stderr, "[X] %s\n", i18n.T("registry_checksum_error", profile.Name))
 			return 2
 		}
 		fmt.Fprintf(os.Stderr, "[X] %s\n", i18n.T("registry_download_error"))
@@ -469,8 +470,6 @@ func parseProfileInstallFlags(args []string) (*profileInstallOptions, error) {
 		switch args[i] {
 		case "--force", "-f":
 			o.force = true
-		case "--no-verify":
-			o.noVerify = true
 		case "--help", "-h":
 			o.help = true
 		default:

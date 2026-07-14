@@ -137,6 +137,9 @@ Usage:
   multiai bmad                    Gestion BMAD+ (install/update via npx)
   multiai completion <shell>      Completion shell (bash/zsh/fish/powershell)
   multiai update                  Verifier et installer les mises a jour
+  multiai project status          Inspecter la confiance de .multiai.yaml
+  multiai project trust           Approuver le fichier courant et son SHA256
+  multiai project untrust         Revoquer cette approbation
   multiai profile search <terme>  Rechercher un profil communautaire
   multiai profile install <nom>   Installer un profil communautaire
   multiai version                 Afficher la version
@@ -201,9 +204,8 @@ Necessite Node.js (npx) : https://nodejs.org`)
 }
 
 func main() {
-	// Auto-update: non-blocking check at startup (cached 1h).
-	// If a newer version is found, downloads, verifies SHA256, and re-execs.
-	// All errors are silent â€” update never blocks the CLI.
+	// Auto-update is notification-only: the bounded, cached background check
+	// never downloads, installs, executes a replacement, or exits this process.
 	go update.Check(context.Background(), version)
 
 	if len(os.Args) < 2 {
@@ -448,8 +450,13 @@ func runLaunch(profiles []profile.Profile) (*cli.LaunchResult, error) {
 		ExtraArgs:          extraArgs,
 	}
 
-	// Project config: merge with project-level overrides (.multiai.yaml)
-	if projectConfig, _, err := profile.FindProjectConfig(); err == nil && projectConfig != nil {
+	// Project config is fail-closed. A repository-controlled file is never
+	// applied until its canonical path and exact bytes were explicitly trusted.
+	projectConfig, projectPath, err := profile.FindProjectConfig()
+	if err != nil {
+		return nil, fmt.Errorf("configuration projet bloquee (%s): %w; inspectez-la avec 'multiai project status', puis approuvez-la avec 'multiai project trust'", projectPath, err)
+	}
+	if projectConfig != nil {
 		merged := profile.MergeProjectConfig(selected, projectConfig)
 		selected = merged
 	}

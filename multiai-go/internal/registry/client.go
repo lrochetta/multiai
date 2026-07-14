@@ -14,6 +14,7 @@ import (
 const (
 	defaultIndexURL = "https://raw.githubusercontent.com/lrochetta/profiles-multiai/main/index.json"
 	userAgent       = "multiai-registry"
+	maxIndexBytes   = 4 << 20 // 4 MiB
 )
 
 // indexURL and httpTimeout are variables so tests can override them.
@@ -80,8 +81,13 @@ func fetchFromURL(ctx context.Context, url string) (*Index, error) {
 		return nil, fmt.Errorf("registry returned HTTP %d", resp.StatusCode)
 	}
 
+	data, err := readLimitedBody(resp, maxIndexBytes, "registry index")
+	if err != nil {
+		return nil, err
+	}
+
 	var idx Index
-	if err := json.NewDecoder(resp.Body).Decode(&idx); err != nil {
+	if err := json.Unmarshal(data, &idx); err != nil {
 		return nil, err
 	}
 	if idx.Profiles == nil {
@@ -164,9 +170,23 @@ var DownloadProfileContent = func(ctx context.Context, entry *ProfileEntry) ([]b
 		return nil, fmt.Errorf("profile download returned HTTP %d", resp.StatusCode)
 	}
 
-	data, err := io.ReadAll(resp.Body)
+	data, err := readLimitedBody(resp, maxProfileBytes, "registry profile")
 	if err != nil {
 		return nil, err
+	}
+	return data, nil
+}
+
+func readLimitedBody(resp *http.Response, maxBytes int64, label string) ([]byte, error) {
+	if resp.ContentLength > maxBytes {
+		return nil, fmt.Errorf("%s exceeds maximum size of %d bytes", label, maxBytes)
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > maxBytes {
+		return nil, fmt.Errorf("%s exceeds maximum size of %d bytes", label, maxBytes)
 	}
 	return data, nil
 }

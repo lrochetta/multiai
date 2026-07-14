@@ -9,6 +9,12 @@ project: "multiai"
 
 Reusable patterns that work well in this project.
 
+### Idempotent Windows User PATH Bootstrap
+- **Problem**: Une installation npm globale peut créer le shim Windows sans que son préfixe soit présent dans le PATH, tandis qu'un smoke test direct du package masque le défaut.
+- **Shape**: Résoudre `npm prefix --global`, n'accepter qu'un chemin de disque local contenant le shim attendu, puis déléguer à un helper PowerShell UTF-8. Le helper normalise Machine/User PATH, sérialise les écritures par mutex, persiste au scope User avec .NET, relit, reconstruit le PATH effectif et retourne le premier shim résolu. Le smoke appelle ensuite la commande publique par son nom dans cet environnement exact.
+- **Trade-off**: Le terminal parent ne peut pas être mis à jour ; une nouvelle console et un E2E `Apply` sur VM jetable restent nécessaires. Les postes administrés peuvent refuser la mutation avec `MULTIAI_SKIP_PATH_UPDATE=1`.
+- **Status**: `validated`
+
 ### Native npm Bootstrap with OS Trust
 - **Problem**: Télécharger un binaire GitHub depuis un lifecycle npm derrière un proxy ou une CA locale sans désactiver TLS.
 - **Shape**: Avec Node 24.14+ comme minimum du bootstrap npm, fusionner `tls.getCACertificates('default')` et `('system')` avec `setDefaultCACertificates` avant la première requête, puis activer le proxy d'environnement. Conserver un timeout global, une limite de redirections et la vérification SHA256 avant extraction. Garder les feature checks comme défense supplémentaire.

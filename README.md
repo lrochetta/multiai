@@ -26,6 +26,10 @@ npx --yes --allow-scripts=multiai multiai@latest install
 multiai
 ```
 
+Sous Windows, l'installation ajoute automatiquement le préfixe global npm au
+`PATH` utilisateur. Ouvrez un nouveau terminal avant d'exécuter `multiai`
+pour la première fois.
+
 ---
 
 ## Le problème

@@ -7,6 +7,7 @@ const test = require('node:test');
 const pkg = require('../package.json');
 const {
   buildGlobalInstallArgs,
+  buildGlobalPrefixArgs,
   buildGlobalRootArgs,
   buildNpmInvocation,
   npmMajorVersion
@@ -54,6 +55,15 @@ test('global root lookup preserves a custom npm prefix', () => {
   assert.deepEqual(buildGlobalRootArgs(['install', '--global', `multiai@${pkg.version}`]), [
     'root', '--global'
   ]);
+});
+
+test('global prefix lookup preserves a custom npm prefix', () => {
+  assert.deepEqual(buildGlobalPrefixArgs([
+    'install', '--global', '--prefix', 'D:/tools/multiai', `multiai@${pkg.version}`
+  ]), ['prefix', '--global', '--prefix', 'D:/tools/multiai']);
+  assert.deepEqual(buildGlobalPrefixArgs([
+    'install', '--global', `multiai@${pkg.version}`
+  ]), ['prefix', '--global']);
 });
 
 test('npm invocation reuses the npm CLI that launched npx', () => {

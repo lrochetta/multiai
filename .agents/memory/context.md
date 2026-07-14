@@ -3,15 +3,42 @@ title: Project Context
 description: Living state — updated by Zecher
 created: "2026-06-23"
 project: "multiai"
-last_updated: "2026-07-12"
-version: "0.6.7-prep"
-score: "8.5/10"
-status: "FIX READY — RELEASE PENDING"
+last_updated: "2026-07-14"
+version: "0.6.7-release-blocked"
+score: "5.8/10"
+status: "AUDIT COMPLETE — RELEASE NO-GO"
 ---
 
-# Project Context — multiai v0.6.7 (préparée)
+# Project Context — multiai v0.6.7 (audit complet, publication bloquée)
 
-## Reprise Zecher — 2026-07-12
+## Point de reprise Nexus — 2026-07-14 (autoritatif)
+
+- **Audit complet** : Atlas, Forge et Sentinel ont travaillé en parallèle. Index et synthèse dans `audit/2026-07-14-bmad-plus-complete/`.
+- **Description cible** : multiai est le plan de contrôle local pour Claude Code, Codex CLI et OpenCode — profils reproductibles, secrets isolés, sans proxy LLM ni lock-in.
+- **Score consolidé** : produit 6,1 ; architecture 5,9 ; qualité/sécurité 5,4 ; maturité moyenne **5,8/10**. Décision **NO-GO v0.6.7**.
+- **PATH Windows corrigé localement** : le parcours explicite `npx --yes --allow-scripts=multiai multiai@latest install` résout le préfixe npm, persiste le PATH utilisateur sans `setx` ni admin, refuse UNC/device et détecte le premier shim réel.
+- **Preuves Windows** : 25/25 tests npm, syntaxe Node, tarball dry-run avec les deux helpers, préfixes espaces/Unicode, idempotence et conflit de shim validés. Aucun vrai PATH utilisateur n'a été muté pendant l'audit.
+- **Gate Windows restante** : installer le tarball exact en mode `Apply` dans une VM Windows vierge, fermer l'installateur, ouvrir de nouvelles consoles cmd/PowerShell et vérifier le shim par son nom.
+- **Quatre bloqueurs sécurité/release** : confiance implicite de `.multiai.yaml`, traversal du registre, updater non persistant/fail-open, workflow de release racine divergent et non suffisamment gated.
+- **Contrats produit prioritaires** : YAML/projet/hooks, CLI/JSON/timeout, versions, canaux de distribution et documentation doivent être alignés sur le code réellement livré.
+- **Validation locale** : `go vet ./...` et tests ciblés profile/registry/update/cli verts ; suite `go test ./...` et test `cmd/multiai` inconclusifs par timeout Windows. Un timeout ne vaut pas succès.
+- **État public** : GitHub/npm restent en 0.6.6 ; package local en 0.6.7. Aucun commit, tag, release ou publish n'a été créé durant l'audit.
+- **Ordre de reprise** : fermer la roadmap P0, borner les tests de sous-processus, obtenir la matrice CI complète verte, exécuter l'E2E Windows, puis seulement préparer une release signée et vérifiée.
+- **Worktree** : préserver les modifications préexistantes, notamment `multiai-go/cmd/multiai/main_test.go` et les changements mémoire/docs déjà présents avant l'audit.
+
+## Archive Zecher — 2026-07-13
+
+- **Publication suspendue à la demande de Laurent** : reprendre plus tard; ne créer aucun tag et ne lancer aucun `npm publish` avant reprise explicite.
+- **État public** : GitHub/npm restent en `0.6.6`. La cible `0.6.7` n'est pas publiée.
+- **Git** : `master` et `origin/master` pointent sur `5808769`.
+- **Commits déjà poussés** : `141120b` (installation npm/npx), `22fdf23` (lint), `29180f4` (assertions de signatures), `5808769` (CI cross-platform et Go 1.26.5).
+- **CI** : run `29213384824` terminé en échec. Verts : lint, tests Windows, sécurité/govulncheck, GoReleaser check et six cross-compilations. Rouges : tests macOS et Ubuntu; build, smoke et benchmark ignorés en aval.
+- **Worktree de reprise** : `multiai-go/cmd/multiai/main_test.go` contient déjà une assertion d'erreur indépendante de la langue, non commitée. La conserver.
+- **Blocages restants documentés** : assertions localisées macOS, isolation du Keychain entre tests, migration à tester avec le backend fichier, et faux `secret-tool` qui ne simule pas encore l'erreur `search`.
+- **Validation locale** : les exécutables de test Go peuvent rester bloqués avant `main` sur ce poste Windows; utiliser les runners GitHub comme validation cross-platform définitive.
+- **Ordre de reprise** : lire `.agents/memory/sessions/2026-07-13-v0.6.7-release-blocked.md`, finir les quatre correctifs de tests, commit/push, attendre toute la CI verte, puis seulement tag `v0.6.7`, release GitHub et publication npm avec 2FA.
+
+## Archive précédente — 2026-07-12 (avant les commits)
 
 - **Version publique actuelle** : npm + GitHub `0.6.6`.
 - **Incident confirmé** : `postinstall` n'utilisait pas la CA système Node 24; `npx multiai install` atteignait ensuite une commande Go inexistante; un lancement frais sans TTY pouvait boucler sur EOF.
@@ -103,7 +130,7 @@ multiai-go/                  → Go v0.4.2 (référence)
 └── pkg/dotenv/              → Parser .env robuste
 ```
 
-## Build Status
+## Build Status historique (v0.4.x — non autoritatif)
 
 ```
 ✅ go vet: 0 warning

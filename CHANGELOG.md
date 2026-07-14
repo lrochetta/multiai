@@ -4,12 +4,13 @@ All notable changes to the multiai project.
 
 ---
 
-## [multiai-go 0.6.7] — 2026-07-12
+## [Unreleased — target multiai-go 0.6.7] — préparation 2026-07-12
 
 ### Fixed
 
 - npm/npx now trusts certificates approved by the operating system while keeping TLS verification enabled; proxy environment variables are used on supported Node versions.
 - `npx multiai install` again performs a real global installation instead of forwarding an unknown `install` command to the Go binary.
+- On Windows, the npm installer now verifies `multiai.cmd`, adds npm's global prefix to the user `PATH` idempotently without `setx` or administrator rights, and smoke-tests command resolution through that `PATH`.
 - Fresh non-interactive launches exit cleanly on EOF instead of entering the onboarding/configuration loop forever.
 - Windows archive extraction is bounded by a timeout and no longer interpolates temporary paths into PowerShell source.
 - npm packaging tests and release version/tag preflights prevent another mismatched publication.

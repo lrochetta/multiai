@@ -9,6 +9,17 @@ Bienvenue dans multiai ! Ce guide t'aide à lancer ton premier CLI en moins de 2
 
 ## 1. Installation
 
+### npm / npx (recommandé avec Node.js 24.14+)
+
+```bash
+npx --yes --allow-scripts=multiai multiai@latest install
+```
+
+Sous Windows, l'installeur ajoute automatiquement le préfixe global npm au
+`PATH` utilisateur s'il manque. Ouvre un nouveau terminal avant de poursuivre.
+
+### Autres méthodes
+
 ```bash
 # macOS / Linux
 curl -fsSL https://rochetta.fr/multiai/install.sh | bash

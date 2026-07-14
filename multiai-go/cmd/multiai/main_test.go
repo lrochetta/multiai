@@ -223,8 +223,8 @@ func TestHandleStoreFlag_InvalidBackend(t *testing.T) {
 	if store != nil {
 		t.Errorf("expected nil store on error, got: %v", store)
 	}
-	if !strings.Contains(err.Error(), "invalide") {
-		t.Errorf("error should mention 'invalide', got: %v", err)
+	if !strings.Contains(err.Error(), "not-a-real-backend") {
+		t.Errorf("error should mention the invalid backend, got: %v", err)
 	}
 }
 

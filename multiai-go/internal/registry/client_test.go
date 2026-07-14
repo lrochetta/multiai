@@ -143,6 +143,37 @@ func TestFetchIndexInvalidJSON(t *testing.T) {
 	}
 }
 
+func TestFetchIndexRejectsOversizedResponse(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(strings.Repeat("x", maxIndexBytes+1)))
+	}))
+	defer srv.Close()
+
+	origURL := indexURL
+	indexURL = srv.URL
+	defer func() { indexURL = origURL }()
+
+	_, err := FetchIndexNoCache(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "maximum size") {
+		t.Fatalf("FetchIndexNoCache() error = %v, want maximum size error", err)
+	}
+}
+
+func TestDownloadProfileContentRejectsOversizedResponse(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(strings.Repeat("x", maxProfileBytes+1)))
+	}))
+	defer srv.Close()
+
+	entry := &ProfileEntry{Name: "large", DownloadURL: srv.URL}
+	_, err := DownloadProfileContent(context.Background(), entry)
+	if err == nil || !strings.Contains(err.Error(), "maximum size") {
+		t.Fatalf("DownloadProfileContent() error = %v, want maximum size error", err)
+	}
+}
+
 func TestFetchIndexEmptyProfiles(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

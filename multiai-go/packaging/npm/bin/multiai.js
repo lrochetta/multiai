@@ -8,6 +8,12 @@ const fs = require('fs');
 const path = require('path');
 
 const pkg = require('../package.json');
+const {
+  buildGlobalPrefixArgs,
+  ensureWindowsUserPath,
+  replaceProcessPath,
+  windowsCommandProcessor
+} = require('../lib/windows-path');
 
 const exe = process.platform === 'win32' ? 'multiai.exe' : 'multiai';
 const native = path.join(__dirname, 'native', exe);
@@ -73,21 +79,94 @@ function installGlobally(args) {
     return 1;
   }
 
-  const smoke = spawnSync(process.execPath, [globalShim, '--version'], {
-    env: { ...process.env, MULTIAI_SKIP_UPDATE: '1' },
+  const prefixArgs = buildGlobalPrefixArgs(args);
+  const prefixInvocation = buildNpmInvocation(prefixArgs);
+  const prefixResult = spawnSync(prefixInvocation.command, prefixInvocation.args, {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'inherit']
+  });
+  if (prefixResult.error || prefixResult.status !== 0) {
+    console.error('multiai: unable to locate the global npm command directory.');
+    return 1;
+  }
+  const globalPrefix = prefixResult.stdout.trim().split(/\r?\n/).pop();
+
+  let windowsPathUpdate = null;
+  if (process.platform === 'win32') {
+    try {
+      windowsPathUpdate = ensureWindowsUserPath(globalPrefix);
+      if (windowsPathUpdate.status === 'added') {
+        console.log(`multiai: added ${globalPrefix} to your user PATH.`);
+      } else if (windowsPathUpdate.status === 'skipped') {
+        console.warn('multiai: PATH update skipped by MULTIAI_SKIP_PATH_UPDATE=1.');
+        console.warn(`Add this directory to your user PATH manually: ${globalPrefix}`);
+      } else {
+        console.log(`multiai: ${globalPrefix} is already on the persistent PATH.`);
+      }
+    } catch (err) {
+      console.error('multiai: the package was installed, but user PATH setup failed:');
+      console.error(`  ${err.message}`);
+      console.error(`Add this directory to your user PATH manually: ${globalPrefix}`);
+      return 1;
+    }
+  }
+
+  let smokeCommand = process.execPath;
+  let smokeArgs = [globalShim, '--version'];
+  let smokeEnv = { ...process.env, MULTIAI_SKIP_UPDATE: '1' };
+  if (process.platform === 'win32' && windowsPathUpdate.status !== 'skipped') {
+    try {
+      smokeCommand = windowsCommandProcessor(process.env);
+    } catch (err) {
+      console.error(`multiai: unable to locate a trusted Windows system tool: ${err.message}`);
+      return 1;
+    }
+    if (!fs.existsSync(smokeCommand)) {
+      console.error('multiai: a required Windows system tool was not found.');
+      return 1;
+    }
+
+    smokeEnv = replaceProcessPath(smokeEnv, windowsPathUpdate.effectivePath);
+    const expectedShim = path.win32.join(globalPrefix, 'multiai.cmd');
+    const normalize = value => path.win32.normalize(path.win32.resolve(value)).toLowerCase();
+    if (normalize(windowsPathUpdate.resolvedShim) !== normalize(expectedShim)) {
+      console.error('multiai: another command shadows the newly installed multiai.cmd:');
+      console.error(`  resolved: ${windowsPathUpdate.resolvedShim}`);
+      console.error(`  installed: ${expectedShim}`);
+      console.error('Remove or reorder the conflicting PATH entry, then run the installer again.');
+      return 1;
+    }
+
+    // Resolve the generated shim by command name through the persistent PATH,
+    // instead of bypassing command lookup with an internal JavaScript path.
+    smokeArgs = ['/d', '/s', '/c', 'multiai.cmd --version'];
+  }
+  const smoke = spawnSync(smokeCommand, smokeArgs, {
+    env: smokeEnv,
     stdio: 'inherit',
-    timeout: 15000
+    timeout: 15000,
+    windowsHide: true
   });
   if (smoke.error || smoke.status !== 0) {
     console.error('multiai: global install smoke test failed.');
     return 1;
   }
 
-  console.log('multiai installed globally. Open a new terminal, then run: multiai');
+  if (process.platform === 'win32') {
+    console.log('multiai installed globally. The current terminal PATH cannot be changed by a child process.');
+    console.log('Open a new terminal, then run: multiai');
+  } else {
+    console.log('multiai installed globally. Open a new terminal, then run: multiai');
+  }
   return 0;
 }
 
 function main(argv = process.argv.slice(2)) {
+  // The explicit installer does not need the temporary npx package's native
+  // binary. Handle it first so npm can perform one verified global download.
+  const globalInstallArgs = buildGlobalInstallArgs(argv);
+  if (globalInstallArgs) return installGlobally(globalInstallArgs);
+
   if (!fs.existsSync(native)) {
     console.error('');
     console.error('  multiai: native binary download did not complete.');
@@ -100,9 +179,6 @@ function main(argv = process.argv.slice(2)) {
     console.error('');
     return 1;
   }
-
-  const globalInstallArgs = buildGlobalInstallArgs(argv);
-  if (globalInstallArgs) return installGlobally(globalInstallArgs);
 
   const result = spawnSync(native, argv, { stdio: 'inherit' });
 
@@ -119,6 +195,7 @@ if (require.main === module) {
 
 module.exports = {
   buildGlobalInstallArgs,
+  buildGlobalPrefixArgs,
   buildGlobalRootArgs,
   buildNpmInvocation,
   npmMajorVersion

@@ -28,12 +28,14 @@
   },
   "files": [
     "bin/multiai.js",
+    "lib/windows-path.js",
+    "scripts/ensure-user-path.ps1",
     "install.js",
     "scan-secrets.js",
     "README.md"
   ],
   "scripts": {
-    "test": "node --test install.test.js release-preflight.test.js bin/multiai.test.js",
+    "test": "node --test install.test.js release-preflight.test.js bin/multiai.test.js lib/windows-path.test.js",
     "postinstall": "node install.js",
     "prepublishOnly": "npm test && node scan-secrets.js && node release-preflight.js"
   },

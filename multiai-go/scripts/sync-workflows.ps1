@@ -1,17 +1,16 @@
-# Deploy GitHub Actions workflows + dependabot config to the repo root.
+# Mirror the authoritative root workflows next to the Go module.
 #
 # WHY: GitHub only executes workflows located in <repo root>/.github/workflows/
-# and only reads <repo root>/.github/dependabot.yml. This monorepo maintains
-# them next to the Go module (multiai-go/.github/) so that release engineering
-# stays versioned with the code it releases. Run this script after any change
-# under multiai-go/.github/ and commit the synced copies at the repo root.
+# and only reads <repo root>/.github/dependabot.yml. The root is therefore the
+# single source of truth. A checked mirror under multiai-go/.github/ keeps the
+# module self-describing, and CI rejects any drift.
 #
 # Usage (from anywhere):
 #   powershell -NoProfile -File multiai-go/scripts/sync-workflows.ps1
 #   powershell -NoProfile -File multiai-go/scripts/sync-workflows.ps1 -Check
 #
-# -Check compares source and destination without writing (CI-friendly:
-# exits 1 when the repo root copies are stale).
+# -Check compares source and mirror without writing (CI-friendly: exits 1
+# when the module copies are stale).
 
 [CmdletBinding()]
 param(
@@ -22,15 +21,27 @@ $ErrorActionPreference = 'Stop'
 
 $moduleDir = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $repoRoot = Split-Path -Parent $moduleDir
-$sourceDir = Join-Path $moduleDir '.github'
-$destDir = Join-Path $repoRoot '.github'
+$sourceDir = Join-Path $repoRoot '.github'
+$destDir = Join-Path $moduleDir '.github'
 
 if (-not (Test-Path $sourceDir)) {
     throw "Source directory not found: $sourceDir"
 }
 
-# Everything under multiai-go/.github/ is deployed with the same relative path.
-$sources = Get-ChildItem -Path $sourceDir -Recurse -File
+# Only executable release-engineering configuration is mirrored. Repository
+# templates remain root-only and cannot accidentally become a second source.
+$relativePaths = @(
+    'dependabot.yml',
+    'workflows/ci.yml',
+    'workflows/release.yml'
+)
+$sources = foreach ($relative in $relativePaths) {
+    $source = Join-Path $sourceDir $relative
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+        throw "Authoritative file not found: $source"
+    }
+    Get-Item -LiteralPath $source
+}
 
 $stale = @()
 foreach ($src in $sources) {
@@ -71,7 +82,7 @@ if ($Check -and $stale.Count -gt 0) {
 
 Write-Host ''
 if ($Check) {
-    Write-Host 'Repo root .github/ is up to date.'
+    Write-Host 'Module workflow mirrors are up to date.'
 } else {
-    Write-Host "Deployed to $destDir. Review with 'git status' and commit the changes."
+    Write-Host "Mirrored root release configuration to $destDir. Review with 'git status'."
 }

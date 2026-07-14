@@ -1,13 +1,13 @@
-// cmd_update.go implements the "multiai update" subcommand for explicit
-// self-update checking and installation, complementing the silent auto-update
-// in main.go with an interactive / CI-friendly flow.
+// cmd_update.go implements explicit, package-manager-owned updates.
 package main
 
 import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -15,46 +15,63 @@ import (
 	"github.com/lrochetta/multiai/internal/update"
 )
 
+const (
+	updateCheckTimeout   = 15 * time.Second
+	updateInstallTimeout = 5 * time.Minute
+)
+
+var (
+	fetchUpdateRelease   = update.FetchLatestRelease
+	installUpdateRelease = update.InstallRelease
+)
+
 func init() {
 	register("update", cmdUpdate)
 }
 
-// updateOptions collects flags for the update subcommand.
 type updateOptions struct {
 	check bool
 	yes   bool
 	help  bool
 }
 
-// parseUpdateFlags hand-parses update-specific flags.
 func parseUpdateFlags(args []string) (*updateOptions, error) {
-	o := &updateOptions{}
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
+	options := &updateOptions{}
+	for _, arg := range args {
+		switch arg {
 		case "--check":
-			o.check = true
+			options.check = true
 		case "--yes", "-y":
-			o.yes = true
+			options.yes = true
 		case "--help", "-h":
-			o.help = true
+			options.help = true
 		default:
-			if strings.HasPrefix(args[i], "-") {
-				return nil, fmt.Errorf("option inconnue : %s", args[i])
+			if strings.HasPrefix(arg, "-") {
+				return nil, fmt.Errorf("option inconnue : %s", arg)
 			}
-			return nil, fmt.Errorf("argument inattendu : %s", args[i])
+			return nil, fmt.Errorf("argument inattendu : %s", arg)
 		}
 	}
-	return o, nil
+	return options, nil
 }
 
-// printUpdateHelp shows the update subcommand usage on stdout.
 func printUpdateHelp() {
-	fmt.Println(`Usage:
-  multiai update [options]              Verifier et installer les mises a jour
+	printUpdateHelpTo(os.Stdout)
+}
+
+func printUpdateHelpTo(output io.Writer) {
+	fmt.Fprintln(output, `Usage:
+  multiai update [options]      Verifier et installer une mise a jour persistante
 
 Options:
-  --check              Verifier la disponibilite (sortie JSON, sans installation)
-  --yes, -y            Installation sans confirmation (mode CI)
+  --check                       Verifier uniquement (JSON, aucune installation)
+  --yes, -y                     Confirmer sans question interactive
+
+Contrat de securite:
+  - le check de demarrage ne fait qu'une notification;
+  - l'installation est deleguee au gestionnaire npm detecte;
+  - aucune version temporaire n'est executee;
+  - les installations manuelles ou inconnues sont refusees.
 
 Exemples:
   multiai update
@@ -62,78 +79,89 @@ Exemples:
   multiai update --yes`)
 }
 
-// cmdUpdate is the subcommand handler registered as "update".
 func cmdUpdate(args []string) int {
-	o, err := parseUpdateFlags(args)
+	return runUpdate(args, os.Stdin, os.Stdout, os.Stderr)
+}
+
+func runUpdate(args []string, input io.Reader, output, errorOutput io.Writer) int {
+	options, err := parseUpdateFlags(args)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Erreur: %v\n", err)
+		fmt.Fprintf(errorOutput, "Erreur: %v\n", err)
 		return 1
 	}
-	if o.help {
-		printUpdateHelp()
+	if options.help {
+		printUpdateHelpTo(output)
 		return 0
 	}
 
-	// Fetch latest release from GitHub.
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	rel, err := update.FetchLatestRelease(ctx)
+	checkCtx, cancelCheck := context.WithTimeout(context.Background(), updateCheckTimeout)
+	release, err := fetchUpdateRelease(checkCtx)
+	cancelCheck()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[X] Impossible de verifier les mises a jour : %v\n", err)
+		fmt.Fprintf(errorOutput, "[X] Impossible de verifier les mises a jour : %v\n", err)
 		return 2
 	}
 
-	hasUpdate := update.IsNewer(version, rel.TagName)
-
-	// --check: JSON output, no installation.
-	if o.check {
-		out := struct {
+	hasUpdate := update.IsNewer(version, release.TagName)
+	latestVersion := strings.TrimPrefix(release.TagName, "v")
+	if options.check {
+		result := struct {
 			CurrentVersion string `json:"current_version"`
 			LatestVersion  string `json:"latest_version"`
 			HasUpdate      bool   `json:"has_update"`
 		}{
 			CurrentVersion: version,
-			LatestVersion:  strings.TrimPrefix(rel.TagName, "v"),
+			LatestVersion:  latestVersion,
 			HasUpdate:      hasUpdate,
 		}
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(out); err != nil {
-			fmt.Fprintf(os.Stderr, "[X] Erreur de sortie JSON : %v\n", err)
+		encoder := json.NewEncoder(output)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(result); err != nil {
+			fmt.Fprintf(errorOutput, "[X] Erreur de sortie JSON : %v\n", err)
 			return 3
 		}
 		return 0
 	}
 
 	if !hasUpdate {
-		fmt.Println("[i] Deja a jour")
+		fmt.Fprintln(output, "[i] Deja a jour")
 		return 0
 	}
 
-	// Interactive / --yes path.
-	fmt.Printf("Version actuelle   : %s\n", version)
-	fmt.Printf("Version disponible : %s\n", strings.TrimPrefix(rel.TagName, "v"))
-
-	if !o.yes {
-		fmt.Print("Voulez-vous installer la mise a jour ? [O/n] ")
-		reader := bufio.NewReader(os.Stdin)
-		answer, _ := reader.ReadString('\n')
+	fmt.Fprintf(output, "Version actuelle   : %s\n", version)
+	fmt.Fprintf(output, "Version disponible : %s\n", latestVersion)
+	if !options.yes {
+		fmt.Fprint(output, "Installer cette version via le gestionnaire detecte ? [O/n] ")
+		reader := bufio.NewReader(input)
+		answer, readErr := reader.ReadString('\n')
 		answer = strings.TrimSpace(strings.ToLower(answer))
+		if readErr != nil && !errors.Is(readErr, io.EOF) {
+			fmt.Fprintf(errorOutput, "[X] Impossible de lire la confirmation : %v\n", readErr)
+			return 1
+		}
+		if errors.Is(readErr, io.EOF) && answer == "" {
+			fmt.Fprintln(output, "Mise a jour annulee : confirmation absente.")
+			return 0
+		}
 		if answer == "n" || answer == "non" {
-			fmt.Println("Mise a jour annulee.")
+			fmt.Fprintln(output, "Mise a jour annulee.")
 			return 0
 		}
 	}
 
-	fmt.Println("Telechargement et installation...")
-	newExe, err := update.DownloadRelease(ctx, version, rel)
+	fmt.Fprintln(output, "Installation persistante en cours...")
+	installCtx, cancelInstall := context.WithTimeout(context.Background(), updateInstallTimeout)
+	result, err := installUpdateRelease(installCtx, release)
+	cancelInstall()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[X] Erreur lors du telechargement : %v\n", err)
+		fmt.Fprintf(errorOutput, "[X] Mise a jour non installee : %v\n", err)
+		if errors.Is(err, update.ErrUnsupportedInstall) {
+			fmt.Fprintf(errorOutput, "[i] Reinstallation recommandee : npx --yes --allow-scripts=multiai multiai@%s install\n", latestVersion)
+		}
 		return 2
 	}
 
-	fmt.Println("[OK] Mise a jour telechargee. Redemarrage...")
-	update.ExecBinary(newExe)
-	// Never reaches here (ExecBinary calls os.Exit(0)).
+	_ = update.WriteCache(update.Cache{LastCheck: time.Now(), LatestVersion: release.TagName})
+	fmt.Fprintf(output, "[OK] multiai %s installe de maniere persistante via %s.\n", result.Version, result.Manager)
 	return 0
 }

@@ -1,18 +1,15 @@
-// Package update provides self-update logic for the multiai CLI.
+// Package update checks for newer multiai releases and delegates explicit
+// updates to the package manager that owns the current installation.
 //
-// It checks the GitHub Releases API for a newer version, downloads and
-// verifies the matching platform archive, extracts the binary, and re-execs
-// the new version — all silently, without blocking startup on failure.
+// Startup checks are notification-only: this package never downloads or
+// executes a release binary and never terminates the caller's process.
 package update
 
 import (
-	"archive/tar"
-	"archive/zip"
 	"bytes"
-	"compress/gzip"
 	"context"
-	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,11 +25,18 @@ import (
 )
 
 const (
-	repoOwner      = "lrochetta"
-	repoName       = "multiai"
-	checkInterval  = 1 * time.Hour
-	requestTimeout = 5 * time.Second
+	checkInterval         = 1 * time.Hour
+	requestTimeout        = 5 * time.Second
+	maxRequestTimeout     = 10 * time.Second
+	automaticCheckTimeout = 5 * time.Second
+	maxResponseBytes      = 1 << 20
+	maxCommandOutputBytes = 64 << 10
 )
+
+// ErrUnsupportedInstall is returned when multiai cannot prove which package
+// manager owns the currently running executable. Refusing is safer than
+// overwriting an arbitrary binary or running an unverified temporary one.
+var ErrUnsupportedInstall = errors.New("unsupported multiai installation")
 
 // Cache holds the last update-check timestamp and the latest version seen.
 type Cache struct {
@@ -52,60 +56,86 @@ type ReleaseAsset struct {
 	BrowserDownloadURL string `json:"browser_download_url"`
 }
 
-// Check is the main entry point for auto-update. It is safe to call on every
-// startup: all errors are silently logged to stderr and never block the launch.
-func Check(ctx context.Context, currentVersion string) {
-	if os.Getenv("MULTIAI_SKIP_UPDATE") != "" {
-		return
-	}
-	if !ShouldCheck() {
-		return
-	}
-
-	rel, err := FetchLatestRelease(ctx)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "[update] fetch latest release: %v\n", err)
-		return
-	}
-	if !IsNewer(currentVersion, rel.TagName) {
-		_ = WriteCache(Cache{LastCheck: time.Now(), LatestVersion: rel.TagName})
-		return
-	}
-
-	newExe, err := downloadAndVerifyRelease(ctx, currentVersion, rel)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "[update] download and verify: %v\n", err)
-		_ = WriteCache(Cache{LastCheck: time.Now(), LatestVersion: rel.TagName})
-		return
-	}
-	execNewBinary(newExe)
+// CheckResult describes a notification-only release check.
+type CheckResult struct {
+	LatestVersion string
+	HasUpdate     bool
 }
 
-// ShouldCheck returns true when the last check was more than checkInterval ago
-// or when no cache exists yet. The duration is truncated to second precision
-// to absorb serialization and filesystem overhead at the boundary.
+// InstallResult confirms a package-manager update at its persistent path.
+type InstallResult struct {
+	Manager        string
+	Version        string
+	ExecutablePath string
+}
+
+var (
+	executablePath = os.Executable
+	lookPath       = exec.LookPath
+	now            = time.Now
+	runCommand     = runCommandBounded
+	fetchLatest    = FetchLatestRelease
+)
+
+// Check is the startup entry point. It only fetches release metadata, updates
+// the rate-limit cache, and prints a notification when a newer version exists.
+// It never downloads an archive, starts a replacement binary, or calls os.Exit.
+func Check(ctx context.Context, currentVersion string) {
+	if os.Getenv("MULTIAI_SKIP_UPDATE") != "" || !ShouldCheck() {
+		return
+	}
+
+	result, err := CheckLatest(ctx, currentVersion)
+	if err != nil {
+		// Cache failed automatic attempts to avoid a request on every command.
+		_ = WriteCache(Cache{LastCheck: now()})
+		return
+	}
+	_ = WriteCache(Cache{LastCheck: now(), LatestVersion: result.LatestVersion})
+	if result.HasUpdate {
+		fmt.Fprintf(os.Stderr, "[update] Nouvelle version %s disponible; lancez 'multiai update'.\n", result.LatestVersion)
+	}
+}
+
+// CheckLatest performs a bounded, notification-only release metadata request.
+func CheckLatest(ctx context.Context, currentVersion string) (CheckResult, error) {
+	ctx, cancel := context.WithTimeout(ctx, automaticCheckTimeout)
+	defer cancel()
+
+	rel, err := fetchLatest(ctx)
+	if err != nil {
+		return CheckResult{}, err
+	}
+	version, err := normalizeReleaseVersion(rel.TagName)
+	if err != nil {
+		return CheckResult{}, err
+	}
+	return CheckResult{
+		LatestVersion: version,
+		HasUpdate:     IsNewer(currentVersion, version),
+	}, nil
+}
+
+// ShouldCheck returns true when the cache is absent or older than one hour.
 func ShouldCheck() bool {
 	entry, err := ReadCache()
 	if err != nil {
 		return true
 	}
-	return time.Since(entry.LastCheck).Truncate(time.Second) > checkInterval
+	return now().Sub(entry.LastCheck).Truncate(time.Second) > checkInterval
 }
 
-// FetchLatestRelease calls the GitHub Releases API and returns the latest
-// release metadata. The API URL is hardcoded to the production GitHub API for
-// the lrochetta/multiai repository. A different URL can be set via
-// MULTIAI_GITHUB_API_URL, but only when MULTIAI_DEV=1 is also set and the
-// provided URL starts with https://api.github.com/. The request timeout can
-// be set via MULTIAI_UPDATE_TIMEOUT (default 5s).
+// FetchLatestRelease calls the hardcoded GitHub Releases API endpoint. A test
+// endpoint override is accepted only in explicit development mode and remains
+// restricted to api.github.com.
 func FetchLatestRelease(ctx context.Context) (*Release, error) {
 	apiURL := "https://api.github.com/repos/lrochetta/multiai/releases/latest"
 	if devURL := os.Getenv("MULTIAI_GITHUB_API_URL"); devURL != "" {
 		if os.Getenv("MULTIAI_DEV") != "1" {
-			return nil, fmt.Errorf("MULTIAI_GITHUB_API_URL requires MULTIAI_DEV=1") //nolint:staticcheck  // env var names are proper nouns
+			return nil, fmt.Errorf("MULTIAI_GITHUB_API_URL requires MULTIAI_DEV=1") //nolint:staticcheck
 		}
 		if !strings.HasPrefix(devURL, "https://api.github.com/") {
-			return nil, fmt.Errorf("MULTIAI_GITHUB_API_URL must start with https://api.github.com/") //nolint:staticcheck  // env var names are proper nouns
+			return nil, fmt.Errorf("MULTIAI_GITHUB_API_URL must start with https://api.github.com/") //nolint:staticcheck
 		}
 		apiURL = devURL
 	}
@@ -113,12 +143,14 @@ func FetchLatestRelease(ctx context.Context) (*Release, error) {
 	return fetchReleaseFromURL(ctx, apiURL)
 }
 
-// fetchReleaseFromURL performs the HTTP request and decodes the response.
 func fetchReleaseFromURL(ctx context.Context, url string) (*Release, error) {
 	timeout := requestTimeout
-	if t := os.Getenv("MULTIAI_UPDATE_TIMEOUT"); t != "" {
-		if d, err := time.ParseDuration(t); err == nil && d > 0 {
-			timeout = d
+	if value := os.Getenv("MULTIAI_UPDATE_TIMEOUT"); value != "" {
+		if parsed, err := time.ParseDuration(value); err == nil && parsed > 0 {
+			if parsed > maxRequestTimeout {
+				parsed = maxRequestTimeout
+			}
+			timeout = parsed
 		}
 	}
 
@@ -135,13 +167,28 @@ func fetchReleaseFromURL(ctx context.Context, url string) (*Release, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
 
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxResponseBytes {
+		return nil, fmt.Errorf("release metadata exceeds %d bytes", maxResponseBytes)
+	}
+
 	var rel Release
-	if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	if err := decoder.Decode(&rel); err != nil {
+		return nil, err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("release metadata contains trailing JSON data")
+	}
+	if _, err := normalizeReleaseVersion(rel.TagName); err != nil {
 		return nil, err
 	}
 	if rel.Assets == nil {
@@ -150,19 +197,250 @@ func fetchReleaseFromURL(ctx context.Context, url string) (*Release, error) {
 	return &rel, nil
 }
 
-// IsNewer compares two semver-like version strings and returns true when
-// latest > current. It strips any leading "v" prefix, compares
-// major.minor.patch numerically, and treats a missing pre-release suffix as
-// newer than one that has it (e.g. "1.0.1" > "1.0.1-beta"). Invalid or
-// unparseable versions cause a graceful return of false.
+// InstallRelease delegates an explicit update to the package manager that owns
+// the current executable. It currently supports the official npm layout. It
+// reports success only after the persistent binary returns the target version.
+func InstallRelease(ctx context.Context, rel *Release) (*InstallResult, error) {
+	if rel == nil {
+		return nil, fmt.Errorf("release is nil")
+	}
+	version, err := normalizeReleaseVersion(rel.TagName)
+	if err != nil {
+		return nil, err
+	}
+
+	currentExe, err := executablePath()
+	if err != nil {
+		return nil, fmt.Errorf("resolve current executable: %w", err)
+	}
+	currentExe, err = filepath.Abs(currentExe)
+	if err != nil {
+		return nil, fmt.Errorf("resolve absolute executable path: %w", err)
+	}
+	if !isNPMInstallPath(currentExe) {
+		return nil, fmt.Errorf("%w at %q; automatic replacement refused (reinstall with npm or use your original package manager)", ErrUnsupportedInstall, currentExe)
+	}
+
+	command, prefixArgs, err := resolveNPMCommand()
+	if err != nil {
+		return nil, err
+	}
+	if err := verifyNPMOwnsInstall(ctx, command, prefixArgs, currentExe); err != nil {
+		return nil, err
+	}
+	args := append(prefixArgs,
+		"install",
+		"--global",
+		"--ignore-scripts=false",
+		"--no-audit",
+		"--no-fund",
+		"multiai@"+version,
+	)
+	output, err := runCommand(ctx, command, args...)
+	if err != nil {
+		return nil, fmt.Errorf("npm did not complete the persistent update: %w%s", err, formatCommandOutput(output))
+	}
+
+	verifyOutput, err := runCommand(ctx, currentExe, "--version")
+	if err != nil {
+		return nil, fmt.Errorf("npm completed but the installed executable could not be verified: %w%s", err, formatCommandOutput(verifyOutput))
+	}
+	installedVersion, err := parseVersionOutput(string(verifyOutput))
+	if err != nil {
+		return nil, fmt.Errorf("npm completed but returned an unverifiable executable: %w", err)
+	}
+	if installedVersion != version {
+		return nil, fmt.Errorf("npm completed but persistent executable reports %s instead of %s; update not confirmed", installedVersion, version)
+	}
+
+	return &InstallResult{Manager: "npm", Version: version, ExecutablePath: currentExe}, nil
+}
+
+func verifyNPMOwnsInstall(ctx context.Context, command string, prefixArgs []string, currentExe string) error {
+	args := append(append([]string(nil), prefixArgs...), "root", "--global")
+	output, err := runCommand(ctx, command, args...)
+	if err != nil {
+		return fmt.Errorf("cannot verify npm ownership of the current installation: %w%s", err, formatCommandOutput(output))
+	}
+
+	rootOutput := strings.TrimSpace(string(output))
+	if rootOutput == "" || strings.ContainsAny(rootOutput, "\r\n") {
+		return fmt.Errorf("npm returned an invalid global root %q; update refused", rootOutput)
+	}
+	npmRoot, err := filepath.Abs(rootOutput)
+	if err != nil {
+		return fmt.Errorf("resolve npm global root: %w", err)
+	}
+	wantRoot := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(currentExe))))
+	if !pathsEqual(npmRoot, wantRoot) {
+		return fmt.Errorf("npm at %q owns global root %q, not the current installation at %q; possible PATH hijack, update refused", command, npmRoot, currentExe)
+	}
+	return nil
+}
+
+func pathsEqual(a, b string) bool {
+	a = filepath.Clean(a)
+	b = filepath.Clean(b)
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(a, b)
+	}
+	return a == b
+}
+
+func resolveNPMCommand() (string, []string, error) {
+	npmPath, err := lookPath("npm")
+	if err != nil {
+		return "", nil, fmt.Errorf("npm installation detected but npm is unavailable: %w", err)
+	}
+	npmPath, err = filepath.Abs(npmPath)
+	if err != nil {
+		return "", nil, fmt.Errorf("resolve npm path: %w", err)
+	}
+	if runtime.GOOS != "windows" {
+		return npmPath, nil, nil
+	}
+
+	ext := strings.ToLower(filepath.Ext(npmPath))
+	if ext != ".cmd" && ext != ".bat" {
+		return npmPath, nil, nil
+	}
+
+	// Avoid cmd.exe and shell parsing: execute npm-cli.js with its adjacent,
+	// persistent node.exe when npm resolves to the standard Windows batch shim.
+	dir := filepath.Dir(npmPath)
+	nodePath := filepath.Join(dir, "node.exe")
+	npmCLIPath := filepath.Join(dir, "node_modules", "npm", "bin", "npm-cli.js")
+	if !isRegularFile(nodePath) || !isRegularFile(npmCLIPath) {
+		return "", nil, fmt.Errorf("npm batch shim found at %q but its adjacent node.exe/npm-cli.js pair is unavailable; update refused", npmPath)
+	}
+	return nodePath, []string{npmCLIPath}, nil
+}
+
+func isRegularFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.Mode().IsRegular()
+}
+
+func isNPMInstallPath(path string) bool {
+	parts := splitPath(filepath.Clean(path))
+	if len(parts) < 5 {
+		return false
+	}
+	want := []string{"node_modules", "multiai", "bin", "native"}
+	start := len(parts) - 5
+	for i, component := range want {
+		if !pathComponentEqual(parts[start+i], component) {
+			return false
+		}
+	}
+	name := parts[len(parts)-1]
+	return pathComponentEqual(name, "multiai") || pathComponentEqual(name, "multiai.exe")
+}
+
+func splitPath(path string) []string {
+	volume := filepath.VolumeName(path)
+	path = strings.TrimPrefix(path, volume)
+	return strings.FieldsFunc(path, func(char rune) bool {
+		return char == '/' || char == '\\'
+	})
+}
+
+func pathComponentEqual(a, b string) bool {
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(a, b)
+	}
+	return a == b
+}
+
+func parseVersionOutput(output string) (string, error) {
+	fields := strings.Fields(strings.TrimSpace(output))
+	if len(fields) != 2 || fields[0] != "multiai" {
+		return "", fmt.Errorf("unexpected --version output %q", strings.TrimSpace(output))
+	}
+	return normalizeReleaseVersion(fields[1])
+}
+
+func normalizeReleaseVersion(version string) (string, error) {
+	version = strings.TrimPrefix(strings.TrimSpace(version), "v")
+	parts := strings.SplitN(version, "-", 2)
+	core := strings.Split(parts[0], ".")
+	if len(core) != 3 {
+		return "", fmt.Errorf("invalid release version %q", version)
+	}
+	for _, part := range core {
+		if part == "" || !allVersionChars(part, false) {
+			return "", fmt.Errorf("invalid release version %q", version)
+		}
+	}
+	if len(parts) == 2 && (parts[1] == "" || !allVersionChars(parts[1], true)) {
+		return "", fmt.Errorf("invalid release version %q", version)
+	}
+	return version, nil
+}
+
+func allVersionChars(value string, allowSeparators bool) bool {
+	for _, char := range value {
+		if char >= '0' && char <= '9' {
+			continue
+		}
+		if allowSeparators && ((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || char == '.' || char == '-') {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func runCommandBounded(ctx context.Context, name string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
+	var output bytes.Buffer
+	limited := &boundedWriter{destination: &output, remaining: maxCommandOutputBytes}
+	cmd.Stdout = limited
+	cmd.Stderr = limited
+	err := cmd.Run()
+	return output.Bytes(), err
+}
+
+type boundedWriter struct {
+	destination *bytes.Buffer
+	remaining   int64
+}
+
+func (writer *boundedWriter) Write(data []byte) (int, error) {
+	originalLength := len(data)
+	if writer.remaining <= 0 {
+		return originalLength, nil
+	}
+	if int64(len(data)) > writer.remaining {
+		data = data[:writer.remaining]
+	}
+	written, err := writer.destination.Write(data)
+	writer.remaining -= int64(written)
+	if err != nil {
+		return written, err
+	}
+	return originalLength, nil
+}
+
+func formatCommandOutput(output []byte) string {
+	trimmed := strings.TrimSpace(string(output))
+	if trimmed == "" {
+		return ""
+	}
+	return ": " + strings.Map(func(char rune) rune {
+		if char == '\n' || char == '\r' || char == '\t' || char >= 0x20 {
+			return char
+		}
+		return -1
+	}, trimmed)
+}
+
+// IsNewer compares semver-like version strings. Invalid versions fail closed.
 func IsNewer(current, latest string) bool {
 	current = strings.TrimPrefix(current, "v")
 	latest = strings.TrimPrefix(latest, "v")
-
 	curParts := strings.SplitN(current, ".", 3)
 	latParts := strings.SplitN(latest, ".", 3)
-
-	// Pad short version strings to at least 3 parts.
 	for len(curParts) < 3 {
 		curParts = append(curParts, "0")
 	}
@@ -190,242 +468,33 @@ func IsNewer(current, latest string) bool {
 			return false
 		}
 	}
-
-	// All three numeric parts are equal.
-	// A bare release (no suffix) is newer than a pre-release of the same
-	// version, e.g. "1.0.1" > "1.0.1-beta".
-	if latSuffix == "" && curSuffix != "" {
-		return true
-	}
-	return false
+	return latSuffix == "" && curSuffix != ""
 }
 
-// parseVersionPart extracts the leading numeric value and the remaining
-// suffix (if any) from a single semver segment. ok is false when the segment
-// has no leading digits at all.
-func parseVersionPart(s string) (num int, suffix string, ok bool) {
-	if s == "" {
+func parseVersionPart(value string) (num int, suffix string, ok bool) {
+	if value == "" {
 		return 0, "", false
 	}
-	for i, c := range s {
-		if c < '0' || c > '9' {
+	for i, char := range value {
+		if char < '0' || char > '9' {
 			if i == 0 {
-				return 0, "", false // no leading digits
+				return 0, "", false
 			}
-			n, err := strconv.Atoi(s[:i])
+			number, err := strconv.Atoi(value[:i])
 			if err != nil {
 				return 0, "", false
 			}
-			return n, s[i:], true
+			return number, value[i:], true
 		}
 	}
-	n, err := strconv.Atoi(s)
+	number, err := strconv.Atoi(value)
 	if err != nil {
 		return 0, "", false
 	}
-	return n, "", true
+	return number, "", true
 }
 
-// downloadAndVerifyRelease handles the full update pipeline: locate the
-// correct platform archive and checksums in the release assets, download,
-// verify SHA256, extract the binary, and return its temporary path.
-func downloadAndVerifyRelease(ctx context.Context, currentVersion string, rel *Release) (string, error) {
-	target := GetTarget()
-	if target == "" {
-		return "", fmt.Errorf("unsupported platform: %s/%s", runtime.GOOS, runtime.GOARCH)
-	}
-
-	isWindows := runtime.GOOS == "windows"
-	ext := ".tar.gz"
-	if isWindows {
-		ext = ".zip"
-	}
-
-	version := strings.TrimPrefix(rel.TagName, "v")
-	archiveName := fmt.Sprintf("multiai_%s_%s%s", version, target, ext)
-	binaryName := "multiai"
-	if isWindows {
-		binaryName = "multiai.exe"
-	}
-
-	// Locate archive and checksums assets.
-	var archiveURL, checksumsURL, sigURL, certURL string
-	for _, a := range rel.Assets {
-		switch a.Name {
-		case archiveName:
-			archiveURL = a.BrowserDownloadURL
-		case "checksums.txt":
-			checksumsURL = a.BrowserDownloadURL
-		case "checksums.txt.sig":
-			sigURL = a.BrowserDownloadURL
-		case "checksums.txt.pem":
-			certURL = a.BrowserDownloadURL
-		}
-	}
-	if archiveURL == "" {
-		return "", fmt.Errorf("archive %s not found in release assets", archiveName)
-	}
-	if checksumsURL == "" {
-		return "", fmt.Errorf("checksums.txt not found in release assets")
-	}
-
-	// Fetch checksums.
-	checksumsData, err := fetchRaw(ctx, checksumsURL)
-	if err != nil {
-		return "", fmt.Errorf("fetch checksums: %w", err)
-	}
-
-	// Cosign signature verification.
-	if sigURL != "" && certURL != "" {
-		fmt.Fprintf(os.Stderr, "[update] Vérification Cosign...\n")
-
-		sigData, err := fetchRaw(ctx, sigURL)
-		if err != nil {
-			return "", fmt.Errorf("fetch cosign signature: %w", err)
-		}
-		certData, err := fetchRaw(ctx, certURL)
-		if err != nil {
-			return "", fmt.Errorf("fetch cosign certificate: %w", err)
-		}
-
-		cosignTmpDir, err := os.MkdirTemp("", "multiai-cosign")
-		if err != nil {
-			return "", fmt.Errorf("create cosign temp dir: %w", err)
-		}
-		defer os.RemoveAll(cosignTmpDir)
-
-		checksumsPath := filepath.Join(cosignTmpDir, "checksums.txt")
-		sigPath := filepath.Join(cosignTmpDir, "checksums.txt.sig")
-		certPath := filepath.Join(cosignTmpDir, "checksums.txt.pem")
-
-		if err := os.WriteFile(checksumsPath, checksumsData, 0644); err != nil {
-			return "", fmt.Errorf("write checksums temp file: %w", err)
-		}
-		if err := os.WriteFile(sigPath, sigData, 0644); err != nil {
-			return "", fmt.Errorf("write sig temp file: %w", err)
-		}
-		if err := os.WriteFile(certPath, certData, 0644); err != nil {
-			return "", fmt.Errorf("write cert temp file: %w", err)
-		}
-
-		if err := verifyCosignSignature(checksumsPath, sigPath, certPath); err != nil {
-			return "", fmt.Errorf("cosign verification failed: %w", err)
-		}
-
-		fmt.Fprintf(os.Stderr, "[update] [OK] Cosign vérifié\n")
-	}
-
-	// Fetch archive.
-	archiveData, err := fetchRaw(ctx, archiveURL)
-	if err != nil {
-		return "", fmt.Errorf("fetch archive: %w", err)
-	}
-
-	// Verify SHA256.
-	expected := findChecksum(string(checksumsData), archiveName)
-	if expected == "" {
-		return "", fmt.Errorf("%s not found in checksums.txt", archiveName)
-	}
-	actual := sha256Hex(archiveData)
-	if actual != expected {
-		return "", fmt.Errorf("sha256 mismatch for %s", archiveName)
-	}
-
-	// Extract to a temporary directory.
-	tmpDir, err := os.MkdirTemp("", "multiai-update")
-	if err != nil {
-		return "", fmt.Errorf("create temp dir: %w", err)
-	}
-
-	var binaryPath string
-	if isWindows {
-		binaryPath, err = extractZip(archiveData, tmpDir, binaryName)
-	} else {
-		binaryPath, err = extractTarGz(archiveData, tmpDir, binaryName)
-	}
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		return "", fmt.Errorf("extract: %w", err)
-	}
-
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(binaryPath, 0755); err != nil {
-			os.RemoveAll(tmpDir)
-			return "", err
-		}
-	}
-
-	return binaryPath, nil
-}
-
-// verifyCosignSignature verifies the checksums blob using a Cosign signature
-// and Fulcio certificate. It returns nil on success, or if cosign is not
-// installed and MULTIAI_REQUIRE_COSIGN is unset.
-func verifyCosignSignature(checksumsPath, sigPath, certPath string) error {
-	cosignPath, err := exec.LookPath("cosign")
-	if err != nil {
-		if os.Getenv("MULTIAI_REQUIRE_COSIGN") == "1" {
-			return fmt.Errorf("cosign not found and MULTIAI_REQUIRE_COSIGN=1: %w", err)
-		}
-		fmt.Fprintf(os.Stderr, "[update] cosign not found, skipping signature verification\n")
-		return nil
-	}
-
-	args := []string{
-		"verify-blob",
-		"--certificate", certPath,
-		"--signature", sigPath,
-		"--certificate-identity-regexp", `https://github.com/lrochetta/multiai/.github/workflows/release.yml@refs/tags/v.*`,
-		"--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
-		checksumsPath,
-	}
-
-	cmd := exec.Command(cosignPath, args...)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("cosign verify-blob failed: %w\nOutput: %s", err, string(out))
-	}
-	return nil
-}
-
-// execNewBinary starts the new binary with the same arguments, stdin, stdout,
-// and stderr as the current process, then exits the old one.
-func execNewBinary(newExe string) {
-	args := append([]string{newExe}, os.Args[1:]...)
-	proc, err := os.StartProcess(newExe, args, &os.ProcAttr{
-		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
-	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "[update] exec new binary: %v\n", err)
-		return
-	}
-	proc.Release()
-	os.Exit(0)
-}
-
-// GetTarget returns the platform string used in release archive names
-// (e.g. "windows_amd64", "linux_arm64"). It matches the convention used by
-// goreleaser and install.js.
-func GetTarget() string {
-	switch {
-	case runtime.GOOS == "windows" && runtime.GOARCH == "amd64":
-		return "windows_amd64"
-	case runtime.GOOS == "darwin" && runtime.GOARCH == "amd64":
-		return "darwin_amd64"
-	case runtime.GOOS == "darwin" && runtime.GOARCH == "arm64":
-		return "darwin_arm64"
-	case runtime.GOOS == "linux" && runtime.GOARCH == "amd64":
-		return "linux_amd64"
-	case runtime.GOOS == "linux" && runtime.GOARCH == "arm64":
-		return "linux_arm64"
-	default:
-		return ""
-	}
-}
-
-// CacheFilePath returns the absolute path to the update-check cache file.
-// The base directory can be overridden with the MULTIAI_CACHE_DIR env var;
-// otherwise it defaults to os.UserConfigDir()/multiai/.
+// CacheFilePath returns the absolute update-check cache path.
 func CacheFilePath() string {
 	dir := cacheDir()
 	if dir == "" {
@@ -434,8 +503,7 @@ func CacheFilePath() string {
 	return filepath.Join(dir, "update-check.json")
 }
 
-// ReadCache reads the cache entry from disk. It returns an error when the
-// file is missing, unreadable, or contains invalid JSON.
+// ReadCache reads the cache entry from disk.
 func ReadCache() (*Cache, error) {
 	path := CacheFilePath()
 	if path == "" {
@@ -445,188 +513,36 @@ func ReadCache() (*Cache, error) {
 	if err != nil {
 		return nil, err
 	}
-	var c Cache
-	if err := json.Unmarshal(data, &c); err != nil {
+	var cache Cache
+	if err := json.Unmarshal(data, &cache); err != nil {
 		return nil, err
 	}
-	return &c, nil
+	return &cache, nil
 }
 
 // WriteCache atomically writes a cache entry to disk.
-func WriteCache(c Cache) error {
+func WriteCache(cache Cache) error {
 	path := CacheFilePath()
 	if path == "" {
 		return fmt.Errorf("cannot resolve cache path")
 	}
-	data, err := json.Marshal(c)
+	data, err := json.Marshal(cache)
 	if err != nil {
 		return err
 	}
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
 	return fsutil.WriteFileAtomic(path, data, 0644)
 }
 
-// DownloadAndVerify downloads a file from url, verifies its SHA256 digest
-// matches checksum, and writes it to dest. It creates intermediate
-// directories in dest as needed.
-func DownloadAndVerify(ctx context.Context, url, checksum, dest string) error {
-	data, err := fetchRaw(ctx, url)
-	if err != nil {
-		return fmt.Errorf("download: %w", err)
-	}
-	actual := sha256Hex(data)
-	if actual != strings.ToLower(checksum) {
-		return fmt.Errorf("sha256 mismatch: got %s, expected %s", actual, checksum)
-	}
-	dir := filepath.Dir(dest)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-	return os.WriteFile(dest, data, 0644)
-}
-
-// DownloadRelease is an exported wrapper around downloadAndVerifyRelease,
-// allowing external callers (e.g. cmd_update.go) to download, verify, and
-// extract the release binary for the current platform.
-func DownloadRelease(ctx context.Context, currentVersion string, rel *Release) (string, error) {
-	return downloadAndVerifyRelease(ctx, currentVersion, rel)
-}
-
-// ExecBinary starts the new binary with the same arguments and exits the
-// current process, completing the self-update cycle.
-func ExecBinary(newExe string) {
-	execNewBinary(newExe)
-}
-
-// ── Internal helpers ──────────────────────────────────────────────────────
-
-// cacheDir resolves the base directory for cache files. It respects the
-// MULTIAI_CACHE_DIR env var, falling back to os.UserConfigDir()/multiai
-// and finally to os.TempDir()/multiai as a last resort.
 func cacheDir() string {
 	if dir := os.Getenv("MULTIAI_CACHE_DIR"); dir != "" {
 		return dir
 	}
-	cfg, err := os.UserConfigDir()
+	configDir, err := os.UserConfigDir()
 	if err == nil {
-		return filepath.Join(cfg, "multiai")
+		return filepath.Join(configDir, "multiai")
 	}
 	return filepath.Join(os.TempDir(), "multiai")
-}
-
-// fetchRaw performs an HTTP GET and returns the raw response body.
-func fetchRaw(ctx context.Context, url string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", "multiai-updater")
-
-	client := &http.Client{Timeout: requestTimeout}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
-	}
-	return io.ReadAll(resp.Body)
-}
-
-// findChecksum parses a checksums.txt body (as produced by goreleaser) and
-// returns the lowercase SHA256 hex string for the given fileName.
-func findChecksum(checksumsText, fileName string) string {
-	for _, line := range strings.Split(checksumsText, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		// Format: "<sha256hex>  [*]<filename>"
-		parts := strings.Fields(line)
-		if len(parts) < 2 {
-			continue
-		}
-		name := strings.TrimPrefix(parts[1], "*")
-		if name == fileName {
-			return strings.ToLower(parts[0])
-		}
-	}
-	return ""
-}
-
-// sha256Hex returns the lowercase hex SHA256 digest of data.
-func sha256Hex(data []byte) string {
-	h := sha256.Sum256(data)
-	return fmt.Sprintf("%x", h)
-}
-
-// extractZip extracts binaryName from a zip archive into destDir.
-func extractZip(data []byte, destDir, binaryName string) (string, error) {
-	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
-	if err != nil {
-		return "", err
-	}
-	for _, f := range r.File {
-		if filepath.Base(f.Name) != binaryName {
-			continue
-		}
-		rc, err := f.Open()
-		if err != nil {
-			return "", err
-		}
-		defer rc.Close()
-
-		extractPath := filepath.Join(destDir, binaryName)
-		out, err := os.OpenFile(extractPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
-		if err != nil {
-			return "", err
-		}
-		defer out.Close()
-
-		if _, err := io.Copy(out, rc); err != nil {
-			return "", err
-		}
-		return extractPath, nil
-	}
-	return "", fmt.Errorf("%s not found in archive", binaryName)
-}
-
-// extractTarGz extracts binaryName from a gzipped tar archive into destDir.
-func extractTarGz(data []byte, destDir, binaryName string) (string, error) {
-	gzr, err := gzip.NewReader(bytes.NewReader(data))
-	if err != nil {
-		return "", err
-	}
-	defer gzr.Close()
-
-	tr := tar.NewReader(gzr)
-	for {
-		hdr, err := tr.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return "", err
-		}
-		if filepath.Base(hdr.Name) != binaryName {
-			continue
-		}
-		extractPath := filepath.Join(destDir, binaryName)
-		out, err := os.OpenFile(extractPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
-		if err != nil {
-			return "", err
-		}
-		defer out.Close()
-
-		if _, err := io.Copy(out, tr); err != nil {
-			return "", err
-		}
-		return extractPath, nil
-	}
-	return "", fmt.Errorf("%s not found in archive", binaryName)
 }
