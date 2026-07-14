@@ -4,12 +4,22 @@ description: Living state — updated by Zecher
 created: "2026-06-23"
 project: "multiai"
 last_updated: "2026-07-14"
-version: "0.6.7-release-blocked"
+version: "0.6.8-hotfix-release-blocked"
 score: "5.8/10"
-status: "AUDIT COMPLETE — RELEASE NO-GO"
+status: "P0 AVAST/CYBERCAPTURE — 0.6.6 STABLE, 0.6.8 NO-GO"
 ---
 
-# Project Context — multiai v0.6.7 (audit complet, publication bloquée)
+# Project Context — multiai v0.6.8 hotfix (publication bloquée)
+
+## Point de reprise P0 Avast/CyberCapture — 2026-07-14 23h (autoritatif)
+
+- **Incident confirmé** : l'asset Windows 0.6.7 et les nouveaux exécutables locaux sont retenus par Avast CyberCapture dans `CreateProcess`, avant le runtime Go et `main`.
+- **Rollback effectué** : npm `latest` pointe de nouveau sur 0.6.6; l'installation globale locale est 0.6.6 et `multiai version` répond. La release GitHub 0.6.7 est marquée prerelease.
+- **0.6.7 dépréciée** : avertissement npm complet publié après validation 2FA.
+- **Hotfix local 0.6.8** : Go release piné à 1.25.11, `os.Exit(0)` restauré pour version/help, smoke postinstall 20s, timeout shim uniquement sur probes version, E2E et test Windows bornés autour de `Run`.
+- **Validation** : 32/32 tests npm verts, scan secrets vert, workflows synchronisés, diff check vert. Le test Windows anti-gel échoue proprement en 10s sous Avast local, ce qui confirme le diagnostic.
+- **Gate** : commit/push et CI sont autorisés. Après CI verte, v0.6.8 reste une GitHub prerelease et npm reste sous `next` pour qualifier les hashes exacts. Aucune promotion stable/`latest` avant essai Avast/CyberCapture ou whitelisting.
+- **Stable publique** : 0.6.6. Ne pas promouvoir 0.6.7.
 
 ## Point de reprise Nexus — 2026-07-14 (autoritatif)
 

@@ -7,6 +7,16 @@ project: "multiai"
 
 # Lessons
 
+## Incident Avast/CyberCapture — 2026-07-14
+
+### `CommandContext` ne borne pas toujours `CreateProcess` sous Windows
+- **Impact**: CyberCapture peut retenir le syscall avant que `exec.Cmd.Start` retourne. L'annulation de contexte n'est alors pas encore armée et un test apparemment borné reste gelé.
+- **Lesson**: Exécuter `cmd.Run()` dans un goroutine contrôleur, sélectionner explicitement sur une deadline et ne lire les buffers qu'après le retour du processus. Garder le smoke de l'artefact officiel comme gate de release.
+
+### Un téléchargement vérifié par SHA256 peut rester inutilisable
+- **Impact**: npm 0.6.7 vérifiait correctement l'asset puis annonçait une installation réussie alors qu'Avast empêchait son démarrage.
+- **Lesson**: Après extraction, exécuter une probe bornée qui vérifie la version exacte avant d'annoncer le succès; un shim doit aussi transformer le gel d'une probe en erreur explicite.
+
 ## Audit BMAD+ complet — 2026-07-14
 
 ### Un smoke test par chemin interne peut certifier une installation inutilisable

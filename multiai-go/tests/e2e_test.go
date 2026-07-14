@@ -4,6 +4,7 @@ package tests
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 // ---------------------------------------------------------------------------
@@ -32,10 +34,23 @@ func TestMain(m *testing.M) {
 	repoRoot := findRepoRoot()
 	pkgPath := filepath.Join(repoRoot, "cmd", "multiai")
 
-	cmd := exec.Command("go", "build", "-o", tmpBin, "-ldflags=-s -w", pkgPath)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	cmd := exec.CommandContext(ctx, "go", "build", "-o", tmpBin, "-ldflags=-s -w", pkgPath)
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "[E2E] failed to build multiai binary: %v\n", err)
+	cmd.WaitDelay = 2 * time.Second
+	result := make(chan error, 1)
+	go func() { result <- cmd.Run() }()
+
+	var buildErr error
+	select {
+	case buildErr = <-result:
+		cancel()
+	case <-ctx.Done():
+		fmt.Fprintln(os.Stderr, "[E2E] multiai build remained blocked for 2m")
+		os.Exit(1)
+	}
+	if buildErr != nil {
+		fmt.Fprintf(os.Stderr, "[E2E] failed to build multiai binary: %v\n", buildErr)
 		os.Exit(1)
 	}
 
@@ -70,8 +85,11 @@ func findRepoRoot() string {
 // overrides. It returns stdout, stderr, and the exit code.
 func runMultiai(t *testing.T, args []string, env map[string]string) (stdout, stderr string, exitCode int) {
 	t.Helper()
-	cmd := exec.Command(multiaiBin, args...)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, multiaiBin, args...)
 	cmd.Dir = findRepoRoot() // consistent working directory
+	cmd.WaitDelay = 2 * time.Second
 
 	// Inherit current environment, then overlay test-specific vars.
 	cmd.Env = os.Environ()
@@ -83,7 +101,17 @@ func runMultiai(t *testing.T, args []string, env map[string]string) (stdout, std
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
 
-	err := cmd.Run()
+	result := make(chan error, 1)
+	go func() { result <- cmd.Run() }()
+
+	var err error
+	select {
+	case err = <-result:
+	case <-ctx.Done():
+		// On Windows, security software can hold CreateProcess before Start
+		// returns. Running it behind this controller keeps the test bounded.
+		return "", "multiai process startup timed out after 15s", -1
+	}
 	if err != nil {
 		if exit, ok := err.(*exec.ExitError); ok {
 			exitCode = exit.ExitCode()

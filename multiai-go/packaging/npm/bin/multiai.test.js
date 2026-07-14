@@ -10,7 +10,8 @@ const {
   buildGlobalPrefixArgs,
   buildGlobalRootArgs,
   buildNpmInvocation,
-  npmMajorVersion
+  npmMajorVersion,
+  runNative
 } = require('./multiai');
 
 test('legacy npx install command becomes a real global npm install', () => {
@@ -81,4 +82,40 @@ test('npm invocation has a platform fallback outside npm', () => {
     command: 'npm',
     args: ['install']
   });
+});
+
+test('native shim bounds execution and preserves the native exit code', () => {
+  const calls = [];
+  const fakeSpawn = (file, args, options) => {
+    calls.push({ file, args, options });
+    return { status: 7 };
+  };
+
+  assert.equal(runNative(['--version'], fakeSpawn, 'multiai.exe'), 7);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].args, ['--version']);
+  assert.equal(calls[0].options.timeout, 30000);
+  assert.equal(calls[0].options.windowsHide, true);
+});
+
+test('native shim converts a timeout into a controlled failure', () => {
+  const timeout = Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' });
+  const originalError = console.error;
+  const messages = [];
+  console.error = (...args) => messages.push(args.join(' '));
+  try {
+    assert.equal(runNative([], () => ({ error: timeout }), 'multiai.exe'), 1);
+  } finally {
+    console.error = originalError;
+  }
+  assert.match(messages.join('\n'), /timed out after 30s/);
+});
+
+test('native shim does not cap interactive or launched commands', () => {
+  let options;
+  assert.equal(runNative(['launch', '-p', 'ds'], (_file, _args, value) => {
+    options = value;
+    return { status: 0 };
+  }, 'multiai.exe'), 0);
+  assert.equal(Object.hasOwn(options, 'timeout'), false);
 });

@@ -7,6 +7,13 @@ project: "multiai"
 
 # Decisions
 
+## 2026-07-14 — Rollback public 0.6.6 et gate Avast obligatoire pour 0.6.8
+- **Context**: Le binaire Windows 0.6.7 publié est retenu par Avast CyberCapture dans `CreateProcess`, avant le runtime Go. Le postinstall annonçait néanmoins un succès et le shim pouvait attendre indéfiniment.
+- **Decision**: Remettre immédiatement npm `latest` sur 0.6.6 et déprécier 0.6.7. Préparer 0.6.8 avec Go 1.25.11, smoke postinstall borné, probes du shim bornées et tests E2E dont les appels `CreateProcess` sont contrôlés hors du thread de test.
+- **Rationale**: Un timeout de `CommandContext` ne suffit pas si Windows bloque directement `CreateProcess`; la borne doit entourer l'appel `Run` lui-même. Aucune release 0.6.8 ne peut être promue sans CI complète et essai de l'artefact officiel sur une machine Avast/CyberCapture.
+- **Consequences**: 0.6.6 reste la version stable. Le tag v0.6.8 peut produire une GitHub prerelease et npm 0.6.8 peut rester sous le tag `next` pour tester exactement les hashes finaux; aucune promotion stable/`latest` avant qualification Avast ou whitelisting.
+- **Status**: active
+
 ## 2026-07-14 — Bootstrap PATH Windows explicite, user-scope et fail-closed
 - **Context**: `npx multiai install` terminait son installation globale puis smoke-testait directement le JavaScript du package. Sous Windows, ce test contournait `multiai.cmd` et masquait l'absence du préfixe npm dans `PATH`.
 - **Decision**: Le parcours explicite `npx --yes --allow-scripts=multiai multiai@latest install` résout `npm prefix --global`, valide un chemin de disque local, persiste ce préfixe au scope User via .NET, puis vérifie le premier shim réellement résolu. Pas de `setx`, pas d'élévation, pas de mutation depuis `postinstall`; `npm install -g` seul conserve la sémantique npm standard.

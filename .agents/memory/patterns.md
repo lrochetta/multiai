@@ -9,6 +9,12 @@ project: "multiai"
 
 Reusable patterns that work well in this project.
 
+### Bounded Windows Process Startup
+- **Problem**: Un antivirus peut bloquer `CreateProcess` avant le retour de `exec.Cmd.Start`, rendant `CommandContext` seul insuffisant.
+- **Shape**: Lancer `cmd.Run()` dans un goroutine contrôleur, attendre soit son résultat soit une deadline, et n'accéder aux buffers de sortie qu'après un résultat. Ajouter une probe répétée `--version` de l'artefact réellement distribué.
+- **Trade-off**: En cas de blocage avant création du PID, le goroutine ne peut pas être interrompu proprement; le contrôleur garde toutefois le test borné et le processus de test se termine en échec.
+- **Status**: `validated`
+
 ### Idempotent Windows User PATH Bootstrap
 - **Problem**: Une installation npm globale peut créer le shim Windows sans que son préfixe soit présent dans le PATH, tandis qu'un smoke test direct du package masque le défaut.
 - **Shape**: Résoudre `npm prefix --global`, n'accepter qu'un chemin de disque local contenant le shim attendu, puis déléguer à un helper PowerShell UTF-8. Le helper normalise Machine/User PATH, sérialise les écritures par mutex, persiste au scope User avec .NET, relit, reconstruit le PATH effectif et retourne le premier shim résolu. Le smoke appelle ensuite la commande publique par son nom dans cet environnement exact.

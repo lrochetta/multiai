@@ -7,7 +7,8 @@ const {
   configureNetworkTrust,
   expectedChecksum,
   isCertificateError,
-  isSupportedNode
+  isSupportedNode,
+  verifyBinary
 } = require('./install');
 
 test('configureNetworkTrust merges default and system CAs and enables proxy support', () => {
@@ -57,4 +58,39 @@ test('Node 24.14 is the minimum supported bootstrap runtime', () => {
   assert.equal(isSupportedNode('24.13.9'), false);
   assert.equal(isSupportedNode('22.21.0'), false);
   assert.equal(isSupportedNode('25.0.0'), true);
+});
+
+test('downloaded native binary must report the package version', () => {
+  const calls = [];
+  const fakeExec = (file, args, options) => {
+    calls.push({ file, args, options });
+    return 'multiai 0.6.8\n';
+  };
+  verifyBinary('multiai.exe', '0.6.8', fakeExec);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].args, ['--version']);
+  assert.equal(calls[0].options.env.MULTIAI_SKIP_UPDATE, '1');
+  assert.equal(calls[0].options.timeout, 20000);
+});
+
+test('native binary smoke timeout fails the install explicitly', () => {
+  const timeout = Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' });
+  assert.throws(
+    () => verifyBinary('multiai.exe', '0.6.8', () => { throw timeout; }),
+    /smoke test timed out after 20s/
+  );
+});
+
+test('native binary smoke rejects a mismatched version', () => {
+  assert.throws(
+    () => verifyBinary('multiai.exe', '0.6.8', () => 'multiai 0.6.7\n'),
+    /instead of multiai 0\.6\.8/
+  );
+});
+
+test('native binary smoke wraps process startup failures', () => {
+  assert.throws(
+    () => verifyBinary('multiai.exe', '0.6.8', () => { throw new Error('access denied'); }),
+    /native binary smoke test failed: access denied/
+  );
 });

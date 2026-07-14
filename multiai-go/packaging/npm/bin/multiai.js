@@ -17,6 +17,7 @@ const {
 
 const exe = process.platform === 'win32' ? 'multiai.exe' : 'multiai';
 const native = path.join(__dirname, 'native', exe);
+const NATIVE_TIMEOUT_MS = 30000;
 
 function npmMajorVersion(env = process.env) {
   const match = /(?:^|\s)npm\/(\d+)/.exec(env.npm_config_user_agent || '');
@@ -161,6 +162,31 @@ function installGlobally(args) {
   return 0;
 }
 
+function runNative(argv, spawn = spawnSync, nativePath = native) {
+  // Long-running launches and interactive configuration must not be capped.
+  // The installer already smoke-tests every downloaded binary; keep a
+  // defensive runtime bound only for the version probes used by automation.
+  const timeout = argv.length === 1 && ['--version', 'version'].includes(argv[0])
+    ? NATIVE_TIMEOUT_MS
+    : undefined;
+  const result = spawn(nativePath, argv, {
+    stdio: 'inherit',
+    ...(timeout === undefined ? {} : { timeout }),
+    windowsHide: true
+  });
+
+  if (result.error) {
+    if (result.error.code === 'ETIMEDOUT') {
+      console.error(`multiai: native binary timed out after ${NATIVE_TIMEOUT_MS / 1000}s.`);
+      console.error('multiai: Windows security software may be blocking this executable.');
+      return 1;
+    }
+    console.error('multiai: failed to start binary:', result.error.message);
+    return 1;
+  }
+  return result.status === null ? 1 : result.status;
+}
+
 function main(argv = process.argv.slice(2)) {
   // The explicit installer does not need the temporary npx package's native
   // binary. Handle it first so npm can perform one verified global download.
@@ -180,13 +206,7 @@ function main(argv = process.argv.slice(2)) {
     return 1;
   }
 
-  const result = spawnSync(native, argv, { stdio: 'inherit' });
-
-  if (result.error) {
-    console.error('multiai: failed to start binary:', result.error.message);
-    return 1;
-  }
-  return result.status === null ? 1 : result.status;
+  return runNative(argv);
 }
 
 if (require.main === module) {
@@ -198,5 +218,6 @@ module.exports = {
   buildGlobalPrefixArgs,
   buildGlobalRootArgs,
   buildNpmInvocation,
-  npmMajorVersion
+  npmMajorVersion,
+  runNative
 };

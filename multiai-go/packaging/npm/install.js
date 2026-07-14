@@ -29,6 +29,7 @@ const NATIVE_DIR = path.join(__dirname, 'bin', 'native');
 const TIMEOUT_MS = 60000; // 60s total for download
 const REQUEST_TIMEOUT_MS = 30000;
 const EXTRACT_TIMEOUT_MS = 30000;
+const BINARY_SMOKE_TIMEOUT_MS = 20000;
 const MAX_REDIRECTS = 5;
 
 // npm and the operating system may trust a local/company CA that Node's
@@ -154,6 +155,28 @@ function isSupportedNode(version = process.versions.node) {
   return major > 24 || (major === 24 && minor >= 14);
 }
 
+function verifyBinary(binaryPath, version = VERSION, exec = execFileSync) {
+  let output;
+  try {
+    output = exec(binaryPath, ['--version'], {
+      encoding: 'utf8',
+      env: { ...process.env, MULTIAI_SKIP_UPDATE: '1' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: BINARY_SMOKE_TIMEOUT_MS,
+      windowsHide: true
+    });
+  } catch (err) {
+    if (err && (err.code === 'ETIMEDOUT' || err.killed)) {
+      throw new Error(`native binary smoke test timed out after ${BINARY_SMOKE_TIMEOUT_MS / 1000}s`);
+    }
+    throw new Error(`native binary smoke test failed: ${err.message}`);
+  }
+  const expected = `multiai ${version}`;
+  if (String(output).trim() !== expected) {
+    throw new Error(`native binary reported ${String(output).trim() || '(no version)'} instead of ${expected}`);
+  }
+}
+
 async function main() {
   if (!isSupportedNode()) {
     throw new Error(`Node.js 24.14+ is required (current: ${process.versions.node})`);
@@ -210,6 +233,10 @@ async function main() {
     fs.copyFileSync(extracted, dest);
     if (process.platform !== 'win32') fs.chmodSync(dest, 0o755);
 
+    // Fail the install before announcing success if Windows security software
+    // blocks the generated executable at process startup.
+    verifyBinary(dest);
+
     if (process.env.MULTIAI_INSTALL_DIR) {
       const extraDir = process.env.MULTIAI_INSTALL_DIR;
       fs.mkdirSync(extraDir, { recursive: true });
@@ -253,5 +280,6 @@ module.exports = {
   expectedChecksum,
   getTarget,
   isCertificateError,
-  isSupportedNode
+  isSupportedNode,
+  verifyBinary
 };
