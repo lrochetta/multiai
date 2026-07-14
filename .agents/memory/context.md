@@ -4,22 +4,23 @@ description: Living state — updated by Zecher
 created: "2026-06-23"
 project: "multiai"
 last_updated: "2026-07-15"
-version: "0.6.9-rc"
+version: "0.6.10-rc"
 score: "5.8/10"
-status: "P0 AVAST/CYBERCAPTURE — 0.6.6 STABLE, 0.6.9 CI PENDING"
+status: "0.6.6 STABLE — 0.6.10 READY FOR CI"
 ---
 
-# Project Context — multiai v0.6.9 release candidate
+# Project Context — multiai v0.6.10 release candidate
 
-## Point de reprise P0 Avast/CyberCapture — 2026-07-15 01h (autoritatif)
+## Point de reprise sécurité/release — 2026-07-15 01h (autoritatif)
 
 - **Canaux publics sûrs** : GitHub `latest` et npm `latest` restent en 0.6.6. v0.6.7 et v0.6.8 sont des prereleases; npm 0.6.8 est uniquement sous `next`.
 - **Défaut restant de 0.6.8** : les timeouts synchrones Node ne bornent pas un `CreateProcess` retenu par Avast. Le postinstall isolé pouvait donc encore geler avant que Node ne puisse appliquer son timer.
-- **Correctif 0.6.9 local** : contrôleur Windows externe à deux processus pour le postinstall et les probes `version`; timeout 124 explicite, fallback lorsque `taskkill` est refusé, aucune limite ajoutée aux commandes interactives.
-- **Preuves boîte noire** : faux EXE dormant une heure interrompu en environ 2,9 s pour une limite de 2 s, sans PID résiduel; 36/36 tests npm verts; tarball dry-run de 9 fichiers contenant le module et le contrôleur; scan secrets et synchronisation workflows verts.
+- **Correctif 0.6.10 local** : contrôleur Windows externe à deux processus pour le postinstall et les probes `version`; timeout 124 explicite, fallback lorsque `taskkill` est refusé, aucune limite ajoutée aux commandes interactives. Le bootstrap borne aussi hôtes, redirections et tailles de téléchargement.
+- **Preuves boîte noire** : faux EXE dormant une heure interrompu en environ 2,9 s pour une limite de 2 s, sans PID résiduel; 40/40 tests npm verts; tarball dry-run de 9 fichiers contenant le module et le contrôleur; scan secrets et synchronisation workflows verts.
 - **Go local** : tous les paquets `cmd`, `internal` et `pkg` passent. Le paquet d'intégration `tests` compile mais son lancement est retenu localement par Avast avant le runtime; la validation d'exécution reste à fournir par GitHub Actions.
-- **Gate de distribution** : pousser le commit, attendre toute la CI, taguer v0.6.9, publier uniquement comme GitHub prerelease avec `latest=false`, puis npm avec `--tag next`. Vérifier ensuite que 0.6.6 reste stable.
-- **Auth release** : utiliser seulement le pointeur du coffre `D:\travail\Ressources DEV\accounts\github\CREDENTIALS.md` et injecter le PAT en mémoire; ne jamais copier ni journaliser sa valeur.
+- **Gate de distribution** : le tag v0.6.9 a été abandonné sans release ni npm après détection d'un risque AUR. v0.6.10 doit passer la CI complète, rester GitHub prerelease avec `latest=false`, puis être publiée sur npm avec `--tag next`. Vérifier ensuite que 0.6.6 reste stable.
+- **Audit credentials** : l'arbre courant est propre, mais une ancienne clé DeepSeek réelle subsiste dans l'historique public. Une vérification d'authentification redacted retourne HTTP 401, confirmant sa révocation. Laurent a validé le traitement non destructif : exception Gitleaks limitée aux règles concernées et au commit exact, jamais au dossier `audit/` entier.
+- **Auth release** : utiliser seulement le pointeur du coffre partagé hors dépôt et injecter le PAT en mémoire; ne jamais copier ni journaliser sa valeur.
 
 ## Point de reprise P0 Avast/CyberCapture — 2026-07-14 23h (archive)
 
@@ -30,7 +31,7 @@ status: "P0 AVAST/CYBERCAPTURE — 0.6.6 STABLE, 0.6.9 CI PENDING"
 - **Validation** : 32/32 tests npm verts, scan secrets vert, workflows synchronisés, diff check vert. Le test Windows anti-gel échoue proprement en 10s sous Avast local, ce qui confirme le diagnostic.
 - **Gate** : commit/push et CI sont autorisés. Après CI verte, v0.6.8 reste une GitHub prerelease et npm reste sous `next` pour qualifier les hashes exacts. Aucune promotion stable/`latest` avant essai Avast/CyberCapture ou whitelisting.
 - **Stable publique** : 0.6.6. Ne pas promouvoir 0.6.7.
-- **Auth release** : le PAT GitHub partagé est référencé uniquement par `D:\travail\Ressources DEV\accounts\github\CREDENTIALS.md`. Il a été utilisé en mémoire pour pousser `079019c`, sans valeur copiée dans le projet ni persistance dans `gh`.
+- **Auth release** : le PAT GitHub partagé est référencé uniquement par le coffre hors dépôt. Il a été utilisé en mémoire pour pousser `079019c`, sans valeur copiée dans le projet ni persistance dans `gh`.
 - **CI `079019c`** : tous les jobs fonctionnels et multi-OS sont verts; seul govulncheck a refusé Go 1.25.11 pour GO-2026-5856. Reprise sur Go 1.25.12 avant toute release.
 
 ## Point de reprise Nexus — 2026-07-14 (autoritatif)

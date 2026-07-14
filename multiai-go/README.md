@@ -146,9 +146,9 @@ scoop bucket add lrochetta https://github.com/lrochetta/scoop-bucket
 scoop install multiai
 ```
 
-### Script universel (macOS/Linux)
+### Installation universelle vérifiée
 ```bash
-curl -fsSL https://rochetta.fr/multiai/install.sh | bash
+npx --yes --allow-scripts=multiai multiai@0.6.6 install
 ```
 
 ---

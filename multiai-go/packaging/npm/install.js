@@ -32,6 +32,12 @@ const REQUEST_TIMEOUT_MS = 30000;
 const EXTRACT_TIMEOUT_MS = 30000;
 const BINARY_SMOKE_TIMEOUT_MS = 20000;
 const MAX_REDIRECTS = 5;
+const MAX_CHECKSUMS_BYTES = 1024 * 1024;
+const MAX_ARCHIVE_BYTES = 100 * 1024 * 1024;
+const ALLOWED_DOWNLOAD_HOSTS = new Set([
+  'github.com',
+  'release-assets.githubusercontent.com'
+]);
 
 // npm and the operating system may trust a local/company CA that Node's
 // bundled Mozilla store does not know about. On recent Node versions, merge
@@ -71,15 +77,53 @@ function getTarget() {
   return map[`${process.platform}-${os.arch()}`] || null;
 }
 
-// Simple HTTPS fetch with bounded redirects and timeout.
-function fetch(url, redirects = 0) {
+function validateDownloadUrl(value) {
+  const parsed = value instanceof URL ? value : new URL(value);
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password ||
+      !ALLOWED_DOWNLOAD_HOSTS.has(parsed.hostname.toLowerCase())) {
+    throw new Error(`Refusing untrusted download URL: ${parsed.origin}`);
+  }
+  return parsed;
+}
+
+function resolveRedirectUrl(location, currentUrl) {
+  return validateDownloadUrl(new URL(location, validateDownloadUrl(currentUrl)));
+}
+
+function readResponseBody(res, maxBytes, url) {
+  return new Promise((resolve, reject) => {
+    const declared = Number(res.headers['content-length']);
+    if (Number.isFinite(declared) && declared > maxBytes) {
+      res.resume();
+      reject(new Error(`Download exceeds ${maxBytes} bytes for ${url}`));
+      return;
+    }
+    const chunks = [];
+    let received = 0;
+    res.on('data', chunk => {
+      received += chunk.length;
+      if (received > maxBytes) {
+        res.destroy(new Error(`Download exceeds ${maxBytes} bytes for ${url}`));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    res.on('end', () => resolve(Buffer.concat(chunks)));
+    res.on('error', reject);
+  });
+}
+
+// HTTPS fetch with allowlisted redirects, streaming size bound and timeout.
+function fetch(url, maxBytes, redirects = 0) {
   return new Promise((resolve, reject) => {
     if (redirects > MAX_REDIRECTS) {
       reject(new Error(`Too many redirects for ${url}`));
       return;
     }
+    let trustedUrl;
+    try { trustedUrl = validateDownloadUrl(url); } catch (err) { reject(err); return; }
     const req = https.get(
-      url,
+      trustedUrl,
       {
         headers: { 'User-Agent': `multiai-npm/${VERSION}` },
         timeout: REQUEST_TIMEOUT_MS
@@ -87,7 +131,10 @@ function fetch(url, redirects = 0) {
       (res) => {
         if (res.statusCode >= 301 && res.statusCode <= 308 && res.headers.location) {
           res.resume();
-          resolve(fetch(new URL(res.headers.location, url).toString(), redirects + 1));
+          let redirect;
+          try { redirect = resolveRedirectUrl(res.headers.location, trustedUrl); }
+          catch (err) { reject(err); return; }
+          resolve(fetch(redirect, maxBytes, redirects + 1));
           return;
         }
         if (res.statusCode !== 200) {
@@ -95,10 +142,7 @@ function fetch(url, redirects = 0) {
           reject(new Error(`HTTP ${res.statusCode} for ${url}`));
           return;
         }
-        const chunks = [];
-        res.on('data', c => chunks.push(c));
-        res.on('end', () => resolve(Buffer.concat(chunks)));
-        res.on('error', reject);
+        resolve(readResponseBody(res, maxBytes, trustedUrl));
       }
     );
     req.on('timeout', () => { req.destroy(); reject(new Error('Request timed out')); });
@@ -201,12 +245,12 @@ async function main() {
   console.log('multiai ' + VERSION + ' — downloading ' + archiveName + '...');
 
   // 1. Checksums
-  const checksumsText = (await fetch(base + '/checksums.txt')).toString('utf8');
+  const checksumsText = (await fetch(base + '/checksums.txt', MAX_CHECKSUMS_BYTES)).toString('utf8');
   const expected = expectedChecksum(checksumsText, archiveName);
   if (!expected) throw new Error(archiveName + ' not found in checksums.txt');
 
   // 2. Archive
-  const archive = await fetch(base + '/' + archiveName);
+  const archive = await fetch(base + '/' + archiveName, MAX_ARCHIVE_BYTES);
   const actual = sha256(archive);
   if (actual !== expected) {
     throw new Error('SHA256 mismatch for ' + archiveName + '\n  expected: ' + expected + '\n  actual: ' + actual);
@@ -276,5 +320,8 @@ module.exports = {
   getTarget,
   isCertificateError,
   isSupportedNode,
+  readResponseBody,
+  resolveRedirectUrl,
+  validateDownloadUrl,
   verifyBinary
 };

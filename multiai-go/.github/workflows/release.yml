@@ -164,9 +164,10 @@ jobs:
           distribution: goreleaser
           version: v2.17.0
           workdir: multiai-go
-          # Keep v0.6.9 hidden as a draft until the explicit prerelease step.
+          # Keep qualification releases hidden as drafts until the explicit
+          # prerelease step.
           # This prevents it from transiently replacing v0.6.6 as latest.
-          args: release --clean ${{ github.ref_name == 'v0.6.9' && '--draft' || '' }}
+          args: release --clean ${{ (github.ref_name == 'v0.6.9' || github.ref_name == 'v0.6.10') && '--draft' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -198,7 +199,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          if [ "$RELEASE_TAG" = "v0.6.9" ]; then
+          if [ "$RELEASE_TAG" = "v0.6.9" ] || [ "$RELEASE_TAG" = "v0.6.10" ]; then
             # Qualify the exact Windows hash under Avast before it can become
             # the GitHub latest release consumed by the auto-updater.
             gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
@@ -209,6 +210,9 @@ jobs:
   aur:
     name: Update AUR PKGBUILD
     needs: [goreleaser]
+    # Qualification releases must remain confined to GitHub prereleases until
+    # their exact artifacts pass endpoint-security validation.
+    if: ${{ github.ref_name != 'v0.6.9' && github.ref_name != 'v0.6.10' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write # push an update branch for PKGBUILD / .SRCINFO
@@ -217,24 +221,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          # Checkout master (the tag-based trigger leaves us on the tag)
-          ref: master
-          fetch-depth: 1
+          # Execute scripts only from the immutable, audited release tag.
+          fetch-depth: 0
+
+      - name: Prepare isolated publication worktree
+        env:
+          PUBLICATION_ROOT: ${{ runner.temp }}/aur-publication
+        run: |
+          git fetch --no-tags origin master
+          git worktree add "$PUBLICATION_ROOT" origin/master
 
       - name: Pin checksums
         env:
+          PUBLICATION_ROOT: ${{ runner.temp }}/aur-publication
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           # Strip 'v' prefix from ref to get semver: refs/tags/v0.5.0 -> 0.5.0
           VERSION="$RELEASE_TAG"
           VERSION="${VERSION#v}"
-          bash multiai-go/scripts/update-aur-checksums.sh "$VERSION"
+          MULTIAI_ROOT="$PUBLICATION_ROOT/multiai-go" \
+            bash multiai-go/scripts/update-aur-checksums.sh "$VERSION"
 
       - name: Commit updated PKGBUILD and .SRCINFO
         env:
           GH_TOKEN: ${{ github.token }}
+          PUBLICATION_ROOT: ${{ runner.temp }}/aur-publication
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          cd "$PUBLICATION_ROOT"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add multiai-go/packaging/aur/PKGBUILD multiai-go/packaging/aur/.SRCINFO
@@ -259,6 +273,7 @@ jobs:
         env:
           AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
           AUR_KNOWN_HOSTS: ${{ secrets.AUR_KNOWN_HOSTS }}
+          PUBLICATION_ROOT: ${{ runner.temp }}/aur-publication
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           if [ -z "$AUR_SSH_KEY" ]; then
@@ -288,8 +303,8 @@ jobs:
           git clone aur@aur.archlinux.org:multiai.git /tmp/aur-repo
 
           # Copy updated files
-          cp multiai-go/packaging/aur/PKGBUILD /tmp/aur-repo/
-          cp multiai-go/packaging/aur/.SRCINFO /tmp/aur-repo/
+          cp "$PUBLICATION_ROOT/multiai-go/packaging/aur/PKGBUILD" /tmp/aur-repo/
+          cp "$PUBLICATION_ROOT/multiai-go/packaging/aur/.SRCINFO" /tmp/aur-repo/
 
           # Commit and push
           cd /tmp/aur-repo

@@ -21,11 +21,8 @@ Sous Windows, l'installeur ajoute automatiquement le préfixe global npm au
 ### Autres méthodes
 
 ```bash
-# macOS / Linux
-curl -fsSL https://rochetta.fr/multiai/install.sh | bash
-
-# Windows
-irm https://rochetta.fr/multiai/install.ps1 | iex
+# npm stable épinglé (Windows, macOS et Linux)
+npx --yes --allow-scripts=multiai multiai@0.6.6 install
 
 # Go
 go install github.com/lrochetta/multiai@latest

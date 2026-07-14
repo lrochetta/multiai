@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # multiai -- Cross-platform installer for Linux/macOS.
 # Usage:
-#   curl -fsSL https://rochetta.fr/multiai/install.sh | bash
-#   curl -fsSL https://rochetta.fr/multiai/install.sh | bash -s -- -v 0.5.0
-#   curl -fsSL https://rochetta.fr/multiai/install.sh | MULTIAI_SKIP_CHECKSUM=1 bash
+#   bash ./install.sh
+#   bash ./install.sh -v 0.5.0
+#   MULTIAI_SKIP_CHECKSUM=1 bash ./install.sh
 #
 # Downloads the release archive from GitHub Releases, verifies SHA256, and
 # installs the binary to ~/.local/bin (or $MULTIAI_INSTALL_DIR).

@@ -1,7 +1,6 @@
 {
-  "linked_brain": "D:/travail/DEV/_brain",
+  "linked_brain": "<external-portfolio-brain>",
   "brain_type": "portfolio",
   "linked_at": "2026-07-10T14:16:43.000Z",
-  "previous": "C:/Users/laurent/.bmad-plus/brain",
-  "note": "Unification 2026-07-10: portfolio brain = SSOT. Lire _brain/HOT.md puis _brain/README.md. Memoire migree, snapshot: _brain/second-brain/snapshots/bmad-plus-brain-2026-07-10/"
+  "note": "The portfolio brain is external to this public repository. Resolve its location from the local developer environment."
 }

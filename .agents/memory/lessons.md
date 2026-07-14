@@ -7,6 +7,20 @@ project: "multiai"
 
 # Lessons
 
+## Audit supply-chain 0.6.10 — 2026-07-15
+
+### Une allowlist de dossier d'audit masque précisément les preuves sensibles
+- **Impact**: Gitleaks passait sur tout l'historique parce que `audit/` était globalement ignoré, alors qu'un ancien rapport contenait une vraie clé révoquée.
+- **Lesson**: Ne jamais exclure globalement les rapports de sécurité. Après révocation confirmée, limiter toute exception aux règles concernées et au commit exact, sans inclure la valeur du secret.
+
+### Une URL de checksum plausible peut retourner du HTML
+- **Impact**: `go.dev/dl/<archive>.sha256` répondait avec une page HTML, rendant le nouveau script d'installation systématiquement inutilisable malgré une intention de vérification correcte.
+- **Lesson**: Tester l'URL et le type de contenu réels. Pour une toolchain épinglée, conserver le SHA-256 publié officiellement dans le script et refuser toute divergence avant extraction.
+
+### Une prerelease doit être isolée de tous les canaux secondaires
+- **Impact**: Le workflow v0.6.9 gardait GitHub/npm en quarantaine mais aurait encore pu pousser le paquet vers l'AUR.
+- **Lesson**: La condition de prerelease doit fermer GitHub latest, npm latest et chaque canal secondaire. Exécuter les scripts de publication depuis le tag audité, jamais depuis une branche mutable.
+
 ## Incident Avast/CyberCapture — 2026-07-14
 
 ### Un timeout synchrone Node ne borne pas un `CreateProcess` retenu

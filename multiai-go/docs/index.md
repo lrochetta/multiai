@@ -42,11 +42,8 @@ features:
 ## Quick Start
 
 ```bash
-# macOS / Linux
-curl -fsSL https://rochetta.fr/multiai/install.sh | bash
-
-# Windows (PowerShell)
-irm https://rochetta.fr/multiai/install.ps1 | iex
+# npm stable épinglé (Windows, macOS et Linux)
+npx --yes --allow-scripts=multiai multiai@0.6.6 install
 
 # Ou via Go
 go install github.com/lrochetta/multiai@latest

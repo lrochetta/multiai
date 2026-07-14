@@ -22,12 +22,27 @@ PROFILES_DIR="${MULTIAI_PROFILES_DIR:-"$REPO_ROOT/multiai-go/internal/assets/pro
 OUTPUT_DIR="${WRAPPER_OUTPUT_DIR:-"$REPO_ROOT/wrappers"}"
 MULTIAI_CMD="${MULTIAI_CMD:-multiai}"
 
+# Resolve the complete destination and refuse roots or symlink destinations.
+# Cleanup below removes only wrapper files owned by this generator; it never
+# recursively deletes the selected directory.
+if [ -L "$OUTPUT_DIR" ]; then
+    echo "Refusing symlink wrapper output: $OUTPUT_DIR" >&2
+    exit 1
+fi
+mkdir -p "$OUTPUT_DIR"
+OUTPUT_DIR="$(cd "$OUTPUT_DIR" && pwd -P)"
+case "$OUTPUT_DIR" in
+    /|"$REPO_ROOT"|"${HOME:-__unset_home__}")
+        echo "Refusing unsafe wrapper output: $OUTPUT_DIR" >&2
+        exit 1
+        ;;
+esac
+
 generated_count=0
 error_count=0
 
 # ---- Clean & prepare output ---------------------------------------
-rm -rf "$OUTPUT_DIR"
-mkdir -p "$OUTPUT_DIR"
+find "$OUTPUT_DIR" -maxdepth 1 -type f -name 'multiai-*' -delete
 
 echo "Reading profiles from: $PROFILES_DIR"
 echo "Writing wrappers to:  $OUTPUT_DIR"
@@ -53,6 +68,12 @@ for envfile in "$PROFILES_DIR"/*.env; do
 
     # ---- Bash wrapper (Linux / macOS / Git-Bash) -------------------
     bash_file="$OUTPUT_DIR/multiai-$safe_shortcut"
+    cmd_file="$OUTPUT_DIR/multiai-$safe_shortcut.cmd"
+    if [ -L "$bash_file" ] || [ -L "$cmd_file" ]; then
+        echo "  [ERROR] refusing wrapper symlink for $shortcut" >&2
+        error_count=$((error_count + 1))
+        continue
+    fi
     cat > "$bash_file" <<-WRAPPER
 	#!/usr/bin/env bash
 	# Wrapper for profile "$shortcut" ($basename_env)
@@ -62,7 +83,6 @@ for envfile in "$PROFILES_DIR"/*.env; do
     chmod +x "$bash_file"
 
     # ---- Windows .cmd wrapper -------------------------------------
-    cmd_file="$OUTPUT_DIR/multiai-$safe_shortcut.cmd"
     cat > "$cmd_file" <<-WRAPPER
 	@echo off
 	REM Wrapper for profile "$shortcut" ($basename_env)

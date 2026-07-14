@@ -9,11 +9,38 @@ echo ""
 # ── Install Go if missing ──────────────────────────────────────────────────
 if ! command -v go &>/dev/null; then
     echo "Go non trouve. Installation..."
-    GO_VERSION="1.26.0"
+    GO_VERSION="1.25.12"
+    GO_LINUX_AMD64_SHA256="234828b7a89e0e303d2556310ee549fbcf253d28de937bac3da13d6294262ac1"
     if [[ "$(uname)" == "Darwin" ]]; then
         brew install go
     else
-        curl -sL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | sudo tar -C /usr/local -xz
+        archive="$(mktemp)"
+        cleanup_go_download() { rm -f "$archive"; }
+        trap cleanup_go_download EXIT
+        url="https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz"
+        curl --fail --silent --show-error --location \
+            --proto '=https' --proto-redir '=https' \
+            --output "$archive" "$url"
+        expected="$GO_LINUX_AMD64_SHA256"
+        if ! [[ "$expected" =~ ^[0-9a-fA-F]{64}$ ]]; then
+            echo "Checksum Go invalide." >&2
+            exit 1
+        fi
+        if command -v sha256sum >/dev/null 2>&1; then
+            actual="$(sha256sum "$archive" | awk '{print $1}')"
+        elif command -v shasum >/dev/null 2>&1; then
+            actual="$(shasum -a 256 "$archive" | awk '{print $1}')"
+        else
+            echo "sha256sum ou shasum est requis." >&2
+            exit 1
+        fi
+        if [ "${actual,,}" != "${expected,,}" ]; then
+            echo "Checksum Go incorrect; installation refusee." >&2
+            exit 1
+        fi
+        sudo tar -C /usr/local -xzf "$archive"
+        cleanup_go_download
+        trap - EXIT
         export PATH="/usr/local/go/bin:$PATH"
         echo 'export PATH="/usr/local/go/bin:$PATH"' >> ~/.bashrc
     fi

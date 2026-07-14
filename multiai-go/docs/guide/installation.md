@@ -36,26 +36,15 @@ Vérifie l'installation :
 multiai version
 ```
 
-## Script d'installation universel
+## Installation universelle vérifiée
 
-### macOS / Linux
+Utilise la version npm stable explicitement épinglée. Cette commande conserve
+la vérification SHA-256 du binaire et n'exécute aucun script téléchargé depuis
+un domaine tiers :
 
 ```bash
-curl -fsSL https://rochetta.fr/multiai/install.sh | bash
+npx --yes --allow-scripts=multiai multiai@0.6.6 install
 ```
-
-Ce script :
-1. Détecte l'architecture de ta machine (amd64 / arm64)
-2. Télécharge la dernière version depuis GitHub Releases
-3. Place le binaire dans `/usr/local/bin`
-
-### Windows (PowerShell)
-
-```powershell
-irm https://rochetta.fr/multiai/install.ps1 | iex
-```
-
-Le binaire est placé dans un dossier ajouté au `PATH` utilisateur.
 
 ## Homebrew (macOS)
 
@@ -169,8 +158,8 @@ multiai list
 # go install
 go install github.com/lrochetta/multiai@latest
 
-# Script
-curl -fsSL https://rochetta.fr/multiai/install.sh | bash
+# npm stable épinglé
+npx --yes --allow-scripts=multiai multiai@0.6.6 install
 
 # Homebrew
 brew upgrade multiai

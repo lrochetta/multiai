@@ -7,16 +7,23 @@ project: "multiai"
 
 # Decisions
 
-## 2026-07-15 — Canal 0.6.9 borné hors du processus Node
+## 2026-07-15 — Clé DeepSeek historique révoquée, sans réécriture Git
+- **Context**: Une clé DeepSeek réelle est encore récupérable dans le commit public `b25fbb7` et les anciens tags, alors que l'arbre courant est propre. Un contrôle redacted auprès de l'API retourne HTTP 401 et confirme sa révocation.
+- **Decision**: Ne pas réécrire ni force-push l'historique signé. Retirer l'allowlist Gitleaks globale du dossier `audit/` et conserver uniquement une exception ciblée sur les règles DeepSeek/générique et le commit exact révoqué.
+- **Rationale**: La révocation supprime le danger d'usage actif; réécrire tous les tags invaliderait les releases, attestations et références de paquets existantes. L'exception étroite rend de nouveau détectable tout futur secret dans les audits.
+- **Consequences**: La trace historique reste publique et explicitement documentée comme révoquée. GitHub Secret Scanning et Dependabot devront être activés séparément lorsqu'un jeton administrateur approprié sera disponible.
+- **Status**: approved by Laurent; implemented locally
+
+## 2026-07-15 — Canal 0.6.10 borné hors du processus Node
 - **Context**: Le paquet npm 0.6.8, bien que limité à `next`, pouvait encore rester bloqué dans `execFileSync`/`spawnSync` lorsque Avast retenait directement `CreateProcess`; le timeout Node n'était alors jamais armé.
-- **Decision**: Publier le correctif suivant sous 0.6.9 avec un contrôleur Windows externe à deux processus. Le contrôleur lance la probe dans un worker PowerShell, attend une deadline, tente de tuer l'arbre puis applique un fallback CIM + `Kill` si l'antivirus refuse `taskkill`. Seules les probes de version sont bornées; les commandes interactives restent sans limite.
+- **Decision**: Publier le correctif suivant sous 0.6.10 avec un contrôleur Windows externe à deux processus. Le contrôleur lance la probe dans un worker PowerShell, attend une deadline, tente de tuer l'arbre puis applique un fallback CIM + `Kill` si l'antivirus refuse `taskkill`. Seules les probes de version sont bornées; les commandes interactives restent sans limite.
 - **Rationale**: La deadline doit vivre dans un processus déjà démarré et de confiance, indépendant du thread retenu dans `CreateProcess`.
-- **Consequences**: 0.6.9 doit rester GitHub prerelease (`latest=false`) et npm `next`; 0.6.6 demeure stable. La promotion requiert CI complète, contrôle du tarball exact et essai sur un autre PC. Les identifiants GitHub restent des pointeurs vers `D:\travail\Ressources DEV`, sans valeur secrète copiée dans le projet.
+- **Consequences**: Le tag 0.6.9 est abandonné sans release/npm. 0.6.10 doit rester GitHub prerelease (`latest=false`) et npm `next`; 0.6.6 demeure stable. La promotion requiert CI complète, contrôle du tarball exact et essai sur un autre PC. Les identifiants GitHub restent des pointeurs vers le coffre partagé hors dépôt, sans valeur secrète copiée dans le projet.
 - **Status**: implemented locally; CI pending
 
 ## 2026-07-14 — Auth GitHub de release via le coffre partagé, sans persistance locale
 - **Context**: Le token OAuth du keyring `gh` possède `repo` mais pas `workflow`, donc GitHub refuse tout push modifiant `.github/workflows/*`.
-- **Decision**: Utiliser le pointeur `D:\travail\Ressources DEV\accounts\github\CREDENTIALS.md`, résoudre le PAT actif depuis le coffre central, vérifier ses scopes puis l'injecter uniquement dans l'environnement du processus Git via `http.extraHeader`. Ne jamais copier sa valeur dans le dépôt ni remplacer le token `gh` du keyring.
+- **Decision**: Utiliser le pointeur du coffre partagé hors dépôt, résoudre le PAT actif depuis le coffre central, vérifier ses scopes puis l'injecter uniquement dans l'environnement du processus Git via `http.extraHeader`. Ne jamais copier sa valeur dans le dépôt ni remplacer le token `gh` du keyring.
 - **Rationale**: Le dépôt garde zéro secret et l'autorisation étendue n'existe que pendant l'opération explicitement demandée.
 - **Consequences**: Le push du hotfix `079019c` a réussi avec `repo` + `workflow`; toutes les variables temporaires ont été supprimées dans un bloc `finally`. Le coffre reste la source de vérité et doit être roté séparément.
 - **Status**: active

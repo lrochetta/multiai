@@ -39,10 +39,9 @@ description = "HuggingFace access token (hf_ format)"
 regex = '''hf_[A-Za-z0-9]{34,}'''
 tags = ["huggingface", "token"]
 
-[allowlist]
+[[allowlists]]
 description = "Allowlisted paths and regex patterns"
 paths = [
-  '''audit/''',
   # A Go module cache was accidentally committed in 355fdb6. The two
   # sumdb note keys in this upstream example are public test vectors.
   '''\.claude/go-path/pkg/mod/golang\.org/x/mod@v0\.31\.0/sumdb/note/note\.go''',
@@ -60,3 +59,12 @@ regexes = [
   '''abcdef1234567890''',
   '''1234567890''',
 ]
+
+# One real DeepSeek credential was committed in this historical snapshot.
+# The provider now returns HTTP 401 for its redacted fingerprint, confirming
+# revocation. Keep this exception limited to the detecting rules and exact
+# legacy commit; never allowlist the audit tree or the credential value.
+[[allowlists]]
+description = "Revoked DeepSeek credential in legacy audit snapshot"
+targetRules = ["deepseek-api-key", "generic-api-key"]
+commits = ["b25fbb72611e5df8e2df7e41aa7c8b07fa3e9738"]

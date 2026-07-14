@@ -8,9 +8,9 @@ test('Windows probe delegates to the external bounded controller', () => {
   let call;
   const output = runVersionProbe('C:\\Program Files\\multiai.exe', 20000, {
     platform: 'win32', env: { SystemRoot: 'C:\\Windows' },
-    exec(file, args, options) { call = { file, args, options }; return 'multiai 0.6.9\n'; }
+    exec(file, args, options) { call = { file, args, options }; return 'multiai 0.6.10\n'; }
   });
-  assert.equal(output, 'multiai 0.6.9\n');
+  assert.equal(output, 'multiai 0.6.10\n');
   assert.equal(call.file, 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe');
   assert.ok(call.args.includes('20000'));
   assert.equal(call.options.timeout, 30000);
