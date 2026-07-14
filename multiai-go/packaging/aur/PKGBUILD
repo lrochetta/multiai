@@ -16,7 +16,7 @@
 # 'SKIP' is the development value — never push SKIP to the AUR.
 
 pkgname=multiai
-pkgver=0.4.0
+pkgver=0.6.7
 pkgrel=1
 pkgdesc="Route multiple AI CLIs (Claude Code, Codex, OpenCode) with isolated env profiles"
 arch=('x86_64' 'aarch64')
@@ -24,7 +24,7 @@ url="https://rochetta.fr"
 license=('MIT')
 makedepends=('go')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/lrochetta/multiai/archive/refs/tags/v${pkgver}.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('70327c7b21cded0c25f271900fa09870fbe8852f28ed7142043ebc592e03ab4b')
 
 # The GitHub repository is a monorepo: the Go module lives in multiai-go/.
 _moddir="${pkgname}-${pkgver}/multiai-go"
