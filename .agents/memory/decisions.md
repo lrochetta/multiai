@@ -7,19 +7,19 @@ project: "multiai"
 
 # Decisions
 
-## 2026-07-15 — Clé DeepSeek historique révoquée, sans réécriture Git
-- **Context**: Une clé DeepSeek réelle est encore récupérable dans le commit public `b25fbb7` et les anciens tags, alors que l'arbre courant est propre. Un contrôle redacted auprès de l'API retourne HTTP 401 et confirme sa révocation.
-- **Decision**: Ne pas réécrire ni force-push l'historique signé. Retirer l'allowlist Gitleaks globale du dossier `audit/` et conserver uniquement une exception ciblée sur les règles DeepSeek/générique et le commit exact révoqué.
-- **Rationale**: La révocation supprime le danger d'usage actif; réécrire tous les tags invaliderait les releases, attestations et références de paquets existantes. L'exception étroite rend de nouveau détectable tout futur secret dans les audits.
-- **Consequences**: La trace historique reste publique et explicitement documentée comme révoquée. GitHub Secret Scanning et Dependabot devront être activés séparément lorsqu'un jeton administrateur approprié sera disponible.
-- **Status**: approved by Laurent; implemented locally
+## 2026-07-15 — Purge complète de la clé DeepSeek historique
+- **Context**: Une clé DeepSeek réelle, désormais révoquée (API HTTP 401), reste récupérable dans le commit public `b25fbb7` et plusieurs anciens tags alors que l'arbre courant est propre. Laurent a remplacé la décision non destructive initiale par une demande explicite de réécriture et de repush sans la clé après publication de 0.6.10.
+- **Decision**: Réécrire toutes les branches et tous les tags distants avec `git-filter-repo`, remplacer la valeur révoquée dans chaque blob, retirer ensuite l'exception Gitleaks liée à l'ancien commit et force-push les refs nettoyées. Recréer v0.6.10 depuis le nouveau SHA avec checksums, signatures, SBOM et provenance à jour.
+- **Rationale**: La révocation empêche l'usage actif, mais seule la réécriture retire la valeur des refs Git publiques. Le dépôt GitHub lui-même est conservé afin de préserver ses URLs, réglages et canaux de distribution.
+- **Consequences**: Tous les SHA descendants et tags concernés changent; les clones et worktrees existants doivent être jetés ou reclonés et ne jamais repousser l'ancien historique. Les caches, forks et vues GitHub nécessitent une vérification séparée et, si nécessaire, une demande de purge au support GitHub.
+- **Status**: explicitly approved by Laurent; execution in progress
 
 ## 2026-07-15 — Canal 0.6.10 borné hors du processus Node
 - **Context**: Le paquet npm 0.6.8, bien que limité à `next`, pouvait encore rester bloqué dans `execFileSync`/`spawnSync` lorsque Avast retenait directement `CreateProcess`; le timeout Node n'était alors jamais armé.
 - **Decision**: Publier le correctif suivant sous 0.6.10 avec un contrôleur Windows externe à deux processus. Le contrôleur lance la probe dans un worker PowerShell, attend une deadline, tente de tuer l'arbre puis applique un fallback CIM + `Kill` si l'antivirus refuse `taskkill`. Seules les probes de version sont bornées; les commandes interactives restent sans limite.
 - **Rationale**: La deadline doit vivre dans un processus déjà démarré et de confiance, indépendant du thread retenu dans `CreateProcess`.
 - **Consequences**: Le tag 0.6.9 est abandonné sans release/npm. 0.6.10 doit rester GitHub prerelease (`latest=false`) et npm `next`; 0.6.6 demeure stable. La promotion requiert CI complète, contrôle du tarball exact et essai sur un autre PC. Les identifiants GitHub restent des pointeurs vers le coffre partagé hors dépôt, sans valeur secrète copiée dans le projet.
-- **Status**: implemented locally; CI pending
+- **Status**: published as GitHub prerelease and npm `next`; endpoint-security qualification pending
 
 ## 2026-07-14 — Auth GitHub de release via le coffre partagé, sans persistance locale
 - **Context**: Le token OAuth du keyring `gh` possède `repo` mais pas `workflow`, donc GitHub refuse tout push modifiant `.github/workflows/*`.

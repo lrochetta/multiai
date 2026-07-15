@@ -6,7 +6,7 @@ project: "multiai"
 last_updated: "2026-07-15"
 version: "0.6.10-rc"
 score: "5.8/10"
-status: "0.6.6 STABLE — 0.6.10 READY FOR CI"
+status: "0.6.6 STABLE — 0.6.10 PRERELEASE/NPM NEXT — HISTORY PURGE IN PROGRESS"
 ---
 
 # Project Context — multiai v0.6.10 release candidate
@@ -18,8 +18,9 @@ status: "0.6.6 STABLE — 0.6.10 READY FOR CI"
 - **Correctif 0.6.10 local** : contrôleur Windows externe à deux processus pour le postinstall et les probes `version`; timeout 124 explicite, fallback lorsque `taskkill` est refusé, aucune limite ajoutée aux commandes interactives. Le bootstrap borne aussi hôtes, redirections et tailles de téléchargement.
 - **Preuves boîte noire** : faux EXE dormant une heure interrompu en environ 2,9 s pour une limite de 2 s, sans PID résiduel; 40/40 tests npm verts; tarball dry-run de 9 fichiers contenant le module et le contrôleur; scan secrets et synchronisation workflows verts.
 - **Go local** : tous les paquets `cmd`, `internal` et `pkg` passent. Le paquet d'intégration `tests` compile mais son lancement est retenu localement par Avast avant le runtime; la validation d'exécution reste à fournir par GitHub Actions.
-- **Gate de distribution** : le tag v0.6.9 a été abandonné sans release ni npm après détection d'un risque AUR. v0.6.10 doit passer la CI complète, rester GitHub prerelease avec `latest=false`, puis être publiée sur npm avec `--tag next`. Vérifier ensuite que 0.6.6 reste stable.
-- **Audit credentials** : l'arbre courant est propre, mais une ancienne clé DeepSeek réelle subsiste dans l'historique public. Une vérification d'authentification redacted retourne HTTP 401, confirmant sa révocation. Laurent a validé le traitement non destructif : exception Gitleaks limitée aux règles concernées et au commit exact, jamais au dossier `audit/` entier.
+- **Distribution 0.6.10** : CI `29376973035` entièrement verte; release `29377477220` réussie avec AUR ignoré. GitHub publie v0.6.10 en prerelease (`latest=false`) et npm publie `multiai@0.6.10` sous `next`; GitHub/npm `latest` restent en 0.6.6 et 0.6.9 n'existe pas sur npm.
+- **Qualification Windows** : l'asset officiel et son SHA-256 sont vérifiés. Sur ce poste Avast retient encore le binaire natif, mais le postinstall échoue désormais explicitement après 20 secondes au lieu de freezer; l'essai fonctionnel doit être reproduit sur un autre PC.
+- **Audit credentials** : l'arbre courant est propre, mais une ancienne clé DeepSeek révoquée subsiste dans l'historique public. Laurent a demandé explicitement la réécriture complète après publication : branches et tags seront repoussés sans la valeur, l'exception Gitleaks sera retirée et v0.6.10 sera reconstruite sur le nouveau SHA.
 - **Auth release** : utiliser seulement le pointeur du coffre partagé hors dépôt et injecter le PAT en mémoire; ne jamais copier ni journaliser sa valeur.
 
 ## Point de reprise P0 Avast/CyberCapture — 2026-07-14 23h (archive)

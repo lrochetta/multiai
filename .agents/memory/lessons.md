@@ -9,6 +9,14 @@ project: "multiai"
 
 ## Audit supply-chain 0.6.10 — 2026-07-15
 
+### L'authentification WebAuth npm doit utiliser la réponse JSON structurée
+- **Impact**: La sortie texte `EOTP` reformattée par PowerShell a produit une URL de retour invalide et interrompu deux tentatives, sans publication partielle.
+- **Lesson**: Pour une publication non-TTY, demander `npm publish --json`, ouvrir uniquement `error.authUrl`, sonder `error.doneUrl` jusqu'au jeton à usage unique, puis le passer en environnement au retry sans jamais le journaliser.
+
+### Une purge de secret ne s'arrête pas au force-push
+- **Impact**: Réécrire master sans traiter les tags, clones, worktrees, releases et caches laisserait des chemins de récupération ou permettrait de réintroduire l'ancien historique.
+- **Lesson**: Réécrire toutes les refs distantes dans un miroir jetable, retirer les exceptions du scanner, reconstruire la release sur le nouveau SHA, rescanner un clone frais et demander la purge des vues/caches GitHub si nécessaire.
+
 ### Une allowlist de dossier d'audit masque précisément les preuves sensibles
 - **Impact**: Gitleaks passait sur tout l'historique parce que `audit/` était globalement ignoré, alors qu'un ancien rapport contenait une vraie clé révoquée.
 - **Lesson**: Ne jamais exclure globalement les rapports de sécurité. Après révocation confirmée, limiter toute exception aux règles concernées et au commit exact, sans inclure la valeur du secret.
