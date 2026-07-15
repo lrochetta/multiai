@@ -93,7 +93,7 @@ Lancement : claude (OpenRouter Fusion — panel multi-modele)
 | **Scoop** | `scoop bucket add lrochetta https://github.com/lrochetta/scoop-bucket && scoop install lrochetta/multiai` | ✅ v0.6.0 (auto-upload GoReleaser) |
 | **APT** | `apt install multiai` | ✅ v0.6.0 (dépôt GitHub Pages) |
 | **AUR** | `yay -S multiai` | ✅ v0.6.0 (PKGBUILD SHA256) |
-| **npm stable épinglé** | `npx --yes --allow-scripts=multiai multiai@0.6.6 install` | ✅ stable vérifiée |
+| **npm stable épinglé** | `npx --yes --allow-scripts=multiai multiai@0.6.10 install` | ✅ stable vérifiée |
 
 La méthode npm nécessite Node.js 24.14 ou plus récent afin d'utiliser de façon sûre le magasin de certificats système et les proxies d'environnement.
 
@@ -103,7 +103,7 @@ La méthode npm nécessite Node.js 24.14 ou plus récent afin d'utiliser de faç
 
 | Composant | Version | Rôle |
 |-----------|---------|------|
-| `multiai-go/` | **v0.6.0** | Implémentation de référence : binaire Go natif, 37 profils, 13 fournisseurs, fallback chains, credential store natif OS + AES-256-GCM, menus colorés, Cosign keyless, registre communautaire |
+| `multiai-go/` | **v0.6.10** | Implémentation de référence : binaire Go natif, 37 profils, 13 fournisseurs, fallback chains, credential store natif OS + AES-256-GCM, menus colorés, Cosign keyless, registre communautaire |
 | `multiai-powershell/` | v0.3.0 (gelée) | Version d'origine, archivée — le package npm a basculé sur le binaire Go en v0.4.0 |
 
 ---
@@ -248,7 +248,7 @@ Windows amd64 • macOS Intel • macOS Apple Silicon • Linux amd64/arm64
 
 ```
 .
-├── multiai-go/                  → Go v0.6.0 (implémentation de référence)
+├── multiai-go/                  → Go v0.6.10 (implémentation de référence)
 │   ├── cmd/multiai/             → Point d'entrée CLI (7 sous-commandes)
 │   ├── internal/
 │   │   ├── assets/              → 37 profils .env embarqués

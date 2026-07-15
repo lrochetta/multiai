@@ -11,18 +11,19 @@ status: "0.6.10 STABLE — GITHUB/NPM LATEST — NORMAL REFS SANITIZED; GITHUB S
 
 # Project Context — multiai v0.6.10 stable
 
-## Point de reprise sécurité/release — 2026-07-15 01h (autoritatif)
+## Point de reprise Zecher — 2026-07-15 fin de session (autoritatif)
 
-- **Canaux publics sûrs** : GitHub `latest` et npm `latest` restent en 0.6.6. v0.6.7 et v0.6.8 sont des prereleases; npm 0.6.8 est uniquement sous `next`.
+- **Canaux publics** : GitHub v0.6.10 est la release stable `latest` avec 11 assets; npm `latest` et `next` pointent sur `multiai@0.6.10`. La 0.6.6 reste l'ancienne stable de repli; 0.6.7 et 0.6.8 ne doivent pas redevenir `latest`.
 - **Défaut restant de 0.6.8** : les timeouts synchrones Node ne bornent pas un `CreateProcess` retenu par Avast. Le postinstall isolé pouvait donc encore geler avant que Node ne puisse appliquer son timer.
-- **Correctif 0.6.10 local** : contrôleur Windows externe à deux processus pour le postinstall et les probes `version`; timeout 124 explicite, fallback lorsque `taskkill` est refusé, aucune limite ajoutée aux commandes interactives. Le bootstrap borne aussi hôtes, redirections et tailles de téléchargement.
+- **Correctif 0.6.10 livré** : contrôleur Windows externe à deux processus pour le postinstall et les probes `version`; timeout 124 explicite, fallback lorsque `taskkill` est refusé, aucune limite ajoutée aux commandes interactives. Le bootstrap borne aussi hôtes, redirections et tailles de téléchargement.
 - **Preuves boîte noire** : faux EXE dormant une heure interrompu en environ 2,9 s pour une limite de 2 s, sans PID résiduel; 40/40 tests npm verts; tarball dry-run de 9 fichiers contenant le module et le contrôleur; scan secrets et synchronisation workflows verts.
-- **Go local** : tous les paquets `cmd`, `internal` et `pkg` passent. Le paquet d'intégration `tests` compile mais son lancement est retenu localement par Avast avant le runtime; la validation d'exécution reste à fournir par GitHub Actions.
+- **Validation** : tous les paquets Go ciblés passent localement; la CI finale `29378761550`, Gitleaks et la release `29378795691` sont vertes. Le test utilisateur réel a installé globalement 0.6.10 et lancé le menu sans freeze.
 - **Distribution 0.6.10** : master nettoyé `4851c2e`; CI finale `29378761550` et release `29378795691` vertes, AUR ignoré. À la demande explicite de Laurent, GitHub v0.6.10 est la release stable `latest` non-prerelease avec 11 assets et npm `latest`/`next` pointent sur `multiai@0.6.10`; npm 0.6.8 est dépréciée et 0.6.9 n'existe pas sur npm.
 - **Qualification Windows** : tarball npm public et asset Windows final vérifiés par SHA-256. Une première probe Avast a échoué proprement avec `(no version)`, puis le même asset a réussi après acquisition de réputation : postinstall vert, `multiai 0.6.10` en 4,7 s et aucun nouveau processus résiduel. Après promotion, le smoke public `multiai@latest version` répond 0.6.10 et Laurent a validé une installation globale réelle : checksum officiel, postinstall, probe 0.6.10 et menu interactif sans freeze. Poursuivre néanmoins les essais sur plusieurs PC vierges/AV.
 - **Audit credentials** : la valeur DeepSeek révoquée était encore présente dans trois blobs du HEAD, pas seulement dans l'historique. `git-filter-repo` a réécrit 80 commits; branches et tags normaux du dépôt principal et des deux forks publics sont nettoyés, exception Gitleaks supprimée, CI Gitleaks verte et clones frais à empreinte zéro. Résidu public : l'ancien SHA reste résolvable via les refs internes des PR fermées #3/#5/#6 ou le cache du réseau de forks; une purge GitHub Support est requise pour l'éradication côté hébergeur.
-- **Nettoyage local** : les 30 worktrees temporaires ont été sauvegardés sous forme de patches/fichiers texte assainis dans `D:\tmp\multiai-worktree-recovery-20260715-024435`, puis supprimés. Le dépôt principal local est réaligné sur `4851c2e`, ses reflogs/objets antérieurs ont été purgés et un miroir assaini séparé conserve les 31 historiques de branches locales.
+- **Nettoyage local** : les 30 worktrees temporaires ont été sauvegardés sous forme de patches/fichiers texte assainis dans `D:\tmp\multiai-worktree-recovery-20260715-024435`, puis supprimés. Le dépôt principal local est propre et aligné sur `origin/master`; le tag v0.6.10 reste sur le code assaini `4851c2e`, les commits suivants sont documentaires. Les reflogs/objets antérieurs ont été purgés et un miroir assaini séparé conserve les 31 historiques de branches locales.
 - **Auth release** : utiliser seulement le pointeur du coffre partagé hors dépôt et injecter le PAT en mémoire; ne jamais copier ni journaliser sa valeur.
+- **Reprise demain** : lire `.agents/memory/sessions/2026-07-15-v0.6.10-stable-handoff.md`; soumettre la demande GitHub Support préparée, roter les quatre credentials voisins exposés et continuer les essais sur plusieurs PC/antivirus.
 
 ## Point de reprise P0 Avast/CyberCapture — 2026-07-14 23h (archive)
 

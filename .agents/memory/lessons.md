@@ -22,8 +22,8 @@ project: "multiai"
 - **Lesson**: Comparer les mappings chemin→blob avant/après sans afficher les contenus; une différence limitée aux fichiers attendus valide la purge et révèle les faux diagnostics de propreté.
 
 ### L'authentification WebAuth npm doit utiliser la réponse JSON structurée
-- **Impact**: La sortie texte `EOTP` reformattée par PowerShell a produit une URL de retour invalide et interrompu deux tentatives, sans publication partielle.
-- **Lesson**: Pour une publication non-TTY, demander `npm publish --json`, ouvrir uniquement `error.authUrl`, sonder `error.doneUrl` jusqu'au jeton à usage unique, puis le passer en environnement au retry sans jamais le journaliser.
+- **Impact**: La sortie `EOTP` reformattée par PowerShell a sélectionné une URL masquée par `***`, ouvrant une 404 alors que le challenge WebAuthn réel restait valide. Plusieurs tentatives ont été interrompues sans publication partielle.
+- **Lesson**: En non-TTY, lancer directement la CLI npm depuis Node, parser l'objet JSON brut avant toute redaction, valider les domaines, ouvrir exactement `error.authUrl`, sonder `error.doneUrl`, puis injecter le jeton à usage unique seulement dans l'environnement du retry. Ne jamais transformer, afficher ou persister ces URL et jetons.
 
 ### Une purge de secret ne s'arrête pas au force-push
 - **Impact**: Réécrire master sans traiter les tags, clones, worktrees, releases et caches laisserait des chemins de récupération ou permettrait de réintroduire l'ancien historique.

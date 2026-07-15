@@ -4,13 +4,23 @@ All notable changes to the multiai project.
 
 ---
 
-## [Unreleased — target multiai-go 0.6.10] — hotfix Windows 2026-07-15
+## [multiai-go 0.6.10] — 2026-07-15
 
 - Épingle la toolchain de release à Go 1.25.12 : les exécutables Go 1.26.5 sont bloqués au démarrage par Avast sur Windows, tandis que 1.25.12 corrige GO-2026-5856.
 - Restaure la terminaison immédiate de `version` et `help` avec `os.Exit(0)`.
 - Ajoute un smoke test du binaire natif au `postinstall` npm et un timeout défensif dans le shim.
 - Remplace les timeouts Node synchrones inefficaces pendant `CreateProcess` par un contrôleur Windows externe borné, avec nettoyage de l'arbre de processus même lorsque l'antivirus refuse `taskkill`.
-- Confine la prerelease hors AUR, retire les installations distantes pipées et borne les hôtes, redirections et tailles du bootstrap npm.
+- Maintient AUR et les canaux secondaires hors promotion pendant la qualification, retire les installations distantes pipées et borne les hôtes, redirections et tailles du bootstrap npm.
+
+### Released
+
+- Publie GitHub v0.6.10 comme release stable `latest` avec 11 assets vérifiés et `multiai@0.6.10` sous les tags npm `latest` et `next`.
+- Valide sur Windows l'installation globale réelle, le checksum officiel, la probe `multiai 0.6.10` et le menu interactif sans freeze.
+
+### Security
+
+- Réécrit les branches et tags normaux du dépôt principal et de ses deux forks publics pour retirer une clé DeepSeek révoquée des rapports d'audit; supprime l'exception Gitleaks correspondante et vérifie les clones frais.
+- Prépare la purge GitHub Support des références internes de pull requests et des vues mises en cache qui ne peuvent pas être supprimées par un force-push Git.
 
 ### Fixed
 

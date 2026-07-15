@@ -148,7 +148,7 @@ scoop install multiai
 
 ### Installation universelle vérifiée
 ```bash
-npx --yes --allow-scripts=multiai multiai@0.6.6 install
+npx --yes --allow-scripts=multiai multiai@0.6.10 install
 ```
 
 ---
