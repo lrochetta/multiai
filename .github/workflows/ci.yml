@@ -97,7 +97,7 @@ jobs:
         run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
       - name: Upload coverage
         if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage
           path: multiai-go/coverage.out
@@ -127,7 +127,7 @@ jobs:
           cache-dependency-path: multiai-go/go.sum
       - name: Run benchmarks
         run: go test -bench=. -benchmem ./tests/ 2>&1 | tee benchmark.txt
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: benchmark
           path: multiai-go/benchmark.txt
@@ -148,7 +148,7 @@ jobs:
       - name: Build
         run: go build -o multiai${{ startsWith(matrix.os, 'windows') && '.exe' || '' }} ./cmd/multiai/
       - name: Upload artifact
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: multiai-${{ matrix.os }}
           path: multiai-go/multiai${{ startsWith(matrix.os, 'windows') && '.exe' || '' }}
