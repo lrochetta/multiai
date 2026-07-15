@@ -7,6 +7,13 @@ project: "multiai"
 
 # Decisions
 
+## 2026-07-15 — Promotion explicite de 0.6.10 en stable/latest
+- **Context**: v0.6.10 était volontairement limitée à GitHub prerelease et npm `next` après une première rétention Avast, puis le même asset exact a réussi son postinstall et sa probe sans processus résiduel après acquisition de réputation. La qualification multi-PC recommandée n'était pas encore complète.
+- **Decision**: Sur confirmation explicite de Laurent, promouvoir exactement la release et le package déjà vérifiés : GitHub v0.6.10 devient non-prerelease/`latest`, npm `latest` et `next` pointent sur 0.6.10. Aucun nouvel artefact n'est reconstruit.
+- **Rationale**: Les checksums, la CI, la release, le tarball public et un smoke Windows du hash exact sont verts; conserver le même artefact évite toute divergence de supply chain.
+- **Consequences**: `npx multiai` résout désormais 0.6.10. Le risque de réputation endpoint reste documenté et les tests sur plusieurs PC/antivirus doivent continuer après promotion.
+- **Status**: completed; public smoke `multiai 0.6.10` successful
+
 ## 2026-07-15 — Purge complète de la clé DeepSeek historique
 - **Context**: Une clé DeepSeek réelle, désormais révoquée (API HTTP 401), restait récupérable dans trois blobs du HEAD, le commit public `b25fbb7`, plusieurs tags, forks et refs de pull request. Laurent a remplacé la décision non destructive initiale par une demande explicite de réécriture et de repush sans la clé après publication de 0.6.10.
 - **Decision**: Réécrire toutes les branches et tous les tags distants avec `git-filter-repo`, remplacer la valeur révoquée dans chaque blob, retirer ensuite l'exception Gitleaks liée à l'ancien commit et force-push les refs nettoyées. Recréer v0.6.10 depuis le nouveau SHA avec checksums, signatures, SBOM et provenance à jour.
@@ -19,7 +26,7 @@ project: "multiai"
 - **Decision**: Publier le correctif suivant sous 0.6.10 avec un contrôleur Windows externe à deux processus. Le contrôleur lance la probe dans un worker PowerShell, attend une deadline, tente de tuer l'arbre puis applique un fallback CIM + `Kill` si l'antivirus refuse `taskkill`. Seules les probes de version sont bornées; les commandes interactives restent sans limite.
 - **Rationale**: La deadline doit vivre dans un processus déjà démarré et de confiance, indépendant du thread retenu dans `CreateProcess`.
 - **Consequences**: Le tag 0.6.9 est abandonné sans release/npm. 0.6.10 doit rester GitHub prerelease (`latest=false`) et npm `next`; 0.6.6 demeure stable. La promotion requiert CI complète, contrôle du tarball exact et essai sur un autre PC. Les identifiants GitHub restent des pointeurs vers le coffre partagé hors dépôt, sans valeur secrète copiée dans le projet.
-- **Status**: published as GitHub prerelease and npm `next`; endpoint-security qualification pending
+- **Status**: promoted to GitHub/npm `latest` by explicit user decision; multi-PC endpoint-security qualification remains recommended
 
 ## 2026-07-14 — Auth GitHub de release via le coffre partagé, sans persistance locale
 - **Context**: Le token OAuth du keyring `gh` possède `repo` mais pas `workflow`, donc GitHub refuse tout push modifiant `.github/workflows/*`.
