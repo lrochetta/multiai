@@ -27,10 +27,6 @@ description = "DeepSeek API key (sk- format)"
 regex = '''[Ss][Kk]-[a-zA-Z0-9_\-]{20,}'''
 tags = ["deepseek", "api-key"]
 
-  [[rules.allowlists]]
-  description = "Revoked DeepSeek credential in legacy audit snapshot"
-  commits = ["b25fbb72611e5df8e2df7e41aa7c8b07fa3e9738"]
-
 [[rules]]
 id = "github-pat"
 description = "GitHub Personal Access Token (ghp_ format)"
@@ -64,7 +60,5 @@ regexes = [
   '''1234567890''',
 ]
 
-# One real DeepSeek credential was committed in the allowlisted historical
-# snapshot above. The provider now returns HTTP 401 for its redacted
-# fingerprint, confirming revocation. Never allowlist the audit tree or the
-# credential value.
+# Audit reports intentionally remain in full scan scope. Never allowlist the
+# audit tree or a credential value.
