@@ -8,11 +8,11 @@ project: "multiai"
 # Decisions
 
 ## 2026-07-15 — Purge complète de la clé DeepSeek historique
-- **Context**: Une clé DeepSeek réelle, désormais révoquée (API HTTP 401), reste récupérable dans le commit public `b25fbb7` et plusieurs anciens tags alors que l'arbre courant est propre. Laurent a remplacé la décision non destructive initiale par une demande explicite de réécriture et de repush sans la clé après publication de 0.6.10.
+- **Context**: Une clé DeepSeek réelle, désormais révoquée (API HTTP 401), restait récupérable dans trois blobs du HEAD, le commit public `b25fbb7`, plusieurs tags, forks et refs de pull request. Laurent a remplacé la décision non destructive initiale par une demande explicite de réécriture et de repush sans la clé après publication de 0.6.10.
 - **Decision**: Réécrire toutes les branches et tous les tags distants avec `git-filter-repo`, remplacer la valeur révoquée dans chaque blob, retirer ensuite l'exception Gitleaks liée à l'ancien commit et force-push les refs nettoyées. Recréer v0.6.10 depuis le nouveau SHA avec checksums, signatures, SBOM et provenance à jour.
 - **Rationale**: La révocation empêche l'usage actif, mais seule la réécriture retire la valeur des refs Git publiques. Le dépôt GitHub lui-même est conservé afin de préserver ses URLs, réglages et canaux de distribution.
-- **Consequences**: Tous les SHA descendants et tags concernés changent; les clones et worktrees existants doivent être jetés ou reclonés et ne jamais repousser l'ancien historique. Les caches, forks et vues GitHub nécessitent une vérification séparée et, si nécessaire, une demande de purge au support GitHub.
-- **Status**: explicitly approved by Laurent; execution in progress
+- **Consequences**: Tous les SHA descendants et tags concernés ont changé; les clones et worktrees existants doivent être jetés ou reclonés et ne jamais repousser l'ancien historique. Les refs normales du dépôt principal sont propres sur `4851c2e`; les deux forks publics ont également été réécrits et vérifiés par clones frais. Trois refs de PR fermées et les objets/caches GitHub restent hors contrôle du force-push et nécessitent une purge par GitHub Support.
+- **Status**: completed for all normal refs and local clones; GitHub internal PR/cache purge pending
 
 ## 2026-07-15 — Canal 0.6.10 borné hors du processus Node
 - **Context**: Le paquet npm 0.6.8, bien que limité à `next`, pouvait encore rester bloqué dans `execFileSync`/`spawnSync` lorsque Avast retenait directement `CreateProcess`; le timeout Node n'était alors jamais armé.

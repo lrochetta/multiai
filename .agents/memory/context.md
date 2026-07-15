@@ -6,7 +6,7 @@ project: "multiai"
 last_updated: "2026-07-15"
 version: "0.6.10-rc"
 score: "5.8/10"
-status: "0.6.6 STABLE — 0.6.10 PRERELEASE/NPM NEXT — HISTORY PURGE IN PROGRESS"
+status: "0.6.6 STABLE — 0.6.10 PRERELEASE/NPM NEXT — NORMAL REFS SANITIZED; GITHUB SUPPORT PENDING"
 ---
 
 # Project Context — multiai v0.6.10 release candidate
@@ -18,9 +18,10 @@ status: "0.6.6 STABLE — 0.6.10 PRERELEASE/NPM NEXT — HISTORY PURGE IN PROGRE
 - **Correctif 0.6.10 local** : contrôleur Windows externe à deux processus pour le postinstall et les probes `version`; timeout 124 explicite, fallback lorsque `taskkill` est refusé, aucune limite ajoutée aux commandes interactives. Le bootstrap borne aussi hôtes, redirections et tailles de téléchargement.
 - **Preuves boîte noire** : faux EXE dormant une heure interrompu en environ 2,9 s pour une limite de 2 s, sans PID résiduel; 40/40 tests npm verts; tarball dry-run de 9 fichiers contenant le module et le contrôleur; scan secrets et synchronisation workflows verts.
 - **Go local** : tous les paquets `cmd`, `internal` et `pkg` passent. Le paquet d'intégration `tests` compile mais son lancement est retenu localement par Avast avant le runtime; la validation d'exécution reste à fournir par GitHub Actions.
-- **Distribution 0.6.10** : CI `29376973035` entièrement verte; release `29377477220` réussie avec AUR ignoré. GitHub publie v0.6.10 en prerelease (`latest=false`) et npm publie `multiai@0.6.10` sous `next`; GitHub/npm `latest` restent en 0.6.6 et 0.6.9 n'existe pas sur npm.
-- **Qualification Windows** : l'asset officiel et son SHA-256 sont vérifiés. Sur ce poste Avast retient encore le binaire natif, mais le postinstall échoue désormais explicitement après 20 secondes au lieu de freezer; l'essai fonctionnel doit être reproduit sur un autre PC.
-- **Audit credentials** : l'arbre courant est propre, mais une ancienne clé DeepSeek révoquée subsiste dans l'historique public. Laurent a demandé explicitement la réécriture complète après publication : branches et tags seront repoussés sans la valeur, l'exception Gitleaks sera retirée et v0.6.10 sera reconstruite sur le nouveau SHA.
+- **Distribution 0.6.10** : master nettoyé `4851c2e`; CI finale `29378761550` et release `29378795691` vertes, AUR ignoré. GitHub publie v0.6.10 en prerelease (`latest=false`) avec 11 assets et npm publie `multiai@0.6.10` sous `next`; GitHub/npm `latest` restent en 0.6.6. npm 0.6.8 est dépréciée et 0.6.9 n'existe pas sur npm.
+- **Qualification Windows** : tarball npm public et asset Windows final vérifiés par SHA-256. Une première probe Avast a échoué proprement avec `(no version)`, puis le même asset a réussi après acquisition de réputation : postinstall vert, `multiai 0.6.10` en 4,7 s et aucun nouveau processus résiduel. Maintenir `next` jusqu'aux essais sur plusieurs PC vierges/AV.
+- **Audit credentials** : la valeur DeepSeek révoquée était encore présente dans trois blobs du HEAD, pas seulement dans l'historique. `git-filter-repo` a réécrit 80 commits; branches et tags normaux du dépôt principal et des deux forks publics sont nettoyés, exception Gitleaks supprimée, CI Gitleaks verte et clones frais à empreinte zéro. Résidu public : l'ancien SHA reste résolvable via les refs internes des PR fermées #3/#5/#6 ou le cache du réseau de forks; une purge GitHub Support est requise pour l'éradication côté hébergeur.
+- **Nettoyage local** : les 30 worktrees temporaires ont été sauvegardés sous forme de patches/fichiers texte assainis dans `D:\tmp\multiai-worktree-recovery-20260715-024435`, puis supprimés. Le dépôt principal local est réaligné sur `4851c2e`, ses reflogs/objets antérieurs ont été purgés et un miroir assaini séparé conserve les 31 historiques de branches locales.
 - **Auth release** : utiliser seulement le pointeur du coffre partagé hors dépôt et injecter le PAT en mémoire; ne jamais copier ni journaliser sa valeur.
 
 ## Point de reprise P0 Avast/CyberCapture — 2026-07-14 23h (archive)

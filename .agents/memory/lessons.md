@@ -9,6 +9,18 @@ project: "multiai"
 
 ## Audit supply-chain 0.6.10 — 2026-07-15
 
+### Une lecture de coffre doit être structurelle et minimale
+- **Impact**: Une lecture console trop large du coffre partagé a affiché des valeurs voisines qui n'étaient pas nécessaires à l'opération GitHub; elles doivent désormais être considérées comme exposées et rotées.
+- **Lesson**: Extraire uniquement le champ nommé avec une expression ancrée, ne jamais afficher le document entier et journaliser seulement le pointeur, l'usage et le résultat sans aucune valeur.
+
+### Un clone `--mirror` pousse plus que `--all` si la remote reste en mode miroir
+- **Impact**: `git push --force origin --all` a tenté de pousser les refs PR cachées et les tags parce que `remote.origin.mirror=true` venait du clone miroir; GitHub a refusé les refs internes et `master` protégé.
+- **Lesson**: Après `git-filter-repo`, supprimer explicitement `remote.origin.mirror`, pousser des refspecs `refs/heads/*` et `refs/tags/*` contrôlés, désactiver le workflow de release pendant les tags historiques et gérer la protection de branche avec restauration garantie.
+
+### Le tree courant doit être comparé blob par blob après une purge
+- **Impact**: Le tree nettoyé différait du tree annoncé « propre » sur exactement trois rapports d'audit : preuve que la valeur révoquée survivait encore au HEAD.
+- **Lesson**: Comparer les mappings chemin→blob avant/après sans afficher les contenus; une différence limitée aux fichiers attendus valide la purge et révèle les faux diagnostics de propreté.
+
 ### L'authentification WebAuth npm doit utiliser la réponse JSON structurée
 - **Impact**: La sortie texte `EOTP` reformattée par PowerShell a produit une URL de retour invalide et interrompu deux tentatives, sans publication partielle.
 - **Lesson**: Pour une publication non-TTY, demander `npm publish --json`, ouvrir uniquement `error.authUrl`, sonder `error.doneUrl` jusqu'au jeton à usage unique, puis le passer en environnement au retry sans jamais le journaliser.
