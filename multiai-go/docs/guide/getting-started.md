@@ -53,5 +53,5 @@ multiai launch -p oc        # OpenCode
 
 - [Guide d'installation détaillé](/guide/installation) — toutes les méthodes
 - [Configuration des profils](/guide/configuration) — comprendre les .env
-- [Profils disponibles](/guide/profiles) — les 17 profils inclus
+- [Profils disponibles](/guide/profiles) — les 40 profils inclus
 - [Dépannage](/guide/troubleshooting) — solutions aux erreurs courantes

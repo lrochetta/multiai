@@ -85,9 +85,9 @@ Lancement : claude
 
 > Pour une installation npm globale : `npx --yes --allow-scripts=multiai multiai@latest install`. Pour une exécution ponctuelle : `npx --yes --allow-scripts=multiai multiai@latest`.
 
-### ⚡ 37 profils inclus
+### ⚡ 40 profils inclus
 
-13 fournisseurs, 3 outils (17 Claude Code, 8 Codex, 12 OpenCode). Liste complète : `multiai list`. Extrait :
+14 fournisseurs, 3 outils (16 Claude Code, 8 Codex, 16 OpenCode). Liste complète : `multiai list`. Extrait :
 
 | Shortcut | Tool | Display Name | Provider |
 |----------|------|-------------|----------|
@@ -108,6 +108,9 @@ Lancement : claude
 | `ocqwen` | OpenCode | OpenCode Qwen via OpenRouter | OpenRouter |
 | `ockimi` | OpenCode | OpenCode Kimi via OpenRouter | OpenRouter |
 | `ocminimax` | OpenCode | OpenCode MiniMax via OpenRouter | OpenRouter |
+| `nv-cc` | Claude Code | NVIDIA GLM-5.2 gratuit (pont LiteLLM) | NVIDIA |
+| `codex-nv` | Codex CLI | Codex NVIDIA GLM-5.2 gratuit | NVIDIA |
+| `ocnvidia` | OpenCode | OpenCode NVIDIA NIM gratuit | NVIDIA |
 
 ### 🔧 Extensibilité
 - **Profils YAML** : en complément du `.env`, avec validation de schéma
@@ -240,7 +243,7 @@ multiai-go/
 │   ├── profile/                     # .env + YAML loader, project config
 │   └── secret/                      # AES-256-GCM, credential store
 ├── pkg/dotenv/                      # Parser .env robuste
-├── configs/profiles/                # 17 profils (.env)
+├── configs/profiles/                # 40 profils (.env)
 ├── docs/                            # Site VitePress 16 pages
 ├── packaging/                       # brew, scoop, deb, aur, npm
 ├── tests/                           # Tests unitaires + intégration + benchmark

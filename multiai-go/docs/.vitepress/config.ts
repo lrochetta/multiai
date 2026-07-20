@@ -22,6 +22,7 @@ export default defineConfig({
             { text: 'Installation', link: '/guide/installation' },
             { text: 'Configuration', link: '/guide/configuration' },
             { text: 'Profils', link: '/guide/profiles' },
+            { text: 'NVIDIA gratuit (build.nvidia.com)', link: '/guide/nvidia' },
             { text: 'Dépannage', link: '/guide/troubleshooting' }
           ]
         }

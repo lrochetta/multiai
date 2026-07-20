@@ -34,7 +34,7 @@ pour la première fois.
 
 ## Le problème
 
-Tu jongles entre **Claude Code**, **Codex CLI** et **OpenCode** avec **13+ fournisseurs** d'API — Anthropic, DeepSeek, Z.ai, OpenAI, OpenRouter, MiniMax, StepFun, Qwen, Kimi, SiliconFlow, MiMo, Requesty, LiteLLM et plus.
+Tu jongles entre **Claude Code**, **Codex CLI** et **OpenCode** avec **14+ fournisseurs** d'API — Anthropic, DeepSeek, Z.ai, OpenAI, OpenRouter, NVIDIA (build.nvidia.com, gratuit), MiniMax, StepFun, Qwen, Kimi, SiliconFlow, MiMo, Requesty, LiteLLM et plus.
 
 Chaque CLI a besoin de variables d'environnement différentes. Un mauvais `export` et ta clé `ANTHROPIC_API_KEY` fuit dans la mauvaise session.
 
@@ -52,15 +52,16 @@ Laurent ROCHETTA's MultiAI (AI Code CLI Router)
 2. Configurer les cles API
 3. BMAD+ -- Gestion du framework
 4. OpenRouter -- Decouvrir les modeles
+5. NVIDIA -- Modeles gratuits (build.nvidia.com)
 
 Choix : 1
 
 Outils disponibles
 
 0. Retour au menu principal
-1. Claude Code (15 profils)
-2. Codex CLI (7 profils)
-3. OpenCode (15 profils)
+1. Claude Code (16 profils)
+2. Codex CLI (8 profils)
+3. OpenCode (16 profils)
 
 Choisis un outil : 1
 
@@ -103,7 +104,7 @@ La méthode npm nécessite Node.js 24.14 ou plus récent afin d'utiliser de faç
 
 | Composant | Version | Rôle |
 |-----------|---------|------|
-| `multiai-go/` | **v0.6.10** | Implémentation de référence : binaire Go natif, 37 profils, 13 fournisseurs, fallback chains, credential store natif OS + AES-256-GCM, menus colorés, Cosign keyless, registre communautaire |
+| `multiai-go/` | **v0.7.0** | Implémentation de référence : binaire Go natif, 40 profils, 14 fournisseurs, pont Anthropic→OpenAI intégré (NVIDIA gratuit dans Claude Code), fallback chains, credential store natif OS + AES-256-GCM, menus colorés, Cosign keyless, registre communautaire |
 | `multiai-powershell/` | v0.3.0 (gelée) | Version d'origine, archivée — le package npm a basculé sur le binaire Go en v0.4.0 |
 
 ---
@@ -129,32 +130,35 @@ multiai completion bash                # Autocompletion bash
 
 ---
 
-## 37 profils inclus
+## 40 profils inclus
 
-### Claude Code (15 profils)
+### Claude Code (16 profils)
 | Shortcut | Provider |
 |----------|----------|
 | `co` | Claude Code officiel |
 | `ca` | Anthropic API |
 | `cg`, `cgalt` | Z.ai GLM-5.2 |
-| `ds`, `dsf` | DeepSeek V4 |
+| `ds`, `dsf`, `cp`, `cf` | DeepSeek V4 |
+| `ceu` | Requesty EU Frankfurt (RGPD) |
 | `or-fusion` | OpenRouter Fusion |
 | `mm` | MiniMax M3 |
 | `stepfun` | StepFun |
 | `mimo` | Xiaomi MiMo |
 | `req-cc` | Requesty EU |
 | `litellm` | LiteLLM |
+| `nv-cc` | NVIDIA GLM-5.2 gratuit (pont LiteLLM) |
 
-### Codex CLI (7 profils)
+### Codex CLI (8 profils)
 | Shortcut | Provider |
 |----------|----------|
 | `codex55`, `codex54`, `codexmini` | OpenAI |
 | `codex-fusion` | OpenRouter Fusion |
 | `codex-qwen` | Qwen |
-| `codex-siliconflow` | SiliconFlow |
+| `codex-sf` | SiliconFlow |
 | `req-codex` | Requesty EU |
+| `codex-nv` | NVIDIA GLM-5.2 gratuit (pont LiteLLM) |
 
-### OpenCode (15 profils)
+### OpenCode (16 profils)
 | Shortcut | Provider |
 |----------|----------|
 | `ocdefault`, `ocopenai` | OpenAI |
@@ -162,11 +166,14 @@ multiai completion bash                # Autocompletion bash
 | `ocdeepseek` | DeepSeek |
 | `oczai` | Z.ai |
 | `oc-fusion` | OpenRouter Fusion |
-| `ocminimax` | MiniMax |
-| `ocqwen` | Qwen |
-| `ockimi` | Kimi |
+| `ocminimax`, `ocqwen`, `ockimi` | OpenRouter (Qwen/Kimi/MiniMax) |
+| `ocmini` | MiniMax direct |
+| `ocqwen-direct` | Qwen / DashScope direct |
+| `ockimi-direct` | Kimi / Moonshot direct |
+| `oc-siliconflow` | SiliconFlow |
 | `ocmimo` | MiMo |
 | `req-oc` | Requesty EU |
+| `ocnvidia` | NVIDIA NIM gratuit (direct) |
 
 ---
 
@@ -175,7 +182,7 @@ multiai completion bash                # Autocompletion bash
 Génère un exécutable par profil pour lancer `multiai launch -p <shortcut>` sans taper la commande complète.
 
 ```bash
-# Générer tous les wrappers (37 profils → 74 fichiers)
+# Générer tous les wrappers (40 profils → 80 fichiers)
 cd multiai-go && make wrappers
 
 # Ou depuis la racine du projet
@@ -217,6 +224,13 @@ Chaque profil `.env` avec `SHORTCUT=` produit deux fichiers :
 - **Fusion** — panel d'experts multi-modèles avec synthèse automatique
 - Cache 1h, fallback offline
 
+### 🟢 NVIDIA build.nvidia.com intégré (gratuit)
+- Menu **5. NVIDIA** — découvre les ~118 modèles hébergés, **tous gratuits** (~40 req/min)
+- GLM 5.2, DeepSeek V4, Kimi K2.6, MiniMax M3, Qwen 3.5, GPT-OSS, Nemotron…
+- **Pont Anthropic→OpenAI intégré au binaire** : `nv-cc` lance Claude Code sur GLM 5.2 sans aucun proxy externe (démarrage automatique, loopback, port éphémère) — aussi en standalone : `multiai bridge`
+- Profils : `nv-cc` (Claude Code, pont intégré), `codex-nv` (Codex via pont LiteLLM), `ocnvidia` (OpenCode direct)
+- Clé gratuite : <https://build.nvidia.com/settings/api-keys> — Guide : `multiai-go/docs/guide/nvidia.md`
+
 ### 🔐 Sécurité
 - **Isolation par liste blanche** : seul ~30 variables système survivent
 - **Credential store** : chiffrement AES-256-GCM dans `~/.config/multiai/secrets`
@@ -248,7 +262,7 @@ Windows amd64 • macOS Intel • macOS Apple Silicon • Linux amd64/arm64
 
 ```
 .
-├── multiai-go/                  → Go v0.6.10 (implémentation de référence)
+├── multiai-go/                  → Go v0.7.0 (implémentation de référence)
 │   ├── cmd/multiai/             → Point d'entrée CLI (7 sous-commandes)
 │   ├── internal/
 │   │   ├── assets/              → 37 profils .env embarqués

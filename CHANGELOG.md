@@ -4,6 +4,26 @@ All notable changes to the multiai project.
 
 ---
 
+## [multiai-go 0.7.0] — 2026-07-20
+
+> Release à publier : tag `v0.7.0` → CI complète verte → GoReleaser → `npm publish` manuel (2FA).
+
+### Added
+
+- **Fournisseur NVIDIA build.nvidia.com (NIM)** — catalogue hébergé 100 % gratuit (~118 modèles dont GLM 5.2, DeepSeek V4, Kimi K2.6, MiniMax M3, Qwen 3.5, GPT-OSS, Nemotron ; ~40 req/min) :
+  - Provider `nvidia` au catalogue (clé `NVIDIA_API_KEY`, console <https://build.nvidia.com/settings/api-keys>) — 14 fournisseurs.
+  - 3 nouveaux profils embarqués (40 au total) : `nv-cc` (Claude Code via pont LiteLLM), `codex-nv` (Codex CLI via pont, config injectée par flags `-c` sans toucher `~/.codex/config.toml`), `ocnvidia` (OpenCode direct, GLM 5.2 + 9 modèles).
+  - Menu interactif « 5. NVIDIA — Modèles gratuits » : liste (tri nom/éditeur), recherche, création de profils dynamiques `nv-*` (`98-*.env`) avec garde anti-collision de shortcuts ; cache local 1 h + liste embarquée hors-ligne (backend de découverte factorisé avec OpenRouter).
+  - **Pont Anthropic→OpenAI intégré au binaire** (`internal/bridge`) : traduction complète Messages↔chat/completions (streaming SSE, tool calls, reasoning→thinking, count_tokens, erreurs Anthropic, /v1/models), démarré automatiquement par le launcher pour les profils `BRIDGE=anthropic-openai` (loopback, port éphémère) et arrêté à la sortie du CLI ; sous-commande `multiai bridge` pour l'usage standalone. Claude Code n'a plus besoin d'aucun proxy externe.
+  - Pont LiteLLM externe `multiai-go/scripts/nvidia-bridge.ps1` + `nvidia-litellm.yaml` (wildcard `nvidia_nim/*`, bind 127.0.0.1:4000) — conservé pour Codex uniquement (API Responses requise, non couverte par le pont intégré).
+  - Guide : `multiai-go/docs/guide/nvidia.md`; docs providers/env-variables/profiles mises à jour (les pages profils/env reflètent désormais les 40 profils réels).
+
+### Fixed
+
+- **Profils Codex tiers réparés pour Codex 2026** — test comportemental (listener local, codex-cli 0.144.6) : Codex **ignore désormais `OPENAI_BASE_URL`/`OPENAI_API_KEY`** et retombait **silencieusement sur le compte OpenAI connecté** ; seul un provider custom injecté par flags `-c` (API Responses) est honoré.
+  - `codex-qwen` (DashScope) et `req-codex` (Requesty) : provider injecté par `-c model_providers.*` + `wire_api=responses` — les deux backends servent `/v1/responses` (vérifié : 401 vs 404 témoin) ; modèle pinné (`qwen3-coder`, `openai/gpt-5.5`).
+  - `codex-sf` (SiliconFlow) : marqué **[CASSE Codex 2026]** — SiliconFlow ne sert pas `/v1/responses` (404 vérifié 2026-07-20) ; alternative : `oc-siliconflow` (OpenCode).
+
 ## [multiai-go 0.6.10] — 2026-07-15
 
 - Épingle la toolchain de release à Go 1.25.12 : les exécutables Go 1.26.5 sont bloqués au démarrage par Avast sur Windows, tandis que 1.25.12 corrige GO-2026-5856.

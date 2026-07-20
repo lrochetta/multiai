@@ -4,7 +4,7 @@ Liste complete des variables d'environnement utilisees par les profils multiai, 
 
 ## Anthropic (Claude Code)
 
-Ces variables sont utilisees par les profils qui utilisent Claude Code comme CLI (`co`, `ds`, `za`, `son40`, `son41`, `ha40`).
+Ces variables sont utilisees par les profils qui utilisent Claude Code comme CLI (`co`, `ca`, `ds`, `dsf`, `cg`, `nv-cc`, `litellm`, ...).
 
 | Variable | Obligatoire | Description |
 |----------|-------------|-------------|
@@ -21,14 +21,17 @@ Ces profils utilisent `ANTHROPIC_BASE_URL` pour router vers d'autres fournisseur
 
 | Profil | `ANTHROPIC_BASE_URL` |
 |--------|----------------------|
-| `ds` (DeepSeek) | `https://api.deepseek.com/v1` |
-| `za` (Z.ai) | `https://api.z.ai/v1` |
+| `ds` / `dsf` (DeepSeek) | `https://api.deepseek.com/anthropic` |
+| `cg` (Z.ai) | `https://api.z.ai/api/anthropic` |
+| `or-fusion` (OpenRouter) | `https://openrouter.ai/api` |
+| `nv-cc` (NVIDIA, pont integre) | injecte automatiquement (`http://127.0.0.1:<port ephemere>`) |
+| `litellm` | `http://localhost:4000` |
 
 ---
 
 ## OpenAI (Codex CLI)
 
-Ces variables sont utilisees par les profils qui utilisent Codex CLI (`oa`, `oa4`, `oa5`, `codex`, `codex4`, `codex45`, `codex55`).
+Ces variables sont utilisees par les profils qui utilisent Codex CLI (`codex55`, `codex54`, `codexmini`, `codex-qwen`, `codex-sf`, `codex-nv`, ...).
 
 | Variable | Obligatoire | Description |
 |----------|-------------|-------------|
@@ -42,7 +45,7 @@ Ces variables sont utilisees par les profils qui utilisent Codex CLI (`oa`, `oa4
 
 ## OpenRouter
 
-Ces variables sont utilisees par le profil `or`.
+Ces variables sont utilisees par les profils OpenRouter (`or-fusion`, `codex-fusion`, `oc-fusion`, `ocqwen`, `ockimi`, `ocminimax`).
 
 | Variable | Obligatoire | Description |
 |----------|-------------|-------------|
@@ -52,9 +55,22 @@ Ces variables sont utilisees par le profil `or`.
 
 ---
 
+## NVIDIA build.nvidia.com (NIM)
+
+Variable utilisee par les profils NVIDIA (`nv-cc`, `codex-nv`, `ocnvidia` et les profils dynamiques `nv-*`). Cle gratuite (format `nvapi-...`) : <https://build.nvidia.com/settings/api-keys>.
+
+| Variable | Obligatoire | Description |
+|----------|-------------|-------------|
+| `NVIDIA_API_KEY` | Oui | Cle API build.nvidia.com — catalogue 100% gratuit (~40 req/min) |
+| `NVIDIA_NIM_API_KEY` | Non | Lue par le pont LiteLLM (`multiai-go/scripts/nvidia-bridge.ps1`) |
+
+Le menu 5 (decouverte NVIDIA) lit aussi `NVIDIA_API_KEY` pour interroger `/v1/models` (fonctionne sans cle, envoyee quand disponible).
+
+---
+
 ## OpenCode
 
-Ces variables sont utilisees par les profils qui utilisent OpenCode (`oc`, `oc4`, `oc5`).
+Ces variables sont utilisees par les profils qui utilisent OpenCode (`ocdefault`, `ocopenai`, `ocdeepseek`, `oczai`, `ocnvidia`, ...). Les profils a fournisseur custom passent par `OPENCODE_CONFIG_CONTENT` (JSON inline).
 
 | Variable | Obligatoire | Description |
 |----------|-------------|-------------|
@@ -116,6 +132,6 @@ profiles:
 
 ## Voir aussi
 
-- [Profils disponibles](/guide/profiles) — les 17 profils inclus
+- [Profils disponibles](/guide/profiles) — les 40 profils inclus
 - [Profils personnalises](/advanced/custom-profiles) — creer ses propres profils
 - [Profils YAML](/advanced/yaml-profiles) — format YAML avance

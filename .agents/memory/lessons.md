@@ -7,6 +7,24 @@ project: "multiai"
 
 # Lessons
 
+## Intégration NVIDIA — 2026-07-20
+
+### Codex CLI 2026 : `OPENAI_BASE_URL` est ignoré et retombe SILENCIEUSEMENT sur le compte OpenAI (confirmé + réparé 2026-07-20)
+- **Impact**: Test comportemental (listener local 127.0.0.1:47999 + `codex exec`, codex-cli 0.144.6) : avec `OPENAI_BASE_URL` + `OPENAI_API_KEY` factices, **zéro requête sur le listener** et une vraie réponse OpenAI via l'auth ChatGPT stockée — les profils `codex-qwen`/`codex-sf`/`req-codex` ne routaient plus vers leur fournisseur mais **facturaient le compte OpenAI de l'utilisateur à son insu**. Avec des flags `-c model_providers.*` + `wire_api=responses`, le listener reçoit bien `GET /v1/models` + `POST /v1/responses`.
+- **Lesson**: (1) `OPENAI_BASE_URL` seul ne route plus rien dans Codex 2026 — provider custom par flags `-c` obligatoire (évite aussi de toucher `~/.codex/config.toml`). (2) Vérifier que le backend sert `/v1/responses` par probe différentiel (401 sur l'endpoint vs 404 sur un chemin témoin) : DashScope ✓, Requesty ✓ (563 modèles, catalogue `/v1/models` public), SiliconFlow ✗ (404). (3) `codex-qwen` et `req-codex` réparés ; `codex-sf` marqué [CASSE] en attendant un pont générique.
+
+### L'endpoint hébergé NVIDIA est OpenAI-compatible UNIQUEMENT
+- **Impact**: `/v1/messages` (Anthropic) et `/v1/responses` → 404 (vérifié live). `/v1/models` ne renvoie ni prix ni contexte, et marche sans auth. claude-code-router est cassé avec NIM depuis 2026-04 (issue #1341) — LiteLLM (provider natif `nvidia_nim/`) est le pont fiable.
+- **Lesson**: Tester les endpoints au curl AVANT de concevoir l'intégration ; ne pas supposer qu'un « OpenAI-compatible » expose les APIs sœurs.
+
+### litellm ne s'installe pas sur Python 3.14 sur ce poste
+- **Impact**: Pas de wheel 3.14 → pip compile un bridge Rust, et cargo échoue sur le check de révocation TLS de la machine (CRYPT_E_NO_REVOCATION_CHECK, même erreur schannel que curl.exe). Sur Python 3.12, wheels précompilées OK.
+- **Lesson**: Documenter Python 3.10–3.13 pour le pont ; sur cette machine, tout outil réseau schannel (curl.exe, cargo) peut échouer en revocation check — utiliser `--ssl-no-revoke` (curl) ou éviter la compilation source.
+
+### Namespace des shortcuts dynamiques vs embarqués
+- **Impact**: Le générateur dynamique NVIDIA préfixe `nv-` alors que le profil embarqué `nv-cc` vit dans le même namespace : un modèle nommé « CC » aurait rendu les deux profils inlançables (« plusieurs profils correspondent »).
+- **Lesson**: Tout générateur de profils doit vérifier la collision de SHORTCUT contre les profils existants du dossier avant d'écrire (garde `shortcutOwner` dans `openrouter/nvidia.go`) — le flow OpenRouter historique a le même angle mort théorique avec `or-fusion`.
+
 ## Audit supply-chain 0.6.10 — 2026-07-15
 
 ### Une lecture de coffre doit être structurelle et minimale

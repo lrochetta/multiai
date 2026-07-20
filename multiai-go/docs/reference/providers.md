@@ -1,6 +1,6 @@
 # Fournisseurs
 
-multiai intègre **13 fournisseurs** répartis en 3 régions. Chaque fournisseur expose un ou plusieurs profils (shortcuts) que tu peux utiliser avec `multiai launch -p <shortcut>`.
+multiai intègre **14 fournisseurs** répartis en 3 régions. Chaque fournisseur expose un ou plusieurs profils (shortcuts) que tu peux utiliser avec `multiai launch -p <shortcut>`.
 
 ## Régions
 
@@ -8,7 +8,7 @@ multiai intègre **13 fournisseurs** répartis en 3 régions. Chaque fournisseur
 |--------|-------------|
 | 🌍 Global / Agrégateurs | OpenRouter, Requesty, LiteLLM |
 | 🇨🇳 Chine | DeepSeek, Z.ai, Qwen/DashScope, MiniMax, Kimi/Moonshot, StepFun, SiliconFlow, Xiaomi MiMo |
-| 🇺🇸 USA | Anthropic, OpenAI |
+| 🇺🇸 USA | Anthropic, OpenAI, NVIDIA build.nvidia.com |
 
 ---
 
@@ -257,6 +257,30 @@ multiai launch -p ocopenai
 
 ---
 
+### NVIDIA build.nvidia.com (NIM)
+
+Catalogue hébergé **100 % gratuit** (~118 modèles : GLM 5.2, DeepSeek V4, Kimi K2.6, MiniMax M3, Qwen 3.5, GPT-OSS, Nemotron…). Rate limit ~40 req/min (jusqu'à 200 sur demande). NVIDIA ne vend **pas** d'API payante par token : la production passe par NIM self-host ou DGX Cloud.
+
+| Champ | Valeur |
+|-------|--------|
+| **Console** | [Créer une clé gratuite](https://build.nvidia.com/settings/api-keys) (format `nvapi-...`) |
+| **Profils** | `nv-cc` (Claude Code via pont), `codex-nv` (Codex via pont), `ocnvidia` (OpenCode direct) |
+| **Variable** | `NVIDIA_API_KEY` |
+| **API** | `https://integrate.api.nvidia.com/v1` (OpenAI-compatible uniquement) |
+
+```bash
+multiai config --provider nvidia
+multiai launch -p ocnvidia        # OpenCode : direct, zero friction
+multiai launch -p nv-cc           # Claude Code : pont integre demarre automatiquement
+# Codex uniquement : demarrer d'abord le pont LiteLLM
+#   multiai-go/scripts/nvidia-bridge.ps1
+multiai launch -p codex-nv
+```
+
+> **Important :** l'endpoint NVIDIA ne parle ni l'API Anthropic (`/v1/messages`) ni l'API Responses. **Claude Code** utilise le **pont Anthropic→OpenAI intégré au binaire multiai** (démarrage/arrêt automatiques, port éphémère loopback — aussi disponible en standalone : `multiai bridge`). **Codex CLI** passe par le pont LiteLLM local (`multiai-go/scripts/nvidia-bridge.ps1`, port 4000). OpenCode se connecte directement. Menu interactif : option **5. NVIDIA — Modèles gratuits**. Guide complet : [NVIDIA gratuit](/guide/nvidia).
+
+---
+
 ## Utilisation en ligne de commande
 
 ```bash
@@ -272,6 +296,7 @@ multiai list --json | jq
 
 ## Voir aussi
 
-- [Guide des profils](/guide/profiles) — liste complète des 37 profils
+- [Guide des profils](/guide/profiles) — liste complète des 40 profils
+- [NVIDIA gratuit](/guide/nvidia) — GLM 5.2 & 118 modèles gratuits dans Claude Code / Codex / OpenCode
 - [Configuration](/guide/configuration) — configurer les clés API
 - [Variables d'environnement](/reference/env-variables) — référence des variables par fournisseur

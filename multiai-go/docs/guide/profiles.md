@@ -1,76 +1,76 @@
 # Profils disponibles
 
-multiai inclut **17 profils prêts à l'emploi**, couvrant les principaux fournisseurs d'IA et CLI.
+multiai inclut **40 profils prêts à l'emploi** couvrant **14 fournisseurs** et 3 CLI (16 Claude Code, 8 Codex CLI, 16 OpenCode). Liste vivante : `multiai list` (ou `multiai list --json`).
 
-## Tableau des profils
+## Claude Code (16 profils)
 
-| Shortcut | Tool | Display Name | Provider | Description |
-|----------|------|-------------|----------|-------------|
-| `co` | claude | Anthropic Claude | Anthropic | Claude Code officiel — modèle par défaut |
-| `ds` | claude | DeepSeek | DeepSeek (via Anthropic) | DeepSeek V4 Pro chez Anthropic |
-| `za` | claude | Z.ai | Z.ai | Z.ai Claude chez Anthropic |
-| `son40` | claude | Claude Sonnet 4.0 | Anthropic | Claude Sonnet 4.0 |
-| `son41` | claude | Claude Sonnet 4.1 | Anthropic | Claude Sonnet 4.1 |
-| `ha40` | claude | Claude Haiku 4.0 | Anthropic | Claude Haiku 4.0 |
-| `oa` | codex | OpenAI GPT | OpenAI | OpenAI officiel via Codex CLI |
-| `oa4` | codex | OpenAI GPT-4 | OpenAI | GPT-4 via Codex CLI |
-| `oa5` | codex | OpenAI GPT-5 | OpenAI | GPT-5 via Codex CLI |
-| `codex` | codex | Codex default | OpenAI | Codex CLI — modèle par défaut |
-| `codex4` | codex | Codex GPT-4 | OpenAI | Codex CLI avec GPT-4 |
-| `codex45` | codex | Codex GPT-4.5 | OpenAI | Codex CLI avec GPT-4.5 |
-| `codex55` | codex | Codex GPT-5.5 | OpenAI | Codex CLI avec GPT-5.5 |
-| `or` | codex | OpenRouter | OpenRouter | OpenRouter via Codex CLI |
-| `oc` | opencode | OpenCode default | OpenCode | OpenCode — modèle par défaut |
-| `oc4` | opencode | OpenCode GPT-4 | OpenAI | OpenCode avec GPT-4 |
-| `oc5` | opencode | OpenCode GPT-5 | OpenAI | OpenCode avec GPT-5 |
+| Shortcut | Display Name | Fournisseur / clé |
+|----------|--------------|-------------------|
+| `co` | Claude Code officiel | Login Claude (sans clé) |
+| `ca` | Anthropic API officielle | `ANTHROPIC_API_KEY` |
+| `cp` | Code Pro (premium) | DeepSeek — `ANTHROPIC_AUTH_TOKEN` |
+| `cf` | Code Fast (economique) | DeepSeek — `ANTHROPIC_AUTH_TOKEN` |
+| `ceu` | Code EU (Requesty RGPD) | `REQUESTY_API_KEY` |
+| `cg` | Z.ai GLM-5.2 Coding Plan | `ANTHROPIC_AUTH_TOKEN` |
+| `cgalt` | Z.ai GLM-5.2 endpoint alternatif | `ANTHROPIC_API_KEY` |
+| `ds` | DeepSeek V4 Pro 1M | `ANTHROPIC_AUTH_TOKEN` |
+| `dsf` | DeepSeek V4 Flash | `ANTHROPIC_AUTH_TOKEN` |
+| `or-fusion` | OpenRouter Fusion (Multi-Model) | `OPENROUTER_API_KEY` |
+| `mm` | MiniMax M3 (1M ctx) | `MINIMAX_API_KEY` |
+| `stepfun` | StepFun Step Plan | `STEPFUN_API_KEY` |
+| `mimo` | Xiaomi MiMo V2.5 Pro | `MIMO_API_KEY` |
+| `req-cc` | Claude Code via Requesty | `REQUESTY_API_KEY` |
+| `litellm` | Claude Code via LiteLLM proxy | `LITELLM_API_KEY` |
+| `nv-cc` | NVIDIA GLM-5.2 gratuit (pont LiteLLM) | `NVIDIA_API_KEY` |
 
-## Détails par fournisseur
+## Codex CLI (8 profils)
 
-### Anthropic (Claude Code)
+| Shortcut | Display Name | Fournisseur / clé |
+|----------|--------------|-------------------|
+| `codex55` | Codex GPT-5.5 | Login Codex (sans clé) |
+| `codex54` | Codex GPT-5.4 | Login Codex (sans clé) |
+| `codexmini` | Codex GPT-5.4 mini | Login Codex (sans clé) |
+| `codex-fusion` | Codex via OpenRouter Fusion | `OPENROUTER_API_KEY` |
+| `codex-qwen` | Codex Qwen via DashScope | `DASHSCOPE_API_KEY` |
+| `codex-sf` | Codex via SiliconFlow | `SILICONFLOW_API_KEY` |
+| `req-codex` | Codex via Requesty | `REQUESTY_API_KEY` |
+| `codex-nv` | Codex NVIDIA GLM-5.2 gratuit (pont LiteLLM) | `NVIDIA_API_KEY` |
 
-Les profils `co`, `ds`, `za`, `son40`, `son41` et `ha40` utilisent tous **Claude Code** comme CLI, mais avec des modèles et fournisseurs différents.
+## OpenCode (16 profils)
 
-| Profil | Variable clé | Modèle |
-|--------|-------------|--------|
-| `co` | `ANTHROPIC_API_KEY` | claude-sonnet-4-20250514 |
-| `ds` | `ANTHROPIC_API_KEY` | claude-sonnet-4-20250514 (via DeepSeek) |
-| `za` | `ANTHROPIC_API_KEY` | claude-sonnet-4-20250514 (via Z.ai) |
-| `son40` | `ANTHROPIC_API_KEY` | claude-sonnet-4-20250514 |
-| `son41` | `ANTHROPIC_API_KEY` | claude-sonnet-4-20250513 |
-| `ha40` | `ANTHROPIC_API_KEY` | claude-haiku-4-20250514 |
+| Shortcut | Display Name | Fournisseur / clé |
+|----------|--------------|-------------------|
+| `ocdefault` | OpenCode default / connect | `/connect` (sans clé) |
+| `ocopenai` | OpenCode OpenAI GPT-5.5 | `OPENAI_API_KEY` |
+| `ocanthropic` | OpenCode Anthropic Claude | `ANTHROPIC_API_KEY` |
+| `ocdeepseek` | OpenCode DeepSeek V4 Pro | `DEEPSEEK_API_KEY` |
+| `oczai` | OpenCode Z.ai GLM-5.2 | `ZAI_API_KEY` |
+| `oc-fusion` | OpenCode via OpenRouter Fusion | `OPENROUTER_API_KEY` |
+| `ocqwen` | OpenCode Qwen via OpenRouter | `OPENROUTER_API_KEY` |
+| `ockimi` | OpenCode Kimi via OpenRouter | `OPENROUTER_API_KEY` |
+| `ocminimax` | OpenCode MiniMax via OpenRouter | `OPENROUTER_API_KEY` |
+| `ocmini` | OpenCode MiniMax M3 direct | `MINIMAX_API_KEY` |
+| `ocqwen-direct` | OpenCode Qwen direct (DashScope) | `DASHSCOPE_API_KEY` |
+| `ockimi-direct` | OpenCode Kimi direct (Moonshot) | `MOONSHOT_API_KEY` |
+| `oc-siliconflow` | OpenCode via SiliconFlow | `SILICONFLOW_API_KEY` |
+| `ocmimo` | OpenCode Xiaomi MiMo | `MIMO_API_KEY` |
+| `req-oc` | OpenCode via Requesty | `REQUESTY_API_KEY` |
+| `ocnvidia` | OpenCode NVIDIA NIM gratuit (GLM-5.2 + 9 modeles) | `NVIDIA_API_KEY` |
 
-### OpenAI (Codex CLI)
+## Profils dynamiques
 
-Les profils `oa`, `oa4`, `oa5`, `codex`, `codex4`, `codex45`, `codex55` et `or` utilisent **Codex CLI**.
+En plus des 40 profils embarqués :
 
-| Profil | Variable clé | Modèle |
-|--------|-------------|--------|
-| `oa` | `OPENAI_API_KEY` | gpt-5 |
-| `oa4` | `OPENAI_API_KEY` | gpt-4 |
-| `oa5` | `OPENAI_API_KEY` | gpt-5 |
-| `codex` | `OPENAI_API_KEY` | (défaut Codex) |
-| `codex4` | `OPENAI_API_KEY` | gpt-4 |
-| `codex45` | `OPENAI_API_KEY` | gpt-4.5 |
-| `codex55` | `OPENAI_API_KEY` | gpt-5.5 |
-| `or` | `OPENROUTER_API_KEY` | (modèle OpenRouter) |
-
-### OpenCode
-
-Les profils `oc`, `oc4` et `oc5` utilisent **OpenCode**.
-
-| Profil | Variable clé | Modèle |
-|--------|-------------|--------|
-| `oc` | `OPENAI_API_KEY` | (défaut OpenCode) |
-| `oc4` | `OPENAI_API_KEY` | gpt-4 |
-| `oc5` | `OPENAI_API_KEY` | gpt-5 |
+- **Menu 4 (OpenRouter)** → option 4 : génère un profil `or-*` (`99-*.env`) pour n'importe quel modèle OpenRouter.
+- **Menu 5 (NVIDIA)** → option 3 : génère un profil `nv-*` (`98-*.env`) pour n'importe quel modèle gratuit de build.nvidia.com — voir le [guide NVIDIA](/guide/nvidia).
 
 ## Utilisation
 
 ```bash
 # Lancer un profil spécifique
 multiai launch -p ds
-multiai launch -p codex55
-multiai launch -p oc
+multiai launch -p nv-cc
+multiai launch -p ocnvidia
 
 # Lister tous les profils disponibles
 multiai list
@@ -82,5 +82,7 @@ multiai list --json
 ## Voir aussi
 
 - [Configuration](/guide/configuration) — configurer les clés API
+- [NVIDIA gratuit](/guide/nvidia) — GLM 5.2 & 118 modèles gratuits
+- [Fournisseurs](/reference/providers) — détail des 14 fournisseurs
 - [Profils personnalisés](/advanced/custom-profiles) — créer ses propres profils
 - [Profils YAML](/advanced/yaml-profiles) — alternative au format .env

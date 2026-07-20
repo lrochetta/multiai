@@ -29,8 +29,8 @@ features:
     title: Cross-platform
     details: Windows, macOS, Linux. Binaire unique sans dépendance. Installe en une commande.
   - icon: ⚡
-    title: 17 profils inclus
-    details: Anthropic, Z.ai, DeepSeek, OpenAI, OpenRouter — déjà configurés pour toi.
+    title: 40 profils inclus
+    details: Anthropic, Z.ai, DeepSeek, OpenAI, OpenRouter, NVIDIA gratuit — déjà configurés pour toi.
   - icon: 🔧
     title: Extensible
     details: Crée tes propres profils en .env ou .yaml. Surcharge par projet avec .multiai.yaml.
