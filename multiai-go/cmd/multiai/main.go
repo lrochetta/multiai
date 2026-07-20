@@ -28,7 +28,7 @@ import (
 // version is the single source of truth for the CLI version (also shown in
 // the interactive menu title). Release builds override it with
 // `-ldflags "-X main.version=X.Y.Z"` (goreleaser).
-var version = "0.6.0"
+var version = "0.7.0"
 
 // commands is the subcommand registry. Feature files (cmd_*.go) contribute
 // commands from an init() via register(), so main.go stays free of merge
@@ -382,6 +382,11 @@ func runInteractiveLoop() {
 		case "4":
 			if err := openrouter.InteractiveMenu(); err != nil {
 				cli.PrintError(fmt.Sprintf("OpenRouter : %v", err))
+			}
+			fmt.Println()
+		case "5":
+			if err := openrouter.InteractiveNvidiaMenu(); err != nil {
+				cli.PrintError(fmt.Sprintf("NVIDIA : %v", err))
 			}
 			fmt.Println()
 		case "0", "q", "quit", "exit":

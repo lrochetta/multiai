@@ -17,7 +17,7 @@ import (
 	"github.com/lrochetta/multiai/pkg/dotenv"
 )
 
-// varRefRe matches a pure PS-style %NAME% indirection. Twenty of the 37
+// varRefRe matches a pure PS-style %NAME% indirection. Twelve of the 40
 // shipped profiles wire their auth token to another variable of the same
 // file (e.g. ANTHROPIC_AUTH_TOKEN=%OPENROUTER_API_KEY%): that value is not
 // a configured key, only the referenced variable is.

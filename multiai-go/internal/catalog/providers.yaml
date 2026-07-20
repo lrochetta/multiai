@@ -187,7 +187,18 @@ providers:
     shortcuts:
       ocopenai: OPENAI_API_KEY
 
+  - id: nvidia                                        # Go-only addition (no PS parity)
+    display: "NVIDIA build.nvidia.com (NIM)"
+    region: us
+    console_url: "https://build.nvidia.com/settings/api-keys"
+    note: "Catalogue heberge 100% GRATUIT (~40 req/min). Claude Code: pont Anthropic->OpenAI integre au binaire (automatique). Codex: pont LiteLLM local (guide: multiai-go/docs/guide/nvidia.md)."
+    key_pattern: ""
+    shortcuts:
+      nv-cc: NVIDIA_API_KEY
+      codex-nv: NVIDIA_API_KEY
+      ocnvidia: NVIDIA_API_KEY
+
 # Shortcuts intentionally NOT in the catalog (keyless profiles, SKIP_SECRET_CHECK=true):
 #   co (Claude login), codex55/codex54/codexmini (Codex login), ocdefault (OpenCode /connect).
-# All 37 profile shortcuts accounted for: 32 in this catalog (31 from PS + ceu gap fix)
-# + 5 keyless = 37.
+# All 40 profile shortcuts accounted for: 35 in this catalog (31 from PS + ceu gap fix
+# + 3 nvidia) + 5 keyless = 40.

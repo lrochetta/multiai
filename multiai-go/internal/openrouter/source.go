@@ -30,13 +30,22 @@ type Catalog struct {
 	Source    Source
 	FetchedAt time.Time // zero for SourceEmbedded
 	Warning   string    // human-readable notice when the source is degraded
+	Backend   string    // "" (OpenRouter, historical default) or "NVIDIA"
+}
+
+// backendLabel names the backend in user-facing source labels.
+func (c *Catalog) backendLabel() string {
+	if c.Backend == "" {
+		return "OpenRouter"
+	}
+	return c.Backend
 }
 
 // SourceLabel returns a short human-readable description of the source.
 func (c *Catalog) SourceLabel() string {
 	switch c.Source {
 	case SourceNetwork:
-		return "reseau OpenRouter"
+		return "reseau " + c.backendLabel()
 	case SourceCache:
 		return fmt.Sprintf("cache local du %s", c.FetchedAt.Local().Format("2006-01-02 15:04"))
 	case SourceStale:
@@ -101,6 +110,57 @@ func GetModels(ctx context.Context, offline bool) *Catalog {
 	}
 }
 
+// GetNvidiaModels returns the best available NVIDIA build.nvidia.com model
+// catalog, with the same never-fail resolution order as GetModels: fresh
+// cache -> network -> stale cache -> embedded list. Every hosted NVIDIA
+// model is free (rate-limited ~40 req/min); the endpoint exposes no pricing
+// or context metadata, so those columns render as "n/d".
+func GetNvidiaModels(ctx context.Context, offline bool) *Catalog {
+	cached, fetchedAt, cacheErr := LoadNvidiaCache()
+
+	if offline {
+		if cacheErr == nil {
+			if time.Since(fetchedAt) > CacheTTL {
+				return &Catalog{
+					Models: cached, Source: SourceStale, FetchedAt: fetchedAt, Backend: "NVIDIA",
+					Warning: fmt.Sprintf("Cache local perime (du %s, TTL %s). Relance sans --offline pour rafraichir.",
+						fetchedAt.Local().Format("2006-01-02 15:04"), CacheTTL),
+				}
+			}
+			return &Catalog{Models: cached, Source: SourceCache, FetchedAt: fetchedAt, Backend: "NVIDIA"}
+		}
+		return &Catalog{
+			Models: embeddedNvidiaModels(), Source: SourceEmbedded, Backend: "NVIDIA",
+			Warning: fmt.Sprintf("Mode hors-ligne, %s : liste statique embarquee (donnees limitees). Relance sans --offline pour construire le cache.", cacheStateNote(cacheErr)),
+		}
+	}
+
+	if cacheErr == nil && time.Since(fetchedAt) <= CacheTTL {
+		return &Catalog{Models: cached, Source: SourceCache, FetchedAt: fetchedAt, Backend: "NVIDIA"}
+	}
+
+	fetched, fetchErr := FetchNvidiaModels(ctx, os.Getenv("NVIDIA_API_KEY"))
+	if fetchErr == nil {
+		cat := &Catalog{Models: fetched, Source: SourceNetwork, FetchedAt: time.Now(), Backend: "NVIDIA"}
+		if saveErr := SaveNvidiaCache(fetched); saveErr != nil {
+			cat.Warning = fmt.Sprintf("Cache local non ecrit (%v) : la prochaine execution refera la requete.", saveErr)
+		}
+		return cat
+	}
+
+	if cacheErr == nil {
+		return &Catalog{
+			Models: cached, Source: SourceStale, FetchedAt: fetchedAt, Backend: "NVIDIA",
+			Warning: fmt.Sprintf("%v : cache local du %s utilise.", fetchErr, fetchedAt.Local().Format("2006-01-02 15:04")),
+		}
+	}
+
+	return &Catalog{
+		Models: embeddedNvidiaModels(), Source: SourceEmbedded, Backend: "NVIDIA",
+		Warning: fmt.Sprintf("%v, et %s : liste statique embarquee (donnees limitees).", fetchErr, cacheStateNote(cacheErr)),
+	}
+}
+
 // cacheStateNote describes why the local cache was not usable, distinguishing
 // an absent cache from a present-but-corrupt one so the message is honest.
 func cacheStateNote(cacheErr error) string {
@@ -137,4 +197,40 @@ var fallbackModels = []ModelInfo{
 // sort or filter without mutating the package-level slice.
 func embeddedModels() []ModelInfo {
 	return append([]ModelInfo(nil), fallbackModels...)
+}
+
+// nvidiaFallbackModels is the static NVIDIA list shown when neither the
+// network nor the cache is available. Coding-relevant subset of the hosted
+// catalog (live /v1/models, 2026-07-20); everything hosted on
+// build.nvidia.com is free, hence the zero prices.
+var nvidiaFallbackModels = []ModelInfo{
+	{ID: "z-ai/glm-5.2", Name: "GLM 5.2 (1M ctx)", OwnedBy: "z-ai",
+		Description: "Z.ai GLM 5.2 753B MoE - coding/agentic", Pricing: ModelPricing{Prompt: "0", Completion: "0"}},
+	{ID: "deepseek-ai/deepseek-v4-pro", Name: "DeepSeek V4 Pro", OwnedBy: "deepseek-ai",
+		Pricing: ModelPricing{Prompt: "0", Completion: "0"}},
+	{ID: "deepseek-ai/deepseek-v4-flash", Name: "DeepSeek V4 Flash", OwnedBy: "deepseek-ai",
+		Pricing: ModelPricing{Prompt: "0", Completion: "0"}},
+	{ID: "moonshotai/kimi-k2.6", Name: "Kimi K2.6", OwnedBy: "moonshotai",
+		Pricing: ModelPricing{Prompt: "0", Completion: "0"}},
+	{ID: "minimaxai/minimax-m3", Name: "MiniMax M3", OwnedBy: "minimaxai",
+		Pricing: ModelPricing{Prompt: "0", Completion: "0"}},
+	{ID: "qwen/qwen3.5-397b-a17b", Name: "Qwen 3.5 397B", OwnedBy: "qwen",
+		Pricing: ModelPricing{Prompt: "0", Completion: "0"}},
+	{ID: "qwen/qwen3-next-80b-a3b-instruct", Name: "Qwen3 Next 80B", OwnedBy: "qwen",
+		Pricing: ModelPricing{Prompt: "0", Completion: "0"}},
+	{ID: "openai/gpt-oss-120b", Name: "GPT-OSS 120B", OwnedBy: "openai",
+		Pricing: ModelPricing{Prompt: "0", Completion: "0"}},
+	{ID: "nvidia/nemotron-3-super-120b-a12b", Name: "Nemotron 3 Super 120B", OwnedBy: "nvidia",
+		Pricing: ModelPricing{Prompt: "0", Completion: "0"}},
+	{ID: "nvidia/nemotron-3-ultra-550b-a55b", Name: "Nemotron 3 Ultra 550B", OwnedBy: "nvidia",
+		Pricing: ModelPricing{Prompt: "0", Completion: "0"}},
+	{ID: "mistralai/mistral-large-3-675b-instruct-2512", Name: "Mistral Large 3", OwnedBy: "mistralai",
+		Pricing: ModelPricing{Prompt: "0", Completion: "0"}},
+	{ID: "meta/llama-4-maverick-17b-128e-instruct", Name: "Llama 4 Maverick", OwnedBy: "meta",
+		Pricing: ModelPricing{Prompt: "0", Completion: "0"}},
+}
+
+// embeddedNvidiaModels returns a copy of the static NVIDIA fallback list.
+func embeddedNvidiaModels() []ModelInfo {
+	return append([]ModelInfo(nil), nvidiaFallbackModels...)
 }

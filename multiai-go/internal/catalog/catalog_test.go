@@ -14,8 +14,8 @@ func TestEmbeddedCatalogLoads(t *testing.T) {
 	if c.Version != SchemaVersion {
 		t.Errorf("version = %d, want %d", c.Version, SchemaVersion)
 	}
-	if got := len(c.Providers); got != 13 {
-		t.Errorf("providers = %d, want 13 (PS parity)", got)
+	if got := len(c.Providers); got != 14 {
+		t.Errorf("providers = %d, want 14 (13 PS parity + nvidia)", got)
 	}
 	if got := len(c.Regions); got != 3 {
 		t.Errorf("regions = %d, want 3", got)
@@ -35,7 +35,7 @@ func TestProviderMenuOrder(t *testing.T) {
 		"openrouter", "requesty", "litellm",
 		"deepseek", "zai", "dashscope", "minimax", "moonshot",
 		"stepfun", "siliconflow", "mimo",
-		"anthropic", "openai",
+		"anthropic", "openai", "nvidia",
 	}
 	if got := Default().ProviderIDs(); !reflect.DeepEqual(got, want) {
 		t.Errorf("provider order:\n got %v\nwant %v", got, want)
@@ -74,6 +74,8 @@ func TestVarMapParity(t *testing.T) {
 		{"openrouter", "ockimi", "OPENROUTER_API_KEY"},
 		{"moonshot", "ockimi-direct", "MOONSHOT_API_KEY"},
 		{"anthropic", "ca", "ANTHROPIC_API_KEY"},
+		{"nvidia", "nv-cc", "NVIDIA_API_KEY"},
+		{"nvidia", "ocnvidia", "NVIDIA_API_KEY"},
 	}
 	c := Default()
 	for _, tt := range tests {
@@ -88,8 +90,8 @@ func TestVarMapParity(t *testing.T) {
 	}
 }
 
-// TestShortcutCount locks the 32 catalog shortcuts (31 PS + ceu). The 5
-// keyless profiles (co, codex55/54/mini, ocdefault) stay out on purpose.
+// TestShortcutCount locks the 35 catalog shortcuts (31 PS + ceu + 3 nvidia).
+// The 5 keyless profiles (co, codex55/54/mini, ocdefault) stay out on purpose.
 func TestShortcutCount(t *testing.T) {
 	total := 0
 	for _, p := range Default().Providers {
@@ -98,8 +100,8 @@ func TestShortcutCount(t *testing.T) {
 			t.Errorf("provider %q: %d shortcuts but %d varmap entries", p.ID, len(p.Shortcuts), len(p.VarMap))
 		}
 	}
-	if total != 32 {
-		t.Errorf("total shortcuts = %d, want 32", total)
+	if total != 35 {
+		t.Errorf("total shortcuts = %d, want 35", total)
 	}
 }
 

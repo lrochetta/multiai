@@ -28,11 +28,17 @@ const (
 // apiBase is a variable so tests can point the client at a local server.
 var apiBase = defaultAPIBase
 
+// nvidiaAPIBase is the NVIDIA build.nvidia.com hosted endpoint (OpenAI
+// compatible). Variable so tests can point the client at a local server.
+var nvidiaAPIBase = "https://integrate.api.nvidia.com/v1"
+
 // maxResponseBytes caps the size of the /models payload. Variable so
 // tests can exercise the limit without generating tens of megabytes.
 var maxResponseBytes int64 = 32 << 20
 
-// ModelInfo mirrors one entry of the OpenRouter /models response.
+// ModelInfo mirrors one entry of the OpenRouter /models response. The
+// NVIDIA /v1/models endpoint (OpenAI format) only fills ID, Created and
+// OwnedBy; the other fields stay zero and render as "n/d".
 type ModelInfo struct {
 	ID            string       `json:"id"`
 	Name          string       `json:"name"`
@@ -42,6 +48,7 @@ type ModelInfo struct {
 	Architecture  Architecture `json:"architecture"`
 	Pricing       ModelPricing `json:"pricing"`
 	TopProvider   TopProvider  `json:"top_provider"`
+	OwnedBy       string       `json:"owned_by,omitempty"`
 }
 
 // Architecture describes the model modality and tokenizer.
@@ -68,7 +75,20 @@ type TopProvider struct {
 // The /models endpoint is public: apiKey may be empty; when provided it
 // is sent as a Bearer token.
 func FetchModels(ctx context.Context, apiKey string) ([]ModelInfo, error) {
-	req, err := http.NewRequest(http.MethodGet, apiBase+"/models", nil)
+	return fetchModels(ctx, apiBase, "OpenRouter", apiKey)
+}
+
+// FetchNvidiaModels retrieves the hosted model catalog from the NVIDIA
+// build.nvidia.com API (same OpenAI /models shape, minimal fields). The
+// endpoint answers without auth; the key is sent when available.
+func FetchNvidiaModels(ctx context.Context, apiKey string) ([]ModelInfo, error) {
+	return fetchModels(ctx, nvidiaAPIBase, "NVIDIA", apiKey)
+}
+
+// fetchModels is the shared GET <base>/models implementation; label names
+// the backend in error messages.
+func fetchModels(ctx context.Context, base, label, apiKey string) ([]ModelInfo, error) {
+	req, err := http.NewRequest(http.MethodGet, base+"/models", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -82,28 +102,28 @@ func FetchModels(ctx context.Context, apiKey string) ([]ModelInfo, error) {
 	client := &http.Client{Timeout: httpTimeout}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("api OpenRouter inaccessible: %w", err)
+		return nil, fmt.Errorf("api %s inaccessible: %w", label, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("api OpenRouter: statut HTTP %d", resp.StatusCode)
+		return nil, fmt.Errorf("api %s: statut HTTP %d", label, resp.StatusCode)
 	}
 
 	lr := &io.LimitedReader{R: resp.Body, N: maxResponseBytes + 1}
 	data, err := io.ReadAll(lr)
 	if err != nil {
-		return nil, fmt.Errorf("lecture de la reponse OpenRouter impossible: %w", err)
+		return nil, fmt.Errorf("lecture de la reponse %s impossible: %w", label, err)
 	}
 	if lr.N <= 0 {
-		return nil, fmt.Errorf("reponse OpenRouter trop volumineuse (limite %d octets)", maxResponseBytes)
+		return nil, fmt.Errorf("reponse %s trop volumineuse (limite %d octets)", label, maxResponseBytes)
 	}
 
 	var result struct {
 		Data []ModelInfo `json:"data"`
 	}
 	if err := json.Unmarshal(data, &result); err != nil {
-		return nil, fmt.Errorf("reponse OpenRouter illisible: %w", err)
+		return nil, fmt.Errorf("reponse %s illisible: %w", label, err)
 	}
 	return result.Data, nil
 }

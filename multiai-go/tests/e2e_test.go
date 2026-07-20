@@ -167,7 +167,7 @@ func TestE2E_ListProfiles(t *testing.T) {
 	profDir := t.TempDir()
 
 	// Create two test profiles with unique shortcuts to avoid collision with
-	// the 37 embedded profiles that ensureProfiles extracts on first access.
+	// the 40 embedded profiles that ensureProfiles extracts on first access.
 	writeProfile(t, profDir, "01-codex.env", `PROFILE_ID=test-codex
 SHORTCUT=e2e-tx
 TOOL=codex
@@ -269,7 +269,7 @@ func TestE2E_LaunchDryRun(t *testing.T) {
 	profDir := t.TempDir()
 
 	// Use a unique shortcut ("e2eds") that does NOT collide with any of the
-	// 37 embedded profiles that ensureProfiles deposits in the temp dir.
+	// 40 embedded profiles that ensureProfiles deposits in the temp dir.
 	// The command is "go" because it is guaranteed to be in PATH wherever
 	// Go tests run.  --allow-custom-command bypasses the builtin whitelist.
 	writeProfile(t, profDir, "90-e2eds.env", `PROFILE_ID=test-e2eds

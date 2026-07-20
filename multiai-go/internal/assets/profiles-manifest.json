@@ -1,5 +1,5 @@
 {
-  "version": "0.5.0",
+  "version": "0.7.0",
   "profiles": {
     "00-claude-official.env": "sha256:c5e77a0073a5a2c2e85a3badc2d6d584ecfae97616f26e0f3e7e117d826d1798",
     "01-code-pro.env": "sha256:281ca8c18412a61d0a2987f96c54d161c012bc2f10e85eaca4af07f0c1aeeb63",
@@ -27,16 +27,19 @@
     "70-claude-minimax-m3.env": "sha256:47db36f35893b287e61677c7c6c41b412e18e1f50404d77b265b28067bb7449b",
     "71-opencode-minimax-direct.env": "sha256:188be676a6f5fb3a3699567227df62a39e39484500fec542e9951add72db0b08",
     "72-claude-stepfun.env": "sha256:edab68e38eed5ce553385952e3fb35b1e0f6fdb99165e1256fdf0695d9bbc68b",
-    "73-codex-qwen.env": "sha256:ac5b260e888861c4ee96ae0827cb9d2f256186854a8b80a68b8ddad7c0a54fab",
+    "73-codex-qwen.env": "sha256:8666e0988633e579c218bf65befb66d6a9dc19f7707bdf3ae7da4d04898a59e4",
     "74-opencode-qwen-direct.env": "sha256:e5090e5762ed3384b1e992dfbd965978c645519fda232a96e29244d64a5bfff9",
     "75-opencode-kimi-direct.env": "sha256:5dc8355850b1803a98acff08e03be6cdb8ba787bae854b3709cf3dcd1623a0eb",
-    "76-codex-siliconflow.env": "sha256:ae12b6ba1e70de25da471574529cdc88ec4810fa84ea375c09bbc46936bb907f",
+    "76-codex-siliconflow.env": "sha256:a2fd305fd38d00f17bab4d24a6ffe279f71d832c92477642b7946182ca96e9d0",
     "77-opencode-siliconflow.env": "sha256:da27773f0524290bc88458b9b261cab36002526af204ced7af0e2d5118749254",
     "78-claude-mimo.env": "sha256:08fcffa5c2611143bc1c94fd915a34f716dfaf9f6c2bf50bbafe63111b2e00d3",
     "79-opencode-mimo-direct.env": "sha256:9be4215eb3f64c115097e6a05c19c2c03f6a40d6f1f729a338cd2b3a050f96e9",
     "80-claude-requesty.env": "sha256:bf41f785d5953c24cf5a296d79685099f8ea27b66cae1147b822b64f11dcca76",
-    "81-codex-requesty.env": "sha256:8aa0b7283a16df5ae451cb17049d113613475939cb8bb306ea7173d8b25351e3",
+    "81-codex-requesty.env": "sha256:44a1803ada837b1ccc09ecf692ad27b43829e303f9281896852ce3ee0513e5df",
     "82-opencode-requesty.env": "sha256:cb95a2ec818e4da7f9131e45e9d1b097e6f98a93cb1494454ffa37d71c142e0a",
-    "83-claude-litellm.env": "sha256:04f1b01ebedf4f60124df0d5129c9ff6cec1d642f99f6bde33c090a5a1c100dc"
+    "83-claude-litellm.env": "sha256:04f1b01ebedf4f60124df0d5129c9ff6cec1d642f99f6bde33c090a5a1c100dc",
+    "84-claude-nvidia.env": "sha256:ba5192a6cd19e53babf7b5433ffeea466a234e40219bebec087765c35167fba7",
+    "85-codex-nvidia.env": "sha256:0d4a62f05006f3be32989dd5bc5438140dc9825764489b9db56c176c63ef9b7b",
+    "86-opencode-nvidia.env": "sha256:0508f7c997feff2ce2e8c23a227c22cb3ff4b4d7c6224c88ea3d200f58bde260"
   }
 }

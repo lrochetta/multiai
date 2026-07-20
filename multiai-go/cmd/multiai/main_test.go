@@ -25,7 +25,7 @@ func snapshotStderr(fn func()) string {
 }
 
 // TestEnsureProfiles_Upgrade simulates an existing installation with 30
-// profiles and a manifest, then verifies that only the 7 new profiles are
+// profiles and a manifest, then verifies that only the 10 new profiles are
 // extracted after the embedded set grows.
 func TestEnsureProfiles_Upgrade(t *testing.T) {
 	// Read the full embedded manifest to know what we are working with.
@@ -33,7 +33,7 @@ func TestEnsureProfiles_Upgrade(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadManifest: %v", err)
 	}
-	const totalEmbedded = 37
+	const totalEmbedded = 40
 
 	// Pick 30 profiles to simulate an "old" installation.
 	profileNames := make([]string, 0, totalEmbedded)
@@ -44,7 +44,7 @@ func TestEnsureProfiles_Upgrade(t *testing.T) {
 		t.Fatalf("expected %d embedded profiles, got %d", totalEmbedded, len(profileNames))
 	}
 	oldSet := profileNames[:30]
-	newSet := profileNames[30:] // 7 profiles not yet installed
+	newSet := profileNames[30:] // 10 profiles not yet installed
 
 	dir := t.TempDir()
 

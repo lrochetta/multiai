@@ -321,9 +321,9 @@ func TestRunConfigMenu_AllSequenceWithEmptyInput(t *testing.T) {
 	prof := writeProfile(t, dir, "ca", "ANTHROPIC_API_KEY", "PASTE_ANTHROPIC_API_KEY_HERE")
 	byShortcut := shortcutIndex([]profile.Profile{prof})
 
-	// 13 empty answers (one per provider; only anthropic has a profile but
+	// 14 empty answers (one per provider; only anthropic has a profile but
 	// every provider prompts or warns) + "n" for the launch prompt.
-	input := "a\n" + strings.Repeat("\n", 13) + "n\n"
+	input := "a\n" + strings.Repeat("\n", 14) + "n\n"
 	if err := runConfigMenu(catalog.Default(), byShortcut, newReader(input), nil); err != nil {
 		t.Fatalf("runConfigMenu: %v", err)
 	}

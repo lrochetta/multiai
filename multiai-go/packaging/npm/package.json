@@ -1,7 +1,7 @@
 {
   "name": "multiai",
-  "version": "0.6.10",
-  "description": "Route multiple AI CLIs (Claude Code, Codex, OpenCode) with isolated env profiles — native Go binary, SHA256-verified download",
+  "version": "0.7.0",
+  "description": "Route multiple AI CLIs (Claude Code, Codex, OpenCode) with isolated env profiles — native Go binary, SHA256-verified download, embedded Anthropic-to-OpenAI bridge (free NVIDIA models in Claude Code)",
   "keywords": [
     "ai",
     "cli",
@@ -11,7 +11,10 @@
     "router",
     "anthropic",
     "deepseek",
-    "openrouter"
+    "openrouter",
+    "nvidia",
+    "nim",
+    "glm"
   ],
   "license": "MIT",
   "author": {

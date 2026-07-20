@@ -40,6 +40,17 @@ type Profile struct {
 	Path            string `json:"path"` // filesystem path to the .env file
 	// Holds before_launch/after_launch hook definitions (YAML profiles only).
 	Hooks *HooksConfig `json:"hooks,omitempty"`
+	// Bridge selects an in-process protocol translation proxy started by the
+	// launcher just before the child CLI and stopped when it exits.
+	// Supported: "anthropic-openai" (Claude Code -> OpenAI-compatible
+	// backend, e.g. NVIDIA build.nvidia.com). Empty = no bridge.
+	Bridge string `json:"bridge,omitempty"`
+	// BridgeTarget is the OpenAI-compatible base URL the bridge forwards to.
+	BridgeTarget string `json:"bridge_target,omitempty"`
+	// BridgeKeyVar names the profile env variable holding the backend key.
+	BridgeKeyVar string `json:"bridge_key_var,omitempty"`
+	// BridgePort optionally pins the local port (0 = ephemeral).
+	BridgePort int `json:"bridge_port,omitempty"`
 }
 
 // MetadataKeys are .env keys that are metadata, not environment variables.
@@ -49,6 +60,7 @@ var MetadataKeys = map[string]bool{
 	"ARGS": true, "CLEAR_ENV": true, "REQUIRED_SECRETS": true,
 	"SKIP_SECRET_CHECK": true, "NOTES": true,
 	"FALLBACK": true, "REGION": true,
+	"BRIDGE": true, "BRIDGE_TARGET": true, "BRIDGE_KEY_VAR": true, "BRIDGE_PORT": true,
 }
 
 // LoadDir loads all .env profiles from a directory.
@@ -148,6 +160,21 @@ func LoadDir(dir string) ([]Profile, error) {
 			// '^(true|1|yes)$', case-insensitive.
 			low := strings.ToLower(strings.TrimSpace(skip))
 			p.SkipSecretCheck = low == "true" || low == "1" || low == "yes"
+		}
+
+		if b, ok := envMap["BRIDGE"]; ok {
+			p.Bridge = strings.TrimSpace(b)
+		}
+		if bt, ok := envMap["BRIDGE_TARGET"]; ok {
+			p.BridgeTarget = strings.TrimSpace(bt)
+		}
+		if bk, ok := envMap["BRIDGE_KEY_VAR"]; ok {
+			p.BridgeKeyVar = strings.TrimSpace(bk)
+		}
+		if bp, ok := envMap["BRIDGE_PORT"]; ok {
+			if n, err := strconv.Atoi(strings.TrimSpace(bp)); err == nil && n >= 0 && n <= 65535 {
+				p.BridgePort = n
+			}
 		}
 
 		// Store non-metadata keys as environment variables

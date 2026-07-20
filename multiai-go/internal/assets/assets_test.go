@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-const expectedProfileCount = 37
+const expectedProfileCount = 40
 
 func TestExtractProfilesCount(t *testing.T) {
 	dir := t.TempDir()
@@ -85,6 +85,9 @@ func TestEmbeddedProfilesContainNoRealSecrets(t *testing.T) {
 	exempt := map[string]bool{
 		"REQUIRED_SECRETS":  true,
 		"SKIP_SECRET_CHECK": true,
+		// BRIDGE_KEY_VAR names the profile variable holding the backend key
+		// (metadata, like REQUIRED_SECRETS); it never carries a secret itself.
+		"BRIDGE_KEY_VAR": true,
 	}
 	// Shapes of real credentials (Anthropic, OpenAI, generic long tokens).
 	keyShape := regexp.MustCompile(`sk-|api03|Bearer |[A-Za-z0-9]{30,}`)

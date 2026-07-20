@@ -26,6 +26,7 @@ func ShowTopMenu(version string, profileCount int) string {
 	fmt.Println(i18n.T("menu_config"))
 	fmt.Println(i18n.T("menu_bmad"))
 	fmt.Println(i18n.T("menu_models"))
+	fmt.Println(i18n.T("menu_models_nvidia"))
 	fmt.Println()
 	fmt.Println(i18n.T("menu_quit"))
 	fmt.Print(i18n.T("menu_choice"))

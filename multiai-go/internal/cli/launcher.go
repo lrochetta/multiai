@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lrochetta/multiai/internal/bridge"
 	"github.com/lrochetta/multiai/internal/env"
 	"github.com/lrochetta/multiai/internal/logging"
 	"github.com/lrochetta/multiai/internal/profile"
@@ -130,6 +131,10 @@ func ValidateAndLaunch(prof *profile.Profile, opts LaunchOptions) (*LaunchResult
 			if !opts.ShowEnv {
 				ShowEffectiveEnv(prof)
 			}
+			if prof.Bridge != "" {
+				fmt.Printf("[DRY RUN] Pont interne %s : 127.0.0.1 (port ephemere) -> %s (demarre au lancement reel, ANTHROPIC_BASE_URL injecte)\n",
+					prof.Bridge, bridgeTarget(prof))
+			}
 			fmt.Printf("[DRY RUN] Commande : %s\n", result.Command)
 		}
 		return result, nil
@@ -145,6 +150,34 @@ func ValidateAndLaunch(prof *profile.Profile, opts LaunchOptions) (*LaunchResult
 	if opts.Hooks != nil {
 		if err := RunBeforeHooks(opts.Hooks, prof); err != nil {
 			return nil, err
+		}
+	}
+
+	// 8.7. Start the in-process protocol bridge, when the profile declares
+	// one (BRIDGE=anthropic-openai). The bridge lives for the duration of
+	// the child CLI and its loopback URL is injected as ANTHROPIC_BASE_URL,
+	// so the environment must be rebuilt.
+	if prof.Bridge != "" {
+		srv, err := startProfileBridge(prof)
+		if err != nil {
+			return nil, err
+		}
+		defer srv.Shutdown()
+		prof.Env["ANTHROPIC_BASE_URL"] = srv.URL()
+		// The bridge injects the real backend key server-side; the child
+		// CLI (and every subprocess it spawns) must not carry the secret.
+		// A static non-empty token satisfies the client's auth check.
+		prof.Env["ANTHROPIC_AUTH_TOKEN"] = "multiai-internal-bridge"
+		delete(prof.Env, prof.BridgeKeyVar)
+		cmdEnv = buildProcessEnv(prof)
+		if opts.ShowEnv && opts.JSON {
+			result.Env = maskedEffectiveEnv(prof)
+		}
+		if !opts.JSON {
+			fmt.Printf("Pont interne %s : %s -> %s\n", prof.Bridge, srv.URL(), srv.Target())
+			if opts.ShowEnv {
+				fmt.Printf("ANTHROPIC_BASE_URL=%s (injecte par le pont)\n", srv.URL())
+			}
 		}
 	}
 
@@ -295,6 +328,37 @@ func ShowEffectiveEnv(prof *profile.Profile) {
 		fmt.Printf("%s=%s\n", k, v)
 	}
 	fmt.Println()
+}
+
+// bridgeTarget resolves the profile bridge target with its default.
+func bridgeTarget(prof *profile.Profile) string {
+	if prof.BridgeTarget != "" {
+		return prof.BridgeTarget
+	}
+	return bridge.DefaultNvidiaTarget
+}
+
+// startProfileBridge validates the profile bridge declaration and starts
+// the in-process translation proxy on loopback. Secrets are already
+// resolved (resolveStoredSecrets ran at step 3), so the key variable holds
+// its real value.
+func startProfileBridge(prof *profile.Profile) (*bridge.Server, error) {
+	if prof.Bridge != "anthropic-openai" {
+		return nil, fmt.Errorf("pont inconnu %q pour le profil '%s' (supporte : anthropic-openai)", prof.Bridge, prof.Shortcut)
+	}
+	keyVar := prof.BridgeKeyVar
+	if keyVar == "" {
+		return nil, fmt.Errorf("BRIDGE_KEY_VAR manquant pour le pont du profil '%s'", prof.Shortcut)
+	}
+	key := prof.Env[keyVar]
+	if dotenv.IsPlaceholder(key) {
+		return nil, fmt.Errorf("cle %s non configuree pour le pont du profil '%s'. Lance : multiai config", keyVar, prof.Shortcut)
+	}
+	addr := "127.0.0.1:0"
+	if prof.BridgePort > 0 {
+		addr = fmt.Sprintf("127.0.0.1:%d", prof.BridgePort)
+	}
+	return bridge.Start(bridge.Config{Target: bridgeTarget(prof), APIKey: key, Addr: addr})
 }
 
 // jsonError returns a JSON-formatted error string.
