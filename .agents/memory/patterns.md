@@ -9,6 +9,12 @@ project: "multiai"
 
 Reusable patterns that work well in this project.
 
+### In-Process Protocol Bridge via Profile Metadata
+- **Problem**: Claude Code ne parle que l'API Anthropic ; les backends OpenAI-compatible-only (NVIDIA NIM…) exigeaient un proxy externe (LiteLLM/Python) à installer et démarrer manuellement.
+- **Shape**: Un package `internal/bridge` traduit Messages↔chat/completions (SSE, tool calls, thinking, count_tokens, erreurs) et écoute en loopback sur un port éphémère. Le profil déclare `BRIDGE=anthropic-openai` + `BRIDGE_TARGET` + `BRIDGE_KEY_VAR` ; le launcher démarre le pont juste avant le CLI enfant, injecte `ANTHROPIC_BASE_URL`, remplace le token par une valeur factice et supprime la clé backend de l'env enfant, puis arrête le pont au exit. La clé réelle ne vit que dans le process multiai.
+- **Trade-off**: Le pont vit/meurt avec le launch (pas de partage entre sessions) ; l'API Responses (Codex) n'est pas couverte ; loopback sans auth cliente pendant la durée du launch (fenêtre acceptée, port éphémère). Durci par revue adversariale : stream_options.include_usage, tool calls sans index, stop_reason dérivé, erreurs mi-stream en événement `error`.
+- **Status**: `validated` (live E2E claude -p → GLM 5.2, release 0.7.0)
+
 ### External Windows CreateProcess Watchdog
 - **Problem**: `execFileSync` et `spawnSync` ne peuvent pas appliquer leur timeout lorsque l'antivirus bloque avant le retour de `CreateProcess`.
 - **Shape**: Node lance un contrôleur PowerShell système déjà approuvé. Celui-ci démarre un second PowerShell worker chargé d'exécuter uniquement `binary --version`, attend une deadline, puis nettoie enfants et worker avec `taskkill` et un fallback CIM/`Kill`. Le code 124 est traduit en échec explicite du postinstall ou du shim.

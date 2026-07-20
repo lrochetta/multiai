@@ -7,6 +7,24 @@ project: "multiai"
 
 # Lessons
 
+## Release 0.7.0 — 2026-07-20
+
+### npm masque lui-même les URLs EOTP en sortie texte — seul `--json` les livre
+- **Impact**: `npm publish` non-TTY imprime `https://www.npmjs.com/auth/cli/***` (masqué par npm, pas par PowerShell) ; impossible d'ouvrir le challenge WebAuthn depuis la sortie humaine.
+- **Lesson**: raffinement de la leçon 0.6.10 : tenter le publish en `--json` et regexer `"authUrl"`/`"doneUrl"` dans la sortie brute. Et `POST /-/v1/login` exige le header `npm-auth-type: web`, sinon 401 « You must be logged in to publish packages ».
+
+### Node ≥20 refuse `spawnSync("npm.cmd")` sans shell
+- **Impact**: le driver de publish échouait silencieusement (status non-zéro, sortie vide) — mitigation CVE-2024-27980.
+- **Lesson**: appeler `npm-cli.js` directement avec `process.execPath` (…\nodejs\node_modules\npm\bin\npm-cli.js) ; toujours vérifier `res.error` de spawnSync.
+
+### Un binaire de test verrouillé survit à `Stop-Process` par nom
+- **Impact**: deux `go build -o multiai-test.exe` ont échoué (fichier verrouillé par un pont zombie d'une tâche tuée par timeout, dont le cleanup n'avait pas tourné) ; des tests ont tourné sur un ANCIEN binaire en donnant l'illusion de valider les fixes — détecté parce que le stream affichait usage 0/0.
+- **Lesson**: en cas d'échec de build « file in use », builder sous un NOUVEAU nom plutôt que de deviner le locker ; et toujours vérifier qu'un artefact re-testé date d'après le fix (le contenu du test doit prouver le fix, ici l'usage non nul).
+
+### GoReleaser peut rester en `waiting` sur un environnement GitHub protégé
+- **Impact**: le job attendait une approbation manuelle (environnement `release`, garde post-incident) — invisible depuis `gh run watch`.
+- **Lesson**: si un job de release reste `waiting`, vérifier `GET .../runs/<id>/pending_deployments` et approuver via `POST` (reviewer autorisé). Le `--jq` de gh ne supporte pas les quotes simples sous PS 5.1.
+
 ## Intégration NVIDIA — 2026-07-20
 
 ### Codex CLI 2026 : `OPENAI_BASE_URL` est ignoré et retombe SILENCIEUSEMENT sur le compte OpenAI (confirmé + réparé 2026-07-20)

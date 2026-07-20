@@ -3,15 +3,25 @@ title: Project Context
 description: Living state — updated by Zecher
 created: "2026-06-23"
 project: "multiai"
-last_updated: "2026-07-15"
-version: "0.6.10"
+last_updated: "2026-07-20"
+version: "0.7.0"
 score: "5.8/10"
-status: "0.6.10 STABLE — GITHUB/NPM LATEST — NORMAL REFS SANITIZED; GITHUB SUPPORT PENDING"
+status: "0.7.0 RELEASED — GITHUB/NPM LATEST — NVIDIA PROVIDER + PONT ANTHROPIC->OPENAI INTEGRE"
 ---
 
-# Project Context — multiai v0.6.10 stable
+# Project Context — multiai v0.7.0 released
 
-## Point de reprise Zecher — 2026-07-15 fin de session (autoritatif)
+## Point de reprise Zecher — 2026-07-20 fin de session (autoritatif)
+
+- **Release 0.7.0 publiée et vérifiée** : GitHub `v0.7.0` (11 assets signés Sigstore + SBOM ; job AUR en échec connu non bloquant), npm `multiai@0.7.0` = `latest` (vérifié sur le registry). CI master 19/19 verte sur `0085290`.
+- **Feature majeure** : fournisseur NVIDIA build.nvidia.com (118 modèles hébergés, 100 % gratuits, ~40 req/min) + **pont Anthropic→OpenAI intégré au binaire** (`internal/bridge`) — Claude Code utilise GLM 5.2 gratuit sans aucun proxy externe (`multiai launch -p nv-cc` ; standalone `multiai bridge`). 40 profils / 14 fournisseurs. Menu interactif « 5. NVIDIA » (découverte + profils dynamiques `nv-*`).
+- **Mécanisme BRIDGE générique** : métadonnées de profil `BRIDGE=anthropic-openai` + `BRIDGE_TARGET` + `BRIDGE_KEY_VAR` (+`BRIDGE_PORT`) — n'importe quel backend OpenAI-compatible devient utilisable par Claude Code ; la clé backend ne quitte jamais le process multiai (l'enfant reçoit un token factice).
+- **Réparation Codex 2026** : Codex ≥0.144 ignore `OPENAI_BASE_URL` et retombe silencieusement sur le compte OpenAI connecté (prouvé au fil avec un listener local). `codex-qwen` et `req-codex` réparés par flags `-c` + `wire_api=responses` ; `codex-sf` marqué [CASSE] (SiliconFlow sans API Responses).
+- **Qualité** : 2 revues adversariales (71 agents au total), 18 findings confirmés → tous corrigés ; tests Go + 40 tests npm verts ; validation live complète (stream avec usage réel, E2E claude -p → GLM).
+- **Release ops** : protection master restaurée/renforcée (9 checks requis, anti force-push/deletion) ; l'environnement GitHub protégé `release` demande une approbation (faite via API) ; token npm révoqué (rotation post-incident) → relogin web piloté en Node (`/-/v1/login` + header `npm-auth-type: web`), publish WebAuthn en `--json` (URLs masquées en sortie texte).
+- **Reprise** : lire `.agents/memory/sessions/2026-07-20-v0.7.0-nvidia-release.md`. Suivis : rotation clé nvapi de laurent (collée en conversation), réactiver Avast (+ exclusion build Go), moderniser `actions/upload-artifact` (warnings Node 20), extension possible du pont intégré à l'API Responses (supprimerait LiteLLM pour Codex).
+
+## Archive — Point de reprise Zecher — 2026-07-15 fin de session
 
 - **Canaux publics** : GitHub v0.6.10 est la release stable `latest` avec 11 assets; npm `latest` et `next` pointent sur `multiai@0.6.10`. La 0.6.6 reste l'ancienne stable de repli; 0.6.7 et 0.6.8 ne doivent pas redevenir `latest`.
 - **Défaut restant de 0.6.8** : les timeouts synchrones Node ne bornent pas un `CreateProcess` retenu par Avast. Le postinstall isolé pouvait donc encore geler avant que Node ne puisse appliquer son timer.
@@ -75,12 +85,12 @@ status: "0.6.10 STABLE — GITHUB/NPM LATEST — NORMAL REFS SANITIZED; GITHUB S
 ## Project Identity
 
 - **Name** : multiai
-- **Version** : **0.6.6 publiée**, **0.6.7 préparée**
+- **Version** : **0.7.0 publiée** (GitHub + npm latest, 2026-07-20)
 - **Path** : `D:\travail\DEV\multiai`
 - **Go module** : `github.com/lrochetta/multiai` (multiai-go/)
-- **npm** : `multiai@0.6.6` publié; `0.6.7` en attente de release
-- **Stack** : Go 1.22 (référence) + PowerShell 5.1+ (gelé/archivé)
-- **Score** : **8.5/10** (audit BMAD+ 3 agents, 2026-07-05)
+- **npm** : `multiai@0.7.0` publié (tag latest)
+- **Stack** : Go (référence, 40 profils / 14 fournisseurs / pont intégré) + PowerShell 5.1+ (gelé/archivé)
+- **Score** : **8.5/10** (audit BMAD+ 3 agents, 2026-07-05) ; maturité 5.8/10 (audit 2026-07-14, avant 0.7.0)
 
 ## Chronologie
 

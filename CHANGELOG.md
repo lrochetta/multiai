@@ -6,7 +6,9 @@ All notable changes to the multiai project.
 
 ## [multiai-go 0.7.0] — 2026-07-20
 
-> Release à publier : tag `v0.7.0` → CI complète verte → GoReleaser → `npm publish` manuel (2FA).
+### Released
+
+- GitHub `v0.7.0` publiée (11 assets : archives 6 plateformes, .deb ×2, checksums signés Sigstore, SBOM CycloneDX) après CI master 19/19 verte ; `multiai@0.7.0` publié sur npm sous le tag `latest` (vérifié sur le registry). Job AUR en échec connu (clés SSH non configurées), non bloquant.
 
 ### Added
 

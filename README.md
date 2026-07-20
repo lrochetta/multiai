@@ -94,7 +94,7 @@ Lancement : claude (OpenRouter Fusion — panel multi-modele)
 | **Scoop** | `scoop bucket add lrochetta https://github.com/lrochetta/scoop-bucket && scoop install lrochetta/multiai` | ✅ v0.6.0 (auto-upload GoReleaser) |
 | **APT** | `apt install multiai` | ✅ v0.6.0 (dépôt GitHub Pages) |
 | **AUR** | `yay -S multiai` | ✅ v0.6.0 (PKGBUILD SHA256) |
-| **npm stable épinglé** | `npx --yes --allow-scripts=multiai multiai@0.6.10 install` | ✅ stable vérifiée |
+| **npm stable épinglé** | `npx --yes --allow-scripts=multiai multiai@0.7.0 install` | ✅ stable vérifiée |
 
 La méthode npm nécessite Node.js 24.14 ou plus récent afin d'utiliser de façon sûre le magasin de certificats système et les proxies d'environnement.
 
